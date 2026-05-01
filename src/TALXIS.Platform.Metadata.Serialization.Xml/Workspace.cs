@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Solutions;
 
@@ -24,6 +25,12 @@ public sealed class Workspace
 
     private readonly List<RelationshipMetadata> _relationships = new();
     public IReadOnlyList<RelationshipMetadata> Relationships => _relationships;
+
+    /// <summary>
+    /// Original XML documents stored by the reader for roundtrip-safe writing.
+    /// Keys: "Solution.xml", "Entity:{logicalName}", "OptionSet:{name}", "Relationships.xml"
+    /// </summary>
+    internal Dictionary<string, XDocument> OriginalDocuments { get; } = new();
 
     public void AddEntity(EntityMetadata entity) => _entities.Add(entity);
     public void AddGlobalOptionSet(OptionSetMetadata optionSet) => _globalOptionSets.Add(optionSet);

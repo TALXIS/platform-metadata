@@ -35,7 +35,8 @@ public sealed class XmlWorkspaceReader
         var solutionFile = Path.Combine(rootPath, "Other", "Solution.xml");
         if (!File.Exists(solutionFile)) return;
 
-        var doc = XDocument.Load(solutionFile);
+        var doc = XDocument.Load(solutionFile, LoadOptions.PreserveWhitespace);
+        workspace.OriginalDocuments["Solution.xml"] = doc;
         var manifest = doc.Root?.Element("SolutionManifest");
         if (manifest == null) return;
 
@@ -119,24 +120,27 @@ public sealed class XmlWorkspaceReader
             var entityFile = Path.Combine(entityDir, "Entity.xml");
             if (!File.Exists(entityFile)) continue;
 
-            var entity = ParseEntityFile(entityFile);
-            if (entity != null)
+            var (entity, doc) = ParseEntityFile(entityFile);
+            if (entity != null && doc != null)
+            {
                 workspace.AddEntity(entity);
+                workspace.OriginalDocuments[$"Entity:{entity.LogicalName}"] = doc;
+            }
         }
     }
 
-    private static EntityMetadata? ParseEntityFile(string filePath)
+    private static (EntityMetadata? entity, XDocument? doc) ParseEntityFile(string filePath)
     {
-        var doc = XDocument.Load(filePath);
+        var doc = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
         var root = doc.Root; // <Entity>
-        if (root == null) return null;
+        if (root == null) return (null, null);
 
         var entityInfo = root.Element("EntityInfo")?.Element("entity");
-        if (entityInfo == null) return null;
+        if (entityInfo == null) return (null, null);
 
         var logicalName = entityInfo.Attribute("Name")?.Value
             ?? root.Element("Name")?.Value;
-        if (string.IsNullOrEmpty(logicalName)) return null;
+        if (string.IsNullOrEmpty(logicalName)) return (null, null);
 
         var entity = new EntityMetadata
         {
@@ -218,7 +222,7 @@ public sealed class XmlWorkspaceReader
             }
         }
 
-        return entity;
+        return (entity, doc);
     }
 
     private static AttributeMetadata? ParseAttribute(XElement attrEl, string filePath)
@@ -417,20 +421,23 @@ public sealed class XmlWorkspaceReader
 
         foreach (var file in Directory.GetFiles(optionSetsDir, "*.xml"))
         {
-            var optionSet = ParseOptionSetFile(file);
-            if (optionSet != null)
+            var (optionSet, doc) = ParseOptionSetFile(file);
+            if (optionSet != null && doc != null)
+            {
                 workspace.AddGlobalOptionSet(optionSet);
+                workspace.OriginalDocuments[$"OptionSet:{optionSet.Name}"] = doc;
+            }
         }
     }
 
-    private static OptionSetMetadata? ParseOptionSetFile(string filePath)
+    private static (OptionSetMetadata? optionSet, XDocument? doc) ParseOptionSetFile(string filePath)
     {
-        var doc = XDocument.Load(filePath);
+        var doc = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
         var root = doc.Root; // <optionset>
-        if (root == null) return null;
+        if (root == null) return (null, null);
 
         var name = root.Attribute("Name")?.Value;
-        if (string.IsNullOrEmpty(name)) return null;
+        if (string.IsNullOrEmpty(name)) return (null, null);
 
         var optionSet = new OptionSetMetadata
         {
@@ -488,7 +495,7 @@ public sealed class XmlWorkspaceReader
             }
         }
 
-        return optionSet;
+        return (optionSet, doc);
     }
 
     private static void LoadRelationships(Workspace workspace, string rootPath)
@@ -496,7 +503,8 @@ public sealed class XmlWorkspaceReader
         var relationshipsFile = Path.Combine(rootPath, "Other", "Relationships.xml");
         if (!File.Exists(relationshipsFile)) return;
 
-        var doc = XDocument.Load(relationshipsFile);
+        var doc = XDocument.Load(relationshipsFile, LoadOptions.PreserveWhitespace);
+        workspace.OriginalDocuments["Relationships.xml"] = doc;
         var root = doc.Root; // <EntityRelationships>
         if (root == null) return;
 
