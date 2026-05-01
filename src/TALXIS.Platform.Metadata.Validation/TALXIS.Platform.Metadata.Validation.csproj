@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Schemas\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
   </ItemGroup>
 
