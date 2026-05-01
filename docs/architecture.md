@@ -4,133 +4,155 @@
 
 TALXIS Platform Metadata is a typed C# object model for model-driven platform components. It serves as the shared kernel for all tools and services that need to understand, validate, or manipulate platform metadata — whether from files on disk, a live environment API, or an in-memory workspace.
 
-## Layered Architecture
+## Design Philosophy: Simplify, Don't Replicate
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        Consumers                              │
-│  CLI  │  Build SDK  │  Templates  │  Language Server  │  EDS  │
-├──────────────────────────────────────────────────────────────┤
-│                    Workspace Context                          │
-│  IWorkspaceContext (file system, transactional, in-memory)    │
-├──────────────────────────────────────────────────────────────┤
-│                     Serialization                             │
-│  SolutionPackager XML ↔ Model   │   API ↔ Model              │
-│  Roundtrip-safe  │  Minimal diff  │  Unknown preservation     │
-├──────────────────────────────────────────────────────────────┤
-│                     Validation                                │
-│  XSD schemas  │  Structural rules  │  Constraint checking     │
-├──────────────────────────────────────────────────────────────┤
-│                    Metadata Model                             │
-│  Entity  │  Attribute  │  Relationship  │  OptionSet          │
-│  Form  │  View  │  PluginAssembly  │  SecurityRole  │  ...    │
-├──────────────────────────────────────────────────────────────┤
-│                   Solution Model                              │
-│  Solution  │  Publisher  │  ComponentDefinition                │
-│  Layer stack  │  State machine  │  Merge behavior              │
-└──────────────────────────────────────────────────────────────┘
-```
+Microsoft's SolutionPackager has 35+ dedicated processor classes built up over 15 years. We don't replicate that complexity. Instead:
 
-## Key Design Decisions
+- **~80% of components are structurally identical** — an XML element extracted from customizations.xml, written to a folder with a naming pattern. The differences are configuration, not behavior.
+- **Only ~5 components have special serialization** — Entity (subfolders for forms/views), AppModule (navigation subfolder), PluginAssembly/WebResource (binary + .data.xml), Template (sub-elements as files). Everything else is "extract element → write file."
+- **SCF and GenericComponent already prove the simplified model works** — one handler with dynamic config, not a class per type.
 
-### 1. Components as objects with state
-
-Each metadata component is a C# class, not a raw XML node. Components know their type, their identity, their constraints, and their serialization format.
+So instead of a processor-per-type hierarchy, we use a **data-driven component registry**:
 
 ```csharp
-var entity = new EntityMetadata("udpp_warehouse")
-{
-    DisplayName = new Label("Warehouse", 1033),
-    PluralName = new Label("Warehouses", 1033),
-    Ownership = OwnershipType.UserOwned,
-};
-
-entity.AddAttribute(new StringAttributeMetadata("udpp_name")
-{
-    MaxLength = 200,
-    IsPrimaryName = true,
-});
+record ComponentDefinition(
+    int TypeCode,
+    string Name,
+    string XmlElementName,       // "Entities", "Roles", "Workflows", "SCF"
+    string Directory,            // "Entities", "Roles", "Workflows"
+    string FilePattern,          // "$(PrimaryName)/Entity.xml", "$(PrimaryName).xml"
+    IdentityStrategy Identity,   // GUID, Name, or Composite
+    bool SupportsMerge = false,  // only Entity, SiteMap, AppModule, AppModuleSiteMap
+    bool IsFileBacked = false,   // binary + .data.xml (WebResource, Plugin, Report)
+    bool HasSubfolders = false   // Entity (forms/views/visualizations), AppModule
+);
 ```
 
-### 2. Solution layers modeled explicitly
+A registry of ~95 definitions replaces the entire processor class hierarchy. The 5 special cases get an `IComponentSerializer` override. Everything else uses the default serializer.
 
-Components don't just have a single state — they have a stack of layers representing different solutions. The active (visible) state is computed by resolving the layer stack, matching how the platform resolves layers at runtime.
+## Two Component Architectures
+
+The platform has two distinct component systems (see [blog post](https://blog.networg.com/dataverse-solution-component-types/)):
+
+### Platform Components (type codes 1–660+)
+- Fixed, well-known type codes (1=Entity, 2=Attribute, 60=Form, 91=PluginAssembly, etc.)
+- Definitions live in `customizations.xml`
+- Static XML schemas (XSD-validatable)
+- SolutionPackager splits them into per-component files
+- Readable diffs in source control
+
+### SCF Components (type code 99998)
+- Runtime-assigned type codes (>1000), resolved by name not code
+- Registered dynamically via `solutioncomponentdefinition`
+- No static schema — each component owner decides format (JSON or XML)
+- Single generic handler with identity via `ComponentName` + `SchemaName`
+- Less readable in source control (GUIDs, encoded properties)
+
+Both are first-class in our model. The `ComponentDefinition` registry handles both — platform types are pre-registered with known schemas, SCF types are discovered at runtime.
+
+## Solution Layering
+
+The platform uses a layering system for component state:
+
+```
+Active (unmanaged)          ← maker customizations, one shared layer
+Managed Solution N          ← installed in order
+Managed Solution 2
+Managed Solution 1
+System                      ← Microsoft out-of-box
+```
+
+**Resolution rules:**
+- **Most components: top wins** — the highest layer's value is the active state
+- **Forms, sitemaps, model-driven apps: merge** — layers are combined, not replaced
+- **Managed properties** control what downstream layers can customize
+
+Our model represents layers explicitly:
 
 ```csharp
 var component = workspace.GetComponent(ComponentType.Entity, "udpp_warehouse");
-var layers = component.Layers; // [Base, ManagedSolution1, ActiveCustomization]
-var active = component.ActiveLayer; // the resolved/merged state
+component.Layers       // [System, ManagedSolution1, Active]
+component.ActiveState  // resolved/merged result
 ```
 
-### 3. Roundtrip-safe serialization
+## Components as Objects
 
-The model preserves XML elements and attributes it doesn't understand. This ensures:
-- `Load("Entity.xml") → Save("Entity.xml")` produces zero git diff
-- Forward compatibility with newer platform versions
-- Unknown customizations are not silently dropped
+Each component is a C# object, not a raw XML node. The object enforces constraints and tracks state:
 
-Implementation: each model class carries an `XElement _source` that holds the original XML. Known properties read from / write to this source. Unknown children are preserved as-is.
+```csharp
+var workspace = Workspace.Load("src/Solutions.DataModel");
 
-### 4. Component definitions drive behavior
+var entity = workspace.Entities["udpp_warehouse"];
+entity.AddAttribute(new StringAttribute("udpp_name") { MaxLength = 200 });
 
-Each component type has a `ComponentDefinition` that declares:
-- How it serializes (XML element name, identity attribute, file layout)
-- Whether it's mergeable (forms) or replace-on-import (entities)
-- Dependency rules (what it depends on, what depends on it)
-- Validation rules (required fields, naming constraints)
+workspace.Save(); // only writes changed files, zero diff on untouched files
+```
 
-This mirrors the internal Dataverse `IComponentDefinition` architecture.
+### Roundtrip-safe serialization
 
-### 5. Workspace context abstraction
+The model preserves XML elements and attributes it doesn't understand:
+- `Load → Save` with no changes = zero git diff
+- Unknown children are preserved (forward compatibility)
+- Only modified files are written (dirty tracking)
 
-The model doesn't touch the filesystem directly. All I/O goes through `IWorkspaceContext`, which can be:
-- `FileSystemContext` — direct disk access (standalone scripts, `dotnet new`)
-- `TransactionalContext` — buffered writes with rollback (CLI)
-- `InMemoryContext` — no disk at all (language server, tests)
-- `ApiContext` — reads from live environment API (future)
+Implementation: model classes wrap the original `XElement`. Known properties read/write through it. Unknown nodes pass through untouched.
+
+## Workspace Context
+
+The model doesn't touch the filesystem directly. I/O goes through `IWorkspaceContext`:
+
+| Implementation | Use case |
+|---|---|
+| `FileSystemContext` | Standalone scripts, `dotnet new`, direct disk |
+| `TransactionalContext` | CLI — buffered writes, rollback on failure |
+| `InMemoryContext` | Language server, tests — no disk |
+| `ApiContext` | Live environment metadata (future) |
 
 ## Namespace Structure
 
 ```
 TALXIS.Platform.Metadata
-├── EntityMetadata, AttributeMetadata, RelationshipMetadata, ...
-├── OptionSetMetadata, FormMetadata, ViewMetadata, ...
+├── ComponentType (enum — all ~95 type codes)
+├── ComponentDefinition, ComponentDefinitionRegistry
+├── IdentityStrategy (enum — GUID, Name, Composite)
 ├── Label, LocalizedLabel
-├── ComponentType (enum)
-└── OwnershipType, AttributeType, ... (enums)
+└── enums: OwnershipType, AttributeType, RelationshipType, ...
+
+TALXIS.Platform.Metadata.Components
+├── EntityMetadata, AttributeMetadata (typed subclasses)
+├── RelationshipMetadata, OptionSetMetadata
+├── FormMetadata, ViewMetadata
+├── PluginAssemblyMetadata, SecurityRoleMetadata
+└── ScfComponentMetadata (generic for SCF types)
 
 TALXIS.Platform.Metadata.Solutions
 ├── Solution, Publisher
 ├── SolutionComponent, ComponentLayer
-├── ComponentDefinition, ComponentDefinitionRegistry
+├── LayerStack (resolution logic)
 └── ComponentState, ComponentOperation (enums)
 
 TALXIS.Platform.Metadata.Serialization
 ├── SolutionPackagerReader  — disk → model
 ├── SolutionPackagerWriter  — model → disk (roundtrip-safe)
-├── SolutionPackagerLayout  — well-known paths and conventions
-└── XmlPreservingSerializer — base class for roundtrip serialization
+└── IComponentSerializer    — override for the 5 special cases
 
 TALXIS.Platform.Metadata.Validation
-├── SchemaValidator         — XSD-based validation
-├── StructuralValidator     — cross-file consistency checks
-├── NamingValidator         — naming convention enforcement
-└── Schemas/                — embedded XSD resources
+├── SchemaValidator         — XSD-based
+├── StructuralValidator     — cross-file consistency
+└── Schemas/                — embedded XSD resources (23 schemas)
 
 TALXIS.Platform.Metadata.Workspace
-├── IWorkspaceContext       — file I/O abstraction
-├── FileSystemContext       — direct disk access
-├── TransactionalContext    — buffered with rollback
-└── InMemoryContext         — for tests and language server
+├── IWorkspaceContext
+├── FileSystemContext, TransactionalContext, InMemoryContext
+└── WorkspaceBuilder (fluent API for creating components)
 ```
 
 ## Target Framework
 
-`netstandard2.0` — required for:
-- MSBuild tasks (run in MSBuild's host process)
-- Template post-action scripts (.NET 10 file-based apps can consume netstandard2.0)
-- CLI (.NET 10)
-- Language server (.NET 10)
-- Potential Mono/Unity scenarios
+`netstandard2.0` — maximum compatibility:
+- MSBuild tasks (build SDK)
+- Template post-action scripts (.NET 10 file-based apps)
+- CLI, language server (.NET 10)
+- Runtime services (future)
 
 Zero external dependencies beyond `System.Xml.Linq` and `System.Text.Json`.
