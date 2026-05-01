@@ -151,12 +151,14 @@ public static class ComponentDefinitionRegistry
     /// <summary>
     /// Looks up a component definition by its <see cref="ComponentType"/> code.
     /// </summary>
-    public static ComponentDefinition? GetByType(ComponentType type) => _byType.GetValueOrDefault(type);
+    public static ComponentDefinition? GetByType(ComponentType type) =>
+        _byType.TryGetValue(type, out var def) ? def : null;
 
     /// <summary>
     /// Looks up a component definition by its XML element name (case-insensitive).
     /// </summary>
-    public static ComponentDefinition? GetByXmlElement(string elementName) => _byXmlElement.GetValueOrDefault(elementName);
+    public static ComponentDefinition? GetByXmlElement(string elementName) =>
+        _byXmlElement.TryGetValue(elementName, out var def) ? def : null;
 
     /// <summary>
     /// Returns all registered component definitions.
