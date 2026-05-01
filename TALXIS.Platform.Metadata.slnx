@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
+    <Project Path="src/TALXIS.Platform.Metadata.Validation/TALXIS.Platform.Metadata.Validation.csproj" />
+    <Project Path="src/TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TALXIS.Platform.Metadata.Tests/TALXIS.Platform.Metadata.Tests.csproj" />
+  </Folder>
+</Solution>

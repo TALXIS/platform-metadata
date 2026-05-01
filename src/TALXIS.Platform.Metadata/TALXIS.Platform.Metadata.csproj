@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata</PackageId>
+    <Description>Core in-memory metadata model for model-driven platforms. Entity, attribute, relationship, option set, solution, and component definitions — compatible with Dataverse/Power Platform. Zero dependencies, AOT and WASM safe.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

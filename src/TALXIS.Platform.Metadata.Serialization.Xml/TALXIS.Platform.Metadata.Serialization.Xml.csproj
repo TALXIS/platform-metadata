@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata.Serialization.Xml</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata.Serialization.Xml</PackageId>
+    <Description>SolutionPackager XML serialization for TALXIS Platform Metadata. Roundtrip-safe read/write of Dataverse solution workspace files.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+  </ItemGroup>
+
+</Project>

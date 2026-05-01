@@ -1,0 +1,65 @@
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      package-version: ${{ steps.version.outputs.package-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
+        id: version
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $tag = "${{ github.event.release.tag_name }}" -replace '^v', ''
+            if ($tag -notmatch '^\d+\.\d+\.\d+(-[a-zA-Z0-9\.\-]+)?$') {
+              Write-Error "Invalid tag format. Expected vX.Y.Z."
+              exit 1
+            }
+            "package-version=$tag" >> $env:GITHUB_OUTPUT
+          } else {
+            "package-version=0.0.1-dev" >> $env:GITHUB_OUTPUT
+          }
+
+  build-test-pack:
+    needs: [resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet test --configuration Release --no-build
+      - run: |
+          $v = "${{ needs.resolve-version.outputs.package-version }}"
+          dotnet pack --configuration Release --no-build -p:PackageVersion=$v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: "**/*.nupkg"
+
+  deploy:
+    needs: [build-test-pack]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget
+      - uses: actions/setup-dotnet@v4
+      - run: |
+          foreach($file in (Get-ChildItem -Recurse -Include *.nupkg)) {
+            dotnet nuget push $file --api-key "${{ secrets.NUGET_APIKEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }

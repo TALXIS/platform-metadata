@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata.Validation</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata.Validation</PackageId>
+    <Description>XSD schema validation and structural checking for Dataverse solution workspaces. Depends on TALXIS.Platform.Metadata core model.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+  </ItemGroup>
+
+</Project>
