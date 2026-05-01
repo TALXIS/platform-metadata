@@ -65,7 +65,7 @@ jobs:
         uses: NuGet/login@v1
         id: login
         with:
-          user: TALXIS
+          user: prokop.tomas@windowslive.com
       - name: Publish NuGet packages
         run: |
           foreach($file in (Get-ChildItem -Recurse -Include *.nupkg)) {
