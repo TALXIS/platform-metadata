@@ -89,15 +89,3 @@
 | `tools-cli/DataModelConverter/XMLSchemas/OptionSetXmlSchema.cs` | OptionSet XML deserializer | `Serialization/` |
 | `client-metadata` (TypeScript) | `IEntityDefinition`, `Attribute`, `DataType` | Port interfaces to C# |
 | `INT0014/SDK/ObjectModel/CDS/Solution/` | `Customizations`, `Workflow`, enums | `Solutions/`, `Metadata/` |
-
-## Known gaps in Milestone 1
-
-### JSON Schema validation not ported
-The build SDK has `ValidateJsonFiles.cs` which validates JSON files (e.g., Flow definitions) against `Flow.schema.json` using Newtonsoft.Json.Schema. The JSON schema file IS embedded in the Validation package and accessible via `SchemaResourceLoader`, but the validator itself is not ported because:
-- Newtonsoft.Json.Schema has licensing implications (commercial license required for production)
-- System.Text.Json doesn't have built-in JSON Schema validation yet
-- The build SDK can continue using its own `ValidateJsonFiles` task for now
-
-Options for milestone 2:
-- Use `JsonSchema.Net` (MIT, System.Text.Json-based)
-- Keep JSON validation in the build SDK only
