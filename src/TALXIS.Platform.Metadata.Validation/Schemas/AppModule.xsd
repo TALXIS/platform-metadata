@@ -63,7 +63,16 @@
             <xs:element name="appsettings" minOccurs="0" maxOccurs="1">
                 <xs:complexType>
                     <xs:sequence>
-                        <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+                        <xs:element name="appsetting" minOccurs="0" maxOccurs="unbounded">
+                            <xs:complexType>
+                                <xs:all>
+                                    <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+                                    <xs:element name="value" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                </xs:all>
+                                <xs:attribute name="settingdefinitionid.uniquename" type="xs:string" use="optional" />
+                                <xs:attribute name="solutionaction" type="solutionactionType" use="optional" />
+                            </xs:complexType>
+                        </xs:element>
                     </xs:sequence>
                 </xs:complexType>
             </xs:element>

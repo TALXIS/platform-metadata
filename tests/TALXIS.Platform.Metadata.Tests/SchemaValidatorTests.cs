@@ -160,4 +160,143 @@ public class SchemaValidatorTests
 
         Assert.Empty(results);
     }
+
+    [Fact]
+    public void ResidualCustomizationsXml_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Entities />
+              <Roles />
+              <Workflows />
+              <FieldSecurityProfiles />
+              <Templates />
+              <EntityMaps />
+              <EntityRelationships />
+              <OrganizationSettings />
+              <optionsets />
+              <CustomControls />
+              <SolutionPluginAssemblies />
+              <EntityDataProviders />
+              <Languages>
+                <Language>1033</Language>
+              </Languages>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void SkeletalRelationshipXml_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <EntityRelationships xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <EntityRelationship Name="test_relationship" />
+            </EntityRelationships>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Relationships.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void SdkMessageProcessingStep_RealFormat_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <SdkMessageProcessingStep Name="Test: Create of entity" SdkMessageProcessingStepId="{8972dfad-506c-45b8-a6fa-83747f170734}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <SdkMessageId>9ebdbb1b-ea3e-db11-86a7-000a3a5473e8</SdkMessageId>
+              <PluginTypeName>Plugins.Test, TestAssembly, Version=1.0.0.0, Culture=neutral, PublicKeyToken=abc123</PluginTypeName>
+              <PrimaryEntity>test_entity</PrimaryEntity>
+              <PluginTypeId>c7d1ad26-47c5-4774-99b1-aa6203d1a169</PluginTypeId>
+              <AsyncAutoDelete>0</AsyncAutoDelete>
+              <FilteringAttributes></FilteringAttributes>
+              <InvocationSource>0</InvocationSource>
+              <Mode>0</Mode>
+              <Rank>1</Rank>
+              <EventHandlerTypeCode>4602</EventHandlerTypeCode>
+              <Stage>10</Stage>
+              <IsCustomizable>1</IsCustomizable>
+              <IsHidden>0</IsHidden>
+              <SupportedDeployment>0</SupportedDeployment>
+              <IntroducedVersion>1.0</IntroducedVersion>
+              <SdkMessageProcessingStepImages />
+            </SdkMessageProcessingStep>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "SdkMessageProcessingStep.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void AppModule_WithAppSettings_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <AppModule>
+              <UniqueName>test_app</UniqueName>
+              <IntroducedVersion>1.0</IntroducedVersion>
+              <WebResourceId>953b9fac-1e5e-e611-80d6-00155ded156f</WebResourceId>
+              <statecode>0</statecode>
+              <statuscode>1</statuscode>
+              <FormFactor>1</FormFactor>
+              <ClientType>4</ClientType>
+              <AppModuleComponents>
+                <AppModuleComponent type="1" schemaName="test_entity" />
+              </AppModuleComponents>
+              <LocalizedNames>
+                <LocalizedName description="Test App" languagecode="1033" />
+              </LocalizedNames>
+              <appsettings>
+                <appsetting settingdefinitionid.uniquename="AppChannel">
+                  <iscustomizable>1</iscustomizable>
+                  <value>1</value>
+                </appsetting>
+              </appsettings>
+            </AppModule>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "AppModule.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateSampleRepo_AllSolutions()
+    {
+        var basePath = "/tmp/dpp-sample/sample-repo/src";
+        if (!Directory.Exists(basePath)) return;
+
+        var solutions = new[] { "Solutions.DataModel", "Solutions.UI", "Solutions.Logic", "Solutions.Security" };
+        var allErrors = new List<ValidationResult>();
+
+        foreach (var solution in solutions)
+        {
+            var solutionPath = Path.Combine(basePath, solution);
+            if (!Directory.Exists(solutionPath)) continue;
+
+            foreach (var xmlFile in Directory.EnumerateFiles(solutionPath, "*.xml", SearchOption.AllDirectories))
+            {
+                allErrors.AddRange(_validator.ValidateFile(xmlFile));
+            }
+        }
+
+        var errors = allErrors.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
 }

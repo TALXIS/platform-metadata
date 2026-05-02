@@ -12,7 +12,7 @@
             <xs:element name="EntityRelationship">
                 <xs:complexType>
                     <xs:all>
-                        <xs:element name="EntityRelationshipType" type="EntityRelationshipTypeType" minOccurs="1" maxOccurs="1" />
+                        <xs:element name="EntityRelationshipType" type="EntityRelationshipTypeType" minOccurs="0" maxOccurs="1" />
                         <xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
                         <xs:element name="IsHierarchical" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
                         <xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
