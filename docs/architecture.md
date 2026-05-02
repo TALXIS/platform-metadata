@@ -2,15 +2,15 @@
 
 ## Overview
 
-TALXIS Platform Metadata is a typed C# object model for model-driven platform components. It serves as the shared kernel for all tools and services that need to understand, validate, or manipulate platform metadata — whether from files on disk, a live environment API, or an in-memory workspace.
+TALXIS Platform Metadata is a typed C# object model for model-driven platform components. It serves as the shared kernel for all tools and services that need to understand, validate, or manipulate platform metadata - whether from files on disk, a live environment API, or an in-memory workspace.
 
 ## Design Philosophy: Simplify, Don't Replicate
 
 Microsoft's SolutionPackager has 35+ dedicated processor classes built up over 15 years. We don't replicate that complexity. Instead:
 
-- **~80% of components are structurally identical** — an XML element extracted from customizations.xml, written to a folder with a naming pattern. The differences are configuration, not behavior.
-- **Only ~5 components have special serialization** — Entity (subfolders for forms/views), AppModule (navigation subfolder), PluginAssembly/WebResource (binary + .data.xml), Template (sub-elements as files). Everything else is "extract element → write file."
-- **SCF and GenericComponent already prove the simplified model works** — one handler with dynamic config, not a class per type.
+- **~80% of components are structurally identical** - an XML element extracted from customizations.xml, written to a folder with a naming pattern. The differences are configuration, not behavior.
+- **Only ~5 components have special serialization** - Entity (subfolders for forms/views), AppModule (navigation subfolder), PluginAssembly/WebResource (binary + .data.xml), Template (sub-elements as files). Everything else is "extract element → write file."
+- **SCF and GenericComponent already prove the simplified model works** - one handler with dynamic config, not a class per type.
 
 So instead of a processor-per-type hierarchy, we use a **data-driven component registry**:
 
@@ -44,11 +44,11 @@ The platform has two distinct component systems (see [blog post](https://blog.ne
 ### SCF Components (type code 99998)
 - Runtime-assigned type codes (>1000), resolved by name not code
 - Registered dynamically via `solutioncomponentdefinition`
-- No static schema — each component owner decides format (JSON or XML)
+- No static schema - each component owner decides format (JSON or XML)
 - Single generic handler with identity via `ComponentName` + `SchemaName`
 - Less readable in source control (GUIDs, encoded properties)
 
-Both are first-class in our model. The `ComponentDefinition` registry handles both — platform types are pre-registered with known schemas, SCF types are discovered at runtime.
+Both are first-class in our model. The `ComponentDefinition` registry handles both - platform types are pre-registered with known schemas, SCF types are discovered at runtime.
 
 ## Solution Layering
 
@@ -63,8 +63,8 @@ System                      ← Microsoft out-of-box
 ```
 
 **Resolution rules:**
-- **Most components: top wins** — the highest layer's value is the active state
-- **Forms, sitemaps, model-driven apps: merge** — layers are combined, not replaced
+- **Most components: top wins** - the highest layer's value is the active state
+- **Forms, sitemaps, model-driven apps: merge** - layers are combined, not replaced
 - **Managed properties** control what downstream layers can customize
 
 Our model represents layers explicitly:
@@ -104,17 +104,17 @@ The model doesn't touch the filesystem directly. I/O goes through `IWorkspaceCon
 | Implementation | Use case |
 |---|---|
 | `FileSystemContext` | Standalone scripts, `dotnet new`, direct disk |
-| `TransactionalContext` | CLI — buffered writes, rollback on failure |
-| `InMemoryContext` | Language server, tests — no disk |
+| `TransactionalContext` | CLI - buffered writes, rollback on failure |
+| `InMemoryContext` | Language server, tests - no disk |
 | `ApiContext` | Live environment metadata (future) |
 
 ## Namespace Structure
 
 ```
 TALXIS.Platform.Metadata
-├── ComponentType (enum — all ~95 type codes)
+├── ComponentType (enum - all ~95 type codes)
 ├── ComponentDefinition, ComponentDefinitionRegistry
-├── IdentityStrategy (enum — GUID, Name, Composite)
+├── IdentityStrategy (enum - GUID, Name, Composite)
 ├── Label, LocalizedLabel
 └── enums: OwnershipType, AttributeType, RelationshipType, ...
 
@@ -132,14 +132,14 @@ TALXIS.Platform.Metadata.Solutions
 └── ComponentState, ComponentOperation (enums)
 
 TALXIS.Platform.Metadata.Serialization
-├── SolutionPackagerReader  — disk → model
-├── SolutionPackagerWriter  — model → disk (roundtrip-safe)
-└── IComponentSerializer    — override for the 5 special cases
+├── SolutionPackagerReader  - disk → model
+├── SolutionPackagerWriter  - model → disk (roundtrip-safe)
+└── IComponentSerializer    - override for the 5 special cases
 
 TALXIS.Platform.Metadata.Validation
-├── SchemaValidator         — XSD-based
-├── StructuralValidator     — cross-file consistency
-└── Schemas/                — embedded XSD resources (23 schemas)
+├── SchemaValidator         - XSD-based
+├── StructuralValidator     - cross-file consistency
+└── Schemas/                - embedded XSD resources (23 schemas)
 
 TALXIS.Platform.Metadata.Workspace
 ├── IWorkspaceContext
@@ -149,7 +149,7 @@ TALXIS.Platform.Metadata.Workspace
 
 ## Target Framework
 
-`netstandard2.0` — maximum compatibility:
+`netstandard2.0` - maximum compatibility:
 - MSBuild tasks (build SDK)
 - Template post-action scripts (.NET 10 file-based apps)
 - CLI, language server (.NET 10)
