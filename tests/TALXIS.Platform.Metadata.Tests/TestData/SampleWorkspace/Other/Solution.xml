@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <UniqueName>TestSolution</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="Test Solution" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>TestPub</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Test Publisher" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions />
+      <EMailAddress xsi:nil="true" />
+      <SupportingWebsiteUrl xsi:nil="true" />
+      <CustomizationPrefix>tp</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+      <Addresses />
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="1" schemaName="test_entity" behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

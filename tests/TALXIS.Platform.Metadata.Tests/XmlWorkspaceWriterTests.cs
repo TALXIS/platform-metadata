@@ -8,15 +8,12 @@ namespace TALXIS.Platform.Metadata.Tests;
 
 public class XmlWorkspaceWriterTests
 {
-    private const string SamplePath = "/tmp/dpp-sample/sample-repo/src/Solutions.DataModel";
+    private static readonly string SamplePath = Path.Combine(AppContext.BaseDirectory, "TestData", "SampleWorkspace");
 
-    private static bool SampleRepoExists() => Directory.Exists(SamplePath);
-
+    
     [Fact]
     public void RoundtripSampleRepo()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
 
@@ -29,9 +26,8 @@ public class XmlWorkspaceWriterTests
             // Verify key files exist
             Assert.True(File.Exists(Path.Combine(outputPath, "Other", "Solution.xml")));
             Assert.True(Directory.Exists(Path.Combine(outputPath, "Entities")));
-            Assert.True(File.Exists(Path.Combine(outputPath, "Entities", "udpp_warehouseitem", "Entity.xml")));
-            Assert.True(File.Exists(Path.Combine(outputPath, "Entities", "udpp_warehousetransaction", "Entity.xml")));
-            Assert.True(File.Exists(Path.Combine(outputPath, "OptionSets", "udpp_paymentmethod.xml")));
+            Assert.True(File.Exists(Path.Combine(outputPath, "Entities", "test_entity", "Entity.xml")));
+            Assert.True(File.Exists(Path.Combine(outputPath, "OptionSets", "tp_teststatus.xml")));
             Assert.True(File.Exists(Path.Combine(outputPath, "Other", "Relationships.xml")));
         }
         finally
@@ -44,8 +40,6 @@ public class XmlWorkspaceWriterTests
     [Fact]
     public void RoundtripSampleRepo_SolutionXmlPreservesStructure()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
 
@@ -92,8 +86,6 @@ public class XmlWorkspaceWriterTests
     [Fact]
     public void RoundtripSampleRepo_EntityXmlPreservesUnknownElements()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
 
@@ -103,8 +95,8 @@ public class XmlWorkspaceWriterTests
             var writer = new XmlWorkspaceWriter();
             writer.Write(workspace, outputPath);
 
-            var originalDoc = XDocument.Load(Path.Combine(SamplePath, "Entities", "udpp_warehouseitem", "Entity.xml"));
-            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "Entities", "udpp_warehouseitem", "Entity.xml"));
+            var originalDoc = XDocument.Load(Path.Combine(SamplePath, "Entities", "test_entity", "Entity.xml"));
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "Entities", "test_entity", "Entity.xml"));
 
             var origEntity = originalDoc.Root!.Element("EntityInfo")!.Element("entity")!;
             var writtenEntity = writtenDoc.Root!.Element("EntityInfo")!.Element("entity")!;
@@ -141,8 +133,6 @@ public class XmlWorkspaceWriterTests
     [Fact]
     public void RoundtripSampleRepo_OptionSetXmlPreservesStructure()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
 
@@ -152,8 +142,8 @@ public class XmlWorkspaceWriterTests
             var writer = new XmlWorkspaceWriter();
             writer.Write(workspace, outputPath);
 
-            var originalDoc = XDocument.Load(Path.Combine(SamplePath, "OptionSets", "udpp_paymentmethod.xml"));
-            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "OptionSets", "udpp_paymentmethod.xml"));
+            var originalDoc = XDocument.Load(Path.Combine(SamplePath, "OptionSets", "tp_teststatus.xml"));
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "OptionSets", "tp_teststatus.xml"));
 
             // Root attributes preserved
             Assert.Equal(originalDoc.Root!.Attribute("Name")!.Value, writtenDoc.Root!.Attribute("Name")!.Value);
@@ -185,8 +175,6 @@ public class XmlWorkspaceWriterTests
     [Fact]
     public void RoundtripSampleRepo_LoadWrittenOutput()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
 
@@ -207,8 +195,8 @@ public class XmlWorkspaceWriterTests
             Assert.Equal(workspace.Relationships.Count, workspace2.Relationships.Count);
 
             // Entity details
-            var entity1 = workspace.FindEntity("udpp_warehouseitem")!;
-            var entity2 = workspace2.FindEntity("udpp_warehouseitem")!;
+            var entity1 = workspace.FindEntity("test_entity")!;
+            var entity2 = workspace2.FindEntity("test_entity")!;
             Assert.Equal(entity1.DisplayName.Default, entity2.DisplayName.Default);
             Assert.Equal(entity1.PluralName.Default, entity2.PluralName.Default);
             Assert.Equal(entity1.EntitySetName, entity2.EntitySetName);
@@ -355,8 +343,6 @@ public class XmlWorkspaceWriterTests
     [Fact]
     public void Roundtrip_LoadWriteReload_EntityAndAttributeCountsMatch()
     {
-        if (!SampleRepoExists()) return;
-
         var reader = new XmlWorkspaceReader();
         var original = reader.Load(SamplePath);
 

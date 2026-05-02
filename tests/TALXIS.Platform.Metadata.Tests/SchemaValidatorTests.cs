@@ -279,7 +279,7 @@ public class SchemaValidatorTests
     [Fact]
     public void ValidateSampleRepo_AllSolutions()
     {
-        var basePath = "/tmp/dpp-sample/sample-repo/src";
+        var basePath = Path.Combine(AppContext.BaseDirectory, "TestData");
         if (!Directory.Exists(basePath)) return;
 
         var solutions = new[] { "Solutions.DataModel", "Solutions.UI", "Solutions.Logic", "Solutions.Security" };
