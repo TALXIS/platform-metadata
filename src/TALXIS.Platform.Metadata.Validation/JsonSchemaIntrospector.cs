@@ -17,6 +17,9 @@ public sealed class JsonSchemaIntrospector : ISchemaIntrospector
     /// </summary>
     private readonly Dictionary<string, (string FileName, JSchema Schema)> _schemas = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Creates an introspector backed by embedded JSON Schema resources.
+    /// </summary>
     public JsonSchemaIntrospector()
     {
         foreach (var name in SchemaResourceLoader.GetAvailableSchemas()

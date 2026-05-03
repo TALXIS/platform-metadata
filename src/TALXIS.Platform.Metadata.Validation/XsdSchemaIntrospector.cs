@@ -14,6 +14,9 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
 
     private readonly XmlSchemaSet _schemaSet;
 
+    /// <summary>
+    /// Creates an introspector backed by embedded XSD resources.
+    /// </summary>
     public XsdSchemaIntrospector()
     {
         _schemaSet = new XmlSchemaSet();
@@ -250,7 +253,7 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
             }
             else if (item is XmlSchemaAttributeGroupRef groupRef)
             {
-                var resolved = _schemaSet.AttributeGroups[groupRef.RefName] as XmlSchemaAttributeGroup;
+                var resolved = ResolveAttributeGroup(groupRef.RefName);
                 if (resolved != null)
                 {
                     result.AddRange(WalkAttributes(resolved.Attributes));
@@ -276,5 +279,16 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
         }
 
         return (SimplifyTypeName(attr.SchemaTypeName), null);
+    }
+
+    private XmlSchemaAttributeGroup? ResolveAttributeGroup(XmlQualifiedName refName)
+    {
+        foreach (XmlSchema schema in _schemaSet.Schemas())
+        {
+            if (schema.AttributeGroups[refName] is XmlSchemaAttributeGroup group)
+                return group;
+        }
+
+        return null;
     }
 }
