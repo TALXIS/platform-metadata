@@ -121,14 +121,30 @@ All warnings across all repos are of the form: "Could not find schema informatio
 
 Warning counts scale linearly with solution size (more entities/attributes = more warnings).
 
+## Error Injection Tests
+
+Copied conference-session to temp, injected 7 errors, validated:
+
+| # | Injection | Component | Caught? | Error Message |
+|---|-----------|-----------|---------|---------------|
+| 1 | Invalid `<FakeElement>` in Entity.xml | Entity | CAUGHT | Invalid child element 'FakeElement' |
+| 2 | Malformed XML (`<broken`) in view | SavedQuery | CAUGHT | Unexpected end of file + model load failure |
+| 3 | Empty file (0 bytes) in form | Form | CAUGHT | Root element is missing + model load failure |
+| 4 | `value="notanumber"` in OptionSet | OptionSet | CAUGHT | 'notanumber' is not a valid Integer value |
+| 5 | `<BadChild/>` in RolePrivileges | Role | CAUGHT | Invalid child element 'BadChild' |
+| 6 | Duplicate GUID across step files | Step | MISSED | GuidValidator on master doesn't scan attributes (fixed in PR #22) |
+| 7 | `<Broken/>` in AppModule | AppModule | CAUGHT | Invalid child element 'Broken' |
+
+**6/7 caught.** Test 6 confirms PR #22 (attribute GUID scanning) is needed.
+
 ## Recommendations
 
 ### Immediate (before next release)
-1. Consider downgrading schema-missing warnings to a lower severity or filtering them -- they dominate output and obscure real issues
-2. The INT0006 duplicate GUID finding is a real bug in that repo that should be reported to the team
+1. Merge PR #22 (GuidValidator attribute scanning) to fix the missed duplicate GUID test
+2. Consider downgrading schema-missing warnings to a lower severity or filtering them (they dominate output)
+3. The INT0006 duplicate GUID finding is a real bug in that repo that should be reported to the team
 
 ### Future improvements (file as issues)
-3. Add WorkspaceValidator facade to the Validation package (implemented in this branch)
 4. Update CLI and Build SDK to use WorkspaceValidator instead of manual wiring
 5. Add JSON schema for cloud flow .json files
 6. Add cross-reference validation (form references entity, step references plugin)
