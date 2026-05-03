@@ -7,7 +7,7 @@
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="optionsettype">
-        <xs:sequence>
+        <xs:all>
             <xs:element name="OptionSetType" type="OptionSetEnumType" minOccurs="0" maxOccurs="1" />
             <xs:element name="IsGlobal" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
             <xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
@@ -18,7 +18,8 @@
             <xs:element name="options" type="optionstype" minOccurs="0" maxOccurs="1" />
             <xs:element name="statuses" type="statusestype" minOccurs="0" maxOccurs="1" />
             <xs:element name="states" type="statestype" minOccurs="0" maxOccurs="1" />
-        </xs:sequence>
+            <xs:element name="OptionSetId" type="GuidType" minOccurs="0" maxOccurs="1" />
+        </xs:all>
         <xs:attribute name="Name" use="required" type="xs:string" />
         <xs:attribute name="localizedName" use="optional" type="xs:string" />
         <xs:attribute name="description" use="optional" type="xs:string" />

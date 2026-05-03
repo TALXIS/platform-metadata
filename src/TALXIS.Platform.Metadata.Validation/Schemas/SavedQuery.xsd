@@ -94,6 +94,7 @@
                                             <xs:attribute name="icon" type="TrueFalse01Type" />
                                             <xs:attribute name="preview" type="TrueFalse01Type" />
                                             <xs:attribute name="iconrenderer" type="xs:string" />
+                                            <xs:attribute name="contenttype" type="xs:string" />
                                         </xs:complexType>
                                     </xs:element>
                                 </xs:sequence>
