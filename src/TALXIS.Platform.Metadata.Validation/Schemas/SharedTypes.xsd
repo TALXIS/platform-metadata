@@ -59,11 +59,11 @@
         <xs:attribute name="languagecode" use="required" type="xs:positiveInteger" />
     </xs:complexType>
     <xs:complexType name="DescriptionsType">
-        <xs:sequence>
-            <xs:element name="Description" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
-            <xs:element name="displayname" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
-            <xs:element name="Descriptions" type="DescriptionsType" minOccurs="0" maxOccurs="1" />
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="Description" type="FieldXmlFieldUIType" />
+            <xs:element name="displayname" type="FieldXmlFieldUIType" />
+            <xs:element name="Descriptions" type="DescriptionsType" />
+        </xs:choice>
     </xs:complexType>
     <xs:simpleType name="CrmDataType">
         <xs:restriction base="xs:string">

@@ -36,6 +36,7 @@
                 <xs:element name="secretstore" type="TrueFalse01Type" minOccurs="0" maxOccurs="1"/>
                 <xs:element name="type" type="xs:integer" />
                 <xs:element name="apiid" type="xs:string" minOccurs="0" />
+                <xs:element name="parameterkey" type="xs:string" minOccurs="0" />
             </xs:all>
             <xs:attribute name="schemaname" type="xs:string" use="required" />
         </xs:complexType>

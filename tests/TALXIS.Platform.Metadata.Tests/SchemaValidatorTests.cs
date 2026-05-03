@@ -499,4 +499,179 @@ public class SchemaValidatorTests
         var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void FormTab_WithContentTypeAttribute_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <forms>
+              <systemform>
+                <formid>{12345678-1234-1234-1234-123456789012}</formid>
+                <form>
+                  <tabs>
+                    <tab name="voucherstab" id="{00000000-0000-0000-0000-000000000001}" contenttype="singleComponent" showlabel="true">
+                      <columns>
+                        <column width="100%">
+                          <sections>
+                            <section name="sec" columns="1">
+                              <rows />
+                            </section>
+                          </sections>
+                        </column>
+                      </columns>
+                    </tab>
+                  </tabs>
+                </form>
+              </systemform>
+            </forms>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "SystemForms.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Forms_WithTypeAttribute_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <forms type="card">
+              <systemform>
+                <formid>{12345678-1234-1234-1234-123456789012}</formid>
+                <form>
+                  <tabs>
+                    <tab name="general" id="{00000000-0000-0000-0000-000000000001}">
+                      <columns>
+                        <column width="100%">
+                          <sections>
+                            <section name="sec" columns="1">
+                              <rows />
+                            </section>
+                          </sections>
+                        </column>
+                      </columns>
+                    </tab>
+                  </tabs>
+                </form>
+              </systemform>
+            </forms>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "SystemForms.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Connector_RootElement_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Connector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <connectorid>12896af7-da5f-4734-b86a-48d95997ca31</connectorid>
+              <description>ComposeLine</description>
+              <displayname>ntg_composeoutputlinetxt</displayname>
+              <name>ntg_ntg-5fcomposeoutputlinetxt</name>
+              <connectortype>1</connectortype>
+            </Connector>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Connector.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void EnvironmentVariable_WithParameterKey_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <environmentvariabledefinition schemaname="tp_SomeVar">
+              <displayname default="Some Var">
+                <label description="Some Var" languagecode="1033" />
+              </displayname>
+              <introducedversion>1.0</introducedversion>
+              <iscustomizable>1</iscustomizable>
+              <isrequired>0</isrequired>
+              <type>100000000</type>
+              <parameterkey>dataset</parameterkey>
+            </environmentvariabledefinition>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "EnvironmentVariable.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Descriptions_WithMixedOrder_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name OriginalName="test_entity" LocalizedName="Test Entity">test_entity</Name>
+              <EntityInfo>
+                <entity Name="test_entity">
+                  <Descriptions>
+                    <displayname description="Test Name" languagecode="1033" />
+                    <Description description="Test" languagecode="1033" />
+                    <displayname description="Another Name" languagecode="1029" />
+                  </Descriptions>
+                  <attributes />
+                  <EntitySetName>test_entities</EntitySetName>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Entity.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void AppModule_WithUniquenameAndSettingDefinitionId_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <AppModule>
+              <UniqueName>test_app</UniqueName>
+              <IntroducedVersion>1.0</IntroducedVersion>
+              <WebResourceId>953b9fac-1e5e-e611-80d6-00155ded156f</WebResourceId>
+              <AppModuleComponents>
+                <AppModuleComponent type="1" schemaName="test_entity" />
+              </AppModuleComponents>
+              <LocalizedNames>
+                <LocalizedName description="Test App" languagecode="1033" />
+              </LocalizedNames>
+              <appsettings>
+                <appsetting uniquename="test_AllowNotifications">
+                  <iscustomizable>1</iscustomizable>
+                  <settingdefinitionid>
+                    <uniquename>AllowNotificationsEarlyAccess</uniquename>
+                  </settingdefinitionid>
+                  <value>true</value>
+                </appsetting>
+              </appsettings>
+            </AppModule>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "AppModule.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
 }

@@ -18,6 +18,7 @@
 	<xs:complexType name="SystemFormsType">
 		<xs:sequence>
 			<xs:element name="systemform" minOccurs="1" maxOccurs="unbounded">
+
 				<xs:complexType>
 					<xs:all>
 						<xs:element name="formid" type="GuidType" minOccurs="1" maxOccurs="1" />
@@ -35,6 +36,7 @@
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
+		<xs:attribute name="type" type="SystemFormType" />
 	</xs:complexType>
 	<xs:complexType name="FormType">
 		<xs:all>
@@ -190,6 +192,7 @@
 								<xs:attribute name="collapsible" type="xs:boolean" />
 								<xs:attribute name="ordinalvalue" type="xs:nonNegativeInteger" />
 								<xs:attribute name="solutionaction" type="solutionactionType" />
+								<xs:attribute name="contenttype" type="xs:string" />
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
