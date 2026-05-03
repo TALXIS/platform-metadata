@@ -31,7 +31,18 @@
                                     </xs:sequence>
                                 </xs:complexType>
                             </xs:element>
-                            <xs:element type="xs:string" name="Descriptions"/>
+                            <xs:element name="Descriptions" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="Description" maxOccurs="unbounded" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute type="xs:string" name="description" use="optional"/>
+                                                <xs:attribute type="xs:nonNegativeInteger" name="languagecode" use="optional"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
                             <xs:element type="xs:string" name="Version"/>
                             <xs:element type="xs:byte" name="Managed"/>
                             <xs:element name="Publisher">

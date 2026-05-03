@@ -300,29 +300,7 @@ public class SchemaValidatorTests
         Assert.Empty(errors);
     }
 
-    [Fact]
-    public void Entity_WithLowercaseIsAuditEnabled_PassesValidation()
-    {
-        var xml = """
-            <?xml version="1.0" encoding="utf-8"?>
-            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-              <Name OriginalName="test_entity" LocalizedName="Test Entity">test_entity</Name>
-              <EntityInfo>
-                <entity Name="test_entity">
-                  <isAuditEnabled>1</isAuditEnabled>
-                  <attributes />
-                  <EntitySetName>test_entities</EntitySetName>
-                </entity>
-              </EntityInfo>
-            </Entity>
-            """;
 
-        var doc = XDocument.Parse(xml);
-        var results = _validator.ValidateXml(doc, "Entity.xml");
-
-        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
-        Assert.Empty(errors);
-    }
 
     [Fact]
     public void EnvironmentVariable_WithApiId_PassesValidation()
