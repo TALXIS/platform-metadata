@@ -17,6 +17,7 @@ public static class TreeMergeEngine
     {
         var result = DeepClone(baseTree);
         ApplyLayer(result, customizationLayer);
+        OrderByOrdinalValue(result);
         return result;
     }
 
@@ -125,49 +126,14 @@ public static class TreeMergeEngine
             return candidates[0];
 
         // Try matching by element-specific key attributes
-        var keys = GetMatchingKeys(name);
-        foreach (var key in keys)
+        foreach (var keySet in ElementMatchKeyRegistry.GetKeySets(name))
         {
-            var targetValue = target.GetAttribute(key);
-            if (targetValue != null)
-            {
-                foreach (var c in candidates)
-                {
-                    if (c.GetAttribute(key) == targetValue)
-                        return c;
-                }
-            }
-        }
+            if (!HasAllKeys(target, keySet)) continue;
 
-        // Composite key for handlers
-        if (name == "handler")
-        {
-            var lib = target.GetAttribute("libraryName");
-            var func = target.GetAttribute("functionName");
-            if (lib != null && func != null)
+            foreach (var c in candidates)
             {
-                foreach (var c in candidates)
-                {
-                    if (c.GetAttribute("libraryName") == lib &&
-                        c.GetAttribute("functionName") == func)
-                        return c;
-                }
-            }
-        }
-
-        // Composite key for events
-        if (name == "event")
-        {
-            var eName = target.GetAttribute("name");
-            var app = target.GetAttribute("application");
-            if (eName != null)
-            {
-                foreach (var c in candidates)
-                {
-                    if (c.GetAttribute("name") == eName &&
-                        (app == null || c.GetAttribute("application") == app))
-                        return c;
-                }
+                if (HasMatchingKeys(c, target, keySet))
+                    return c;
             }
         }
 
@@ -185,23 +151,6 @@ public static class TreeMergeEngine
 
         // Last resort: first candidate
         return candidates[0];
-    }
-
-    private static string[] GetMatchingKeys(string elementName)
-    {
-        return elementName switch
-        {
-            "tab" => new[] { "id", "name" },
-            "section" => new[] { "id", "name" },
-            "cell" => new[] { "id" },
-            "control" => new[] { "id", "datafieldname" },
-            "row" => Array.Empty<string>(), // index-based
-            "event" => new[] { "name" },
-            "handler" => new[] { "libraryName" },
-            "column" => new[] { "id" },
-            "controlDescription" => new[] { "forControl" },
-            _ => new[] { "id", "name" }
-        };
     }
 
     private static void RemoveActions(MergeableNode node)
@@ -307,56 +256,17 @@ public static class TreeMergeEngine
     private static int FindBestMatchIndex(List<MergeableNode> candidates, MergeableNode target, HashSet<int> excluded, List<MergeableNode>? targetParentChildren = null)
     {
         var name = target.Name;
-        var keys = GetMatchingKeys(name);
 
-        foreach (var key in keys)
+        foreach (var keySet in ElementMatchKeyRegistry.GetKeySets(name))
         {
-            var targetValue = target.GetAttribute(key);
-            if (targetValue != null)
-            {
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (excluded.Contains(i)) continue;
-                    if (candidates[i].Name != name) continue;
-                    if (candidates[i].GetAttribute(key) == targetValue)
-                        return i;
-                }
-            }
-        }
+            if (!HasAllKeys(target, keySet)) continue;
 
-        // Composite key for handlers
-        if (name == "handler")
-        {
-            var lib = target.GetAttribute("libraryName");
-            var func = target.GetAttribute("functionName");
-            if (lib != null && func != null)
+            for (int i = 0; i < candidates.Count; i++)
             {
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (excluded.Contains(i)) continue;
-                    if (candidates[i].Name != name) continue;
-                    if (candidates[i].GetAttribute("libraryName") == lib &&
-                        candidates[i].GetAttribute("functionName") == func)
-                        return i;
-                }
-            }
-        }
-
-        // Composite key for events
-        if (name == "event")
-        {
-            var eName = target.GetAttribute("name");
-            var app = target.GetAttribute("application");
-            if (eName != null)
-            {
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (excluded.Contains(i)) continue;
-                    if (candidates[i].Name != name) continue;
-                    if (candidates[i].GetAttribute("name") == eName &&
-                        (app == null || candidates[i].GetAttribute("application") == app))
-                        return i;
-                }
+                if (excluded.Contains(i)) continue;
+                if (candidates[i].Name != name) continue;
+                if (HasMatchingKeys(candidates[i], target, keySet))
+                    return i;
             }
         }
 
@@ -399,6 +309,62 @@ public static class TreeMergeEngine
         }
 
         return false;
+    }
+
+    private static bool HasAllKeys(MergeableNode node, IReadOnlyList<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            if (node.GetAttribute(key) == null)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasMatchingKeys(MergeableNode candidate, MergeableNode target, IReadOnlyList<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            var targetValue = target.GetAttribute(key);
+            if (targetValue == null || candidate.GetAttribute(key) != targetValue)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void OrderByOrdinalValue(MergeableNode node)
+    {
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            OrderByOrdinalValue(node.Children[i]);
+        }
+
+        if (!node.Children.Any(static child => TryGetOrdinalValue(child, out _)))
+            return;
+
+        var ordered = node.Children
+            .Select(static (child, index) => new
+            {
+                Child = child,
+                Index = index,
+                HasOrdinal = TryGetOrdinalValue(child, out var ordinal),
+                Ordinal = ordinal
+            })
+            .OrderBy(static item => item.HasOrdinal ? 0 : 1)
+            .ThenBy(static item => item.Ordinal)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Child)
+            .ToList();
+
+        node.Children.Clear();
+        node.Children.AddRange(ordered);
+    }
+
+    private static bool TryGetOrdinalValue(MergeableNode node, out int ordinal)
+    {
+        return int.TryParse(node.GetAttribute("ordinalvalue"), out ordinal);
     }
 
     /// <summary>

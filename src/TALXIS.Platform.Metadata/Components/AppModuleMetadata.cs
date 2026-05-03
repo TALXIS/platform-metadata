@@ -1,3 +1,5 @@
+using TALXIS.Platform.Metadata.Merging;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 public sealed class AppModuleMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata
@@ -11,6 +13,7 @@ public sealed class AppModuleMetadata : MetadataBase, IDisplayNamedMetadata, IVe
     public int? NavigationType { get; set; }
     public int? StateCode { get; set; }
     public int? StatusCode { get; set; }
+    public MergeableNode? Body { get; set; }
 
     private readonly List<AppModuleComponent> _components = new();
     public IReadOnlyList<AppModuleComponent> Components => _components;

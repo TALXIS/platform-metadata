@@ -211,6 +211,62 @@ public class TreeMergeEngineTests
         Assert.Equal(2, FindAll(result, "tab").Count);
     }
 
+    [Fact]
+    public void Merge_OrdersSiblingsByOrdinalValue()
+    {
+        var baseTree = Node("tabs",
+            Node("tab", new Dictionary<string, string> { ["id"] = "base", ["ordinalvalue"] = "20" }));
+        var added = Node("tab", new Dictionary<string, string> { ["id"] = "added", ["ordinalvalue"] = "10" });
+        added.Action = MergeAction.Added;
+        var layer = Node("tabs", added);
+
+        var result = TreeMergeEngine.Merge(baseTree, layer);
+
+        Assert.Equal("added", result.Children[0].GetAttribute("id"));
+        Assert.Equal("base", result.Children[1].GetAttribute("id"));
+    }
+
+    [Fact]
+    public void Merge_MatchesByCompositeRegisteredKey()
+    {
+        var baseTree = Node("events",
+            Node("event", new Dictionary<string, string> { ["name"] = "onload", ["application"] = "false", ["enabled"] = "true" }));
+        var modified = Node("event", new Dictionary<string, string> { ["name"] = "onload", ["application"] = "false", ["enabled"] = "false" });
+        modified.Action = MergeAction.Modified;
+        var layer = Node("events", modified);
+
+        var result = TreeMergeEngine.Merge(baseTree, layer);
+
+        Assert.Single(result.Children);
+        Assert.Equal("false", result.Children[0].GetAttribute("enabled"));
+    }
+
+    [Fact]
+    public void Merge_UsesCustomRegisteredKeys()
+    {
+        ElementMatchKeyRegistry.Register("customNode", new[] { "logicalName", "variant" });
+        var baseTree = Node("root",
+            Node("customNode", new Dictionary<string, string>
+            {
+                ["logicalName"] = "account",
+                ["variant"] = "main",
+                ["value"] = "base"
+            }));
+        var modified = Node("customNode", new Dictionary<string, string>
+        {
+            ["logicalName"] = "account",
+            ["variant"] = "main",
+            ["value"] = "layer"
+        });
+        modified.Action = MergeAction.Modified;
+        var layer = Node("root", modified);
+
+        var result = TreeMergeEngine.Merge(baseTree, layer);
+
+        Assert.Single(result.Children);
+        Assert.Equal("layer", result.Children[0].GetAttribute("value"));
+    }
+
     // --- Helpers ---
 
     private static MergeableNode Node(string name, params MergeableNode[] children)

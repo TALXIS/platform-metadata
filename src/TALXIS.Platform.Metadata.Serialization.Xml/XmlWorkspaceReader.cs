@@ -35,6 +35,8 @@ public sealed class XmlWorkspaceReader
         LoadSecurityRoles(workspace, workspacePath);
         LoadAppModules(workspace, workspacePath);
         LoadSiteMaps(workspace, workspacePath);
+        LoadRibbons(workspace, workspacePath);
+        LoadRoundtripPassthroughFiles(workspace, workspacePath);
         LoadGenericComponents(workspace, workspacePath);
 
         return workspace;
@@ -454,57 +456,150 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadRelationships(Workspace workspace, string rootPath)
     {
+        var relationshipsByName = new Dictionary<string, RelationshipMetadata>(StringComparer.OrdinalIgnoreCase);
         var relationshipsFile = Path.Combine(rootPath, "Other", "Relationships.xml");
-        if (!File.Exists(relationshipsFile)) return;
+        if (File.Exists(relationshipsFile))
+        {
+            var doc = XDocument.Load(relationshipsFile, LoadOptions.PreserveWhitespace);
+            workspace.OriginalDocuments["Relationships.xml"] = doc;
+            LoadRelationshipElements(relationshipsByName, doc.Root, relationshipsFile, replaceExisting: false);
+        }
 
-        var doc = XDocument.Load(relationshipsFile, LoadOptions.PreserveWhitespace);
-        workspace.OriginalDocuments["Relationships.xml"] = doc;
-        var root = doc.Root; // <EntityRelationships>
+        var relationshipsDir = Path.Combine(rootPath, "Other", "Relationships");
+        if (Directory.Exists(relationshipsDir))
+        {
+            foreach (var file in Directory.GetFiles(relationshipsDir, "*.xml", SearchOption.AllDirectories))
+            {
+                var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
+                var relativePath = GetRelativePath(rootPath, file);
+                workspace.OriginalDocuments[$"Relationships:{relativePath}"] = doc;
+                LoadRelationshipElements(relationshipsByName, doc.Root, file, replaceExisting: true);
+            }
+        }
+
+        foreach (var relationship in relationshipsByName.Values)
+        {
+            workspace.AddRelationship(relationship);
+            AttachRelationshipToEntities(workspace, relationship);
+        }
+    }
+
+    private static void LoadRelationshipElements(
+        Dictionary<string, RelationshipMetadata> relationshipsByName,
+        XElement? root,
+        string sourceFile,
+        bool replaceExisting)
+    {
         if (root == null) return;
 
         foreach (var relEl in root.Elements("EntityRelationship"))
         {
-            var name = relEl.Attribute("Name")?.Value;
-            if (string.IsNullOrEmpty(name)) continue;
+            var relationship = ParseRelationship(relEl, sourceFile);
+            if (relationship == null) continue;
 
-            // The minimal format only has a Name attribute.
-            // Full format may include child elements with details.
-            var referencedEntity = relEl.Element("ReferencedEntityName")?.Value;
-            var referencedAttr = relEl.Element("ReferencedAttributeName")?.Value;
-            var referencingEntity = relEl.Element("ReferencingEntityName")?.Value;
-            var referencingAttr = relEl.Element("ReferencingAttributeName")?.Value;
-            var entity1 = relEl.Element("Entity1LogicalName")?.Value;
-            var entity2 = relEl.Element("Entity2LogicalName")?.Value;
-            var intersect = relEl.Element("IntersectEntityName")?.Value;
-
-            RelationshipMetadata relationship;
-
-            if (entity1 != null && entity2 != null && intersect != null)
+            if (replaceExisting || !relationshipsByName.ContainsKey(relationship.SchemaName))
             {
-                relationship = new ManyToManyRelationshipMetadata
-                {
-                    SchemaName = name,
-                    Entity1LogicalName = entity1,
-                    Entity2LogicalName = entity2,
-                    IntersectEntityName = intersect,
-                    Source = new SourceLocation(relationshipsFile, 1, 1)
-                };
+                relationshipsByName[relationship.SchemaName] = relationship;
             }
-            else
-            {
-                relationship = new OneToManyRelationshipMetadata
-                {
-                    SchemaName = name,
-                    ReferencedEntity = referencedEntity ?? "",
-                    ReferencedAttribute = referencedAttr ?? "",
-                    ReferencingEntity = referencingEntity ?? "",
-                    ReferencingAttribute = referencingAttr ?? "",
-                    Source = new SourceLocation(relationshipsFile, 1, 1)
-                };
-            }
-
-            workspace.AddRelationship(relationship);
         }
+    }
+
+    private static RelationshipMetadata? ParseRelationship(XElement relEl, string sourceFile)
+    {
+        var name = relEl.Attribute("Name")?.Value;
+        if (string.IsNullOrEmpty(name)) return null;
+
+        var entity1 = relEl.Element("Entity1LogicalName")?.Value;
+        var entity2 = relEl.Element("Entity2LogicalName")?.Value;
+        var intersect = relEl.Element("IntersectEntityName")?.Value;
+
+        RelationshipMetadata relationship;
+        if (entity1 != null && entity2 != null && intersect != null)
+        {
+            relationship = new ManyToManyRelationshipMetadata
+            {
+                SchemaName = name,
+                Entity1LogicalName = entity1,
+                Entity2LogicalName = entity2,
+                IntersectEntityName = intersect
+            };
+        }
+        else
+        {
+            relationship = new OneToManyRelationshipMetadata
+            {
+                SchemaName = name,
+                ReferencedEntity = relEl.Element("ReferencedEntityName")?.Value ?? "",
+                ReferencedAttribute = relEl.Element("ReferencedAttributeName")?.Value ?? "",
+                ReferencingEntity = relEl.Element("ReferencingEntityName")?.Value ?? "",
+                ReferencingAttribute = relEl.Element("ReferencingAttributeName")?.Value ?? "",
+                CascadeAssign = ParseCascade(relEl.Element("CascadeAssign")?.Value, CascadeType.NoCascade),
+                CascadeDelete = ParseCascade(relEl.Element("CascadeDelete")?.Value, CascadeType.RemoveLink),
+                CascadeReparent = ParseCascade(relEl.Element("CascadeReparent")?.Value, CascadeType.NoCascade),
+                CascadeShare = ParseCascade(relEl.Element("CascadeShare")?.Value, CascadeType.NoCascade),
+                CascadeUnshare = ParseCascade(relEl.Element("CascadeUnshare")?.Value, CascadeType.NoCascade),
+                CascadeArchive = ParseCascade(relEl.Element("CascadeArchive")?.Value, CascadeType.RemoveLink),
+                CascadeRollupView = ParseCascade(relEl.Element("CascadeRollupView")?.Value, CascadeType.NoCascade),
+                IsHierarchical = relEl.Element("IsHierarchical")?.Value == "1",
+                IsValidForAdvancedFind = relEl.Element("IsValidForAdvancedFind")?.Value == "1"
+            };
+        }
+
+        relationship.IsCustomizable = relEl.Element("IsCustomizable")?.Value == "1";
+        relationship.IntroducedVersion = relEl.Element("IntroducedVersion")?.Value;
+        relationship.Source = new SourceLocation(sourceFile, 1, 1);
+
+        var description = ReadLabel(relEl.Element("RelationshipDescription")?.Element("Descriptions"), "Description");
+        if (description != null) relationship.Description = description;
+
+        foreach (var roleEl in relEl.Element("EntityRelationshipRoles")?.Elements("EntityRelationshipRole") ?? Enumerable.Empty<XElement>())
+        {
+            relationship.AddRole(new RelationshipRoleMetadata
+            {
+                NavPaneDisplayOption = roleEl.Element("NavPaneDisplayOption")?.Value,
+                NavPaneArea = roleEl.Element("NavPaneArea")?.Value,
+                NavPaneOrder = ParseInt(roleEl.Element("NavPaneOrder")?.Value),
+                NavigationPropertyName = roleEl.Element("NavigationPropertyName")?.Value,
+                RelationshipRoleType = ParseInt(roleEl.Element("RelationshipRoleType")?.Value)
+            });
+        }
+
+        return relationship;
+    }
+
+    private static void AttachRelationshipToEntities(Workspace workspace, RelationshipMetadata relationship)
+    {
+        foreach (var entity in workspace.Entities)
+        {
+            if (IsRelationshipParticipant(relationship, entity.LogicalName))
+            {
+                entity.AddRelationship(relationship);
+            }
+        }
+    }
+
+    private static bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
+    {
+        if (relationship is OneToManyRelationshipMetadata oneToMany)
+        {
+            return string.Equals(oneToMany.ReferencedEntity, logicalName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(oneToMany.ReferencingEntity, logicalName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (relationship is ManyToManyRelationshipMetadata manyToMany)
+        {
+            return string.Equals(manyToMany.Entity1LogicalName, logicalName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(manyToMany.Entity2LogicalName, logicalName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static CascadeType ParseCascade(string? value, CascadeType defaultValue)
+    {
+        return Enum.TryParse<CascadeType>(value, ignoreCase: true, out var cascade)
+            ? cascade
+            : defaultValue;
     }
 
     private static void LoadForms(Workspace workspace, string rootPath)
@@ -521,7 +616,8 @@ public sealed class XmlWorkspaceReader
             foreach (var formTypeDir in Directory.GetDirectories(formXmlDir))
             {
                 var formType = Path.GetFileName(formTypeDir);
-                foreach (var formFile in Directory.GetFiles(formTypeDir, "*.xml"))
+                var loadedFormIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var formFile in OrderManagedVariantFiles(Directory.GetFiles(formTypeDir, "*.xml")))
                 {
                     var doc = XDocument.Load(formFile, LoadOptions.PreserveWhitespace);
                     var systemForm = doc.Root?.Element("systemform");
@@ -529,6 +625,7 @@ public sealed class XmlWorkspaceReader
 
                     var formId = systemForm.Element("formid")?.Value ?? "";
                     if (string.IsNullOrEmpty(formId)) continue;
+                    if (!loadedFormIds.Add(formId)) continue;
 
                     var form = new FormMetadata
                     {
@@ -546,6 +643,10 @@ public sealed class XmlWorkspaceReader
 
                     var descLabel = ReadLabel(systemForm.Element("Descriptions"), "Description");
                     if (descLabel != null) form.Description = descLabel;
+
+                    var formBody = systemForm.Element("form");
+                    if (formBody != null)
+                        form.Body = MergeableNodeXmlConverter.FromXElement(formBody);
 
                     workspace.AddForm(form);
                     workspace.OriginalDocuments[$"Form:{entityLogicalName}:{formId}"] = doc;
@@ -822,75 +923,79 @@ public sealed class XmlWorkspaceReader
 
         foreach (var appModuleDir in Directory.GetDirectories(appModulesDir))
         {
-            var appModuleFile = Path.Combine(appModuleDir, "AppModule.xml");
-            if (!File.Exists(appModuleFile)) continue;
-
-            var doc = XDocument.Load(appModuleFile, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <AppModule>
-            if (root == null) continue;
-
-            var uniqueName = root.Element("UniqueName")?.Value ?? "";
-            if (string.IsNullOrEmpty(uniqueName)) continue;
-
-            var appModule = new AppModuleMetadata
+            var loadedUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var appModuleFile in OrderManagedVariantFiles(Directory.GetFiles(appModuleDir, "AppModule*.xml", SearchOption.TopDirectoryOnly)))
             {
-                UniqueName = uniqueName,
-                IntroducedVersion = root.Element("IntroducedVersion")?.Value,
-                WebResourceId = root.Element("WebResourceId")?.Value,
-                FormFactor = ParseInt(root.Element("FormFactor")?.Value, 0),
-                ClientType = ParseInt(root.Element("ClientType")?.Value, 0),
-                NavigationType = ParseInt(root.Element("NavigationType")?.Value, 0),
-                Source = new SourceLocation(appModuleFile, 1, 1)
-            };
+                var doc = XDocument.Load(appModuleFile, LoadOptions.PreserveWhitespace);
+                var root = doc.Root; // <AppModule>
+                if (root == null) continue;
 
-            var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
-            if (displayLabel != null) appModule.DisplayName = displayLabel;
+                var uniqueName = root.Element("UniqueName")?.Value ?? "";
+                if (string.IsNullOrEmpty(uniqueName)) continue;
+                if (!loadedUniqueNames.Add(uniqueName)) continue;
 
-            var componentsEl = root.Element("AppModuleComponents");
-            if (componentsEl != null)
-            {
-                foreach (var compEl in componentsEl.Elements("AppModuleComponent"))
+                var appModule = new AppModuleMetadata
                 {
-                    var typeStr = compEl.Attribute("type")?.Value;
-                    if (!int.TryParse(typeStr, out var typeCode)) continue;
+                    UniqueName = uniqueName,
+                    IntroducedVersion = root.Element("IntroducedVersion")?.Value,
+                    WebResourceId = root.Element("WebResourceId")?.Value,
+                    FormFactor = ParseInt(root.Element("FormFactor")?.Value, 0),
+                    ClientType = ParseInt(root.Element("ClientType")?.Value, 0),
+                    NavigationType = ParseInt(root.Element("NavigationType")?.Value, 0),
+                    Source = new SourceLocation(appModuleFile, 1, 1)
+                };
 
-                    var component = new AppModuleComponent
+                var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
+                if (displayLabel != null) appModule.DisplayName = displayLabel;
+                appModule.Body = MergeableNodeXmlConverter.FromXElement(root);
+
+                var componentsEl = root.Element("AppModuleComponents");
+                if (componentsEl != null)
+                {
+                    foreach (var compEl in componentsEl.Elements("AppModuleComponent"))
                     {
-                        Type = typeCode,
-                        SchemaName = compEl.Attribute("schemaName")?.Value,
-                        Id = compEl.Attribute("id")?.Value
-                    };
+                        var typeStr = compEl.Attribute("type")?.Value;
+                        if (!int.TryParse(typeStr, out var typeCode)) continue;
 
-                    appModule.AddComponent(component);
+                        var component = new AppModuleComponent
+                        {
+                            Type = typeCode,
+                            SchemaName = compEl.Attribute("schemaName")?.Value,
+                            Id = compEl.Attribute("id")?.Value
+                        };
+
+                        appModule.AddComponent(component);
+                    }
                 }
-            }
 
-            var roleMapsEl = root.Element("AppModuleRoleMaps");
-            if (roleMapsEl != null)
-            {
-                foreach (var roleEl in roleMapsEl.Elements("Role"))
+                var roleMapsEl = root.Element("AppModuleRoleMaps");
+                if (roleMapsEl != null)
                 {
-                    var roleId = roleEl.Attribute("id")?.Value;
-                    if (!string.IsNullOrEmpty(roleId))
-                        appModule.AddRoleId(roleId!);
+                    foreach (var roleEl in roleMapsEl.Elements("Role"))
+                    {
+                        var roleId = roleEl.Attribute("id")?.Value;
+                        if (!string.IsNullOrEmpty(roleId))
+                            appModule.AddRoleId(roleId!);
+                    }
                 }
-            }
 
-            workspace.AddAppModule(appModule);
-            workspace.OriginalDocuments[$"AppModule:{uniqueName}"] = doc;
+                workspace.AddAppModule(appModule);
+                workspace.OriginalDocuments[$"AppModule:{uniqueName}"] = doc;
+            }
         }
     }
 
     private static void LoadSiteMaps(Workspace workspace, string rootPath)
     {
+        var loadedUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var siteMapDir = Path.Combine(rootPath, "AppModuleSiteMaps");
         if (Directory.Exists(siteMapDir))
         {
             foreach (var subDir in Directory.GetDirectories(siteMapDir))
             {
-                foreach (var file in Directory.GetFiles(subDir, "*.xml"))
+                foreach (var file in OrderManagedVariantFiles(Directory.GetFiles(subDir, "*.xml")))
                 {
-                    LoadSiteMapFile(workspace, file);
+                    LoadSiteMapFile(workspace, file, loadedUniqueNames);
                 }
             }
         }
@@ -899,11 +1004,17 @@ public sealed class XmlWorkspaceReader
         var legacySiteMap = Path.Combine(rootPath, "Other", "SiteMap.xml");
         if (File.Exists(legacySiteMap))
         {
-            LoadSiteMapFile(workspace, legacySiteMap);
+            LoadSiteMapFile(workspace, legacySiteMap, loadedUniqueNames);
+        }
+
+        var legacyManagedSiteMap = Path.Combine(rootPath, "Other", "SiteMap_managed.xml");
+        if (File.Exists(legacyManagedSiteMap))
+        {
+            LoadSiteMapFile(workspace, legacyManagedSiteMap, loadedUniqueNames);
         }
     }
 
-    private static void LoadSiteMapFile(Workspace workspace, string file)
+    private static void LoadSiteMapFile(Workspace workspace, string file, ISet<string> loadedUniqueNames)
     {
         var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
         var root = doc.Root; // <AppModuleSiteMap>
@@ -911,6 +1022,7 @@ public sealed class XmlWorkspaceReader
 
         var uniqueName = root.Element("SiteMapUniqueName")?.Value ?? Path.GetFileNameWithoutExtension(file);
         if (string.IsNullOrEmpty(uniqueName)) return;
+        if (!loadedUniqueNames.Add(uniqueName)) return;
 
         var siteMap = new SiteMapMetadata
         {
@@ -925,9 +1037,55 @@ public sealed class XmlWorkspaceReader
 
         var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
         if (displayLabel != null) siteMap.DisplayName = displayLabel;
+        siteMap.Body = MergeableNodeXmlConverter.FromXElement(root);
 
         workspace.AddSiteMap(siteMap);
         workspace.OriginalDocuments[$"SiteMap:{uniqueName}"] = doc;
+    }
+
+    private static void LoadRoundtripPassthroughFiles(Workspace workspace, string rootPath)
+    {
+        var customizationsFile = Path.Combine(rootPath, "Other", "Customizations.xml");
+        if (File.Exists(customizationsFile))
+        {
+            LoadGenericComponentFile(workspace, customizationsFile, GetRelativePath(rootPath, customizationsFile));
+        }
+
+        var entitiesDir = Path.Combine(rootPath, "Entities");
+        if (!Directory.Exists(entitiesDir)) return;
+
+        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        {
+            var formXmlDir = Path.Combine(entityDir, "FormXml");
+            if (!Directory.Exists(formXmlDir)) continue;
+
+        }
+    }
+
+    private static void LoadRibbons(Workspace workspace, string rootPath)
+    {
+        var entitiesDir = Path.Combine(rootPath, "Entities");
+        if (!Directory.Exists(entitiesDir)) return;
+
+        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        {
+            var entityLogicalName = Path.GetFileName(entityDir);
+            foreach (var ribbonDiffFile in Directory.GetFiles(entityDir, "RibbonDiff.xml", SearchOption.AllDirectories))
+            {
+                var doc = XDocument.Load(ribbonDiffFile, LoadOptions.PreserveWhitespace);
+                var root = doc.Root;
+                if (root == null) continue;
+
+                var ribbon = new RibbonMetadata
+                {
+                    EntityLogicalName = entityLogicalName,
+                    Body = MergeableNodeXmlConverter.FromXElement(root),
+                    Source = new SourceLocation(ribbonDiffFile, 1, 1)
+                };
+                workspace.AddRibbon(ribbon);
+                workspace.OriginalDocuments[$"Ribbon:{entityLogicalName}"] = doc;
+            }
+        }
     }
 
     /// <summary>
@@ -1061,6 +1219,23 @@ public sealed class XmlWorkspaceReader
 
         workspace.AddGenericComponent(component);
         workspace.OriginalDocuments[key] = doc;
+    }
+
+    private static string GetRelativePath(string rootPath, string filePath)
+    {
+        return filePath.Substring(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length + 1);
+    }
+
+    private static bool IsManagedVariantFile(string filePath)
+    {
+        return Path.GetFileName(filePath).EndsWith("_managed.xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> OrderManagedVariantFiles(IEnumerable<string> filePaths)
+    {
+        return filePaths
+            .OrderByDescending(IsManagedVariantFile)
+            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

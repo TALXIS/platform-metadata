@@ -8,6 +8,9 @@ public class ComponentDefinitionTests
     [InlineData(ComponentType.Form)]
     [InlineData(ComponentType.SystemForm)]
     [InlineData(ComponentType.SiteMap)]
+    [InlineData(ComponentType.AppModule)]
+    [InlineData(ComponentType.AppModuleSiteMap)]
+    [InlineData(ComponentType.RibbonCustomization)]
     public void MergeableComponents_HaveIsMergeableTrue(ComponentType type)
     {
         var def = ComponentDefinitionRegistry.GetByType(type);
@@ -20,7 +23,6 @@ public class ComponentDefinitionTests
     [InlineData(ComponentType.Entity)]
     [InlineData(ComponentType.OptionSet)]
     [InlineData(ComponentType.Role)]
-    [InlineData(ComponentType.AppModule)]
     public void NonMergeableComponents_HaveIsMergeableFalse(ComponentType type)
     {
         var def = ComponentDefinitionRegistry.GetByType(type);

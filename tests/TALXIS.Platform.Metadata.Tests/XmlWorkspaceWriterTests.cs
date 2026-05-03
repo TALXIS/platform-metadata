@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
+using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Solutions;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 
@@ -589,6 +590,344 @@ public class XmlWorkspaceWriterTests
     }
 
     [Fact]
+    public void Roundtrip_PreservesPassthroughWorkspaceFiles()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-passthrough-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-passthrough-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "Entities", "account", "RibbonDiffXml"));
+
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+
+            var customizationsXml =
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <Entities />
+                  <RibbonDiffXml />
+                </ImportExportXml>
+                """;
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Customizations.xml"), customizationsXml);
+
+            var ribbonDiffXml =
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <RibbonDiffXml>
+                  <CustomActions />
+                </RibbonDiffXml>
+                """;
+            File.WriteAllText(Path.Combine(inputPath, "Entities", "account", "RibbonDiffXml", "RibbonDiff.xml"), ribbonDiffXml);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+            var ribbon = Assert.Single(workspace.Ribbons);
+            Assert.Equal("account", ribbon.EntityLogicalName);
+            Assert.Equal("RibbonDiffXml", ribbon.Body?.Name);
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            Assert.Equal(customizationsXml.ReplaceLineEndings(), File.ReadAllText(Path.Combine(outputPath, "Other", "Customizations.xml")).ReplaceLineEndings());
+            Assert.Equal(ribbonDiffXml.ReplaceLineEndings(), File.ReadAllText(Path.Combine(outputPath, "Entities", "account", "RibbonDiffXml", "RibbonDiff.xml")).ReplaceLineEndings());
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_PerEntityRelationships_PreservesStructuredDetails()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-relationships-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-relationships-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other", "Relationships"));
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Relationships.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <EntityRelationships>
+                  <EntityRelationship Name="account_contact_parentcustomerid" />
+                </EntityRelationships>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Relationships", "account.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <EntityRelationships>
+                  <EntityRelationship Name="account_contact_parentcustomerid">
+                    <EntityRelationshipType>OneToMany</EntityRelationshipType>
+                    <IsCustomizable>1</IsCustomizable>
+                    <IntroducedVersion>1.0.0.0</IntroducedVersion>
+                    <IsHierarchical>0</IsHierarchical>
+                    <ReferencingEntityName>contact</ReferencingEntityName>
+                    <ReferencedEntityName>account</ReferencedEntityName>
+                    <CascadeAssign>NoCascade</CascadeAssign>
+                    <CascadeDelete>Cascade</CascadeDelete>
+                    <CascadeArchive>RemoveLink</CascadeArchive>
+                    <CascadeReparent>NoCascade</CascadeReparent>
+                    <CascadeShare>NoCascade</CascadeShare>
+                    <CascadeUnshare>NoCascade</CascadeUnshare>
+                    <CascadeRollupView>NoCascade</CascadeRollupView>
+                    <IsValidForAdvancedFind>1</IsValidForAdvancedFind>
+                    <ReferencingAttributeName>parentcustomerid</ReferencingAttributeName>
+                    <EntityRelationshipRoles>
+                      <EntityRelationshipRole>
+                        <NavPaneDisplayOption>UseCollectionName</NavPaneDisplayOption>
+                        <NavPaneArea>Details</NavPaneArea>
+                        <NavPaneOrder>10000</NavPaneOrder>
+                        <NavigationPropertyName>parentcustomerid_account</NavigationPropertyName>
+                        <RelationshipRoleType>1</RelationshipRoleType>
+                      </EntityRelationshipRole>
+                    </EntityRelationshipRoles>
+                  </EntityRelationship>
+                </EntityRelationships>
+                """);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "Other", "Relationships", "account.xml"));
+            var relationship = writtenDoc.Root!.Element("EntityRelationship")!;
+            Assert.Equal("OneToMany", relationship.Element("EntityRelationshipType")!.Value);
+            Assert.Equal("contact", relationship.Element("ReferencingEntityName")!.Value);
+            Assert.Equal("account", relationship.Element("ReferencedEntityName")!.Value);
+            Assert.Equal("Cascade", relationship.Element("CascadeDelete")!.Value);
+            Assert.Equal("parentcustomerid_account", relationship.Element("EntityRelationshipRoles")!.Element("EntityRelationshipRole")!.Element("NavigationPropertyName")!.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_Forms_WritesMergeableBodyFromModel()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-form-body-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-form-body-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "Entities", "account", "FormXml", "main"));
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{11111111-1111-1111-1111-111111111111}</formid>
+                    <form>
+                      <tabs>
+                        <tab id="base-tab" />
+                      </tabs>
+                    </form>
+                  </systemform>
+                </forms>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(inputPath);
+            var form = Assert.Single(workspace.Forms);
+            var tabs = FindFirst(form.Body!, "tabs")!;
+            var addedTab = new MergeableNode { Name = "tab" };
+            addedTab.Attributes["id"] = "added-tab";
+            addedTab.Attributes["ordinalvalue"] = "10";
+            tabs.Children.Add(addedTab);
+
+            new XmlWorkspaceWriter().Write(workspace, outputPath);
+
+            var written = XDocument.Load(Path.Combine(outputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml"));
+            var writtenTabs = written.Descendants("tab").ToList();
+            Assert.Equal(2, writtenTabs.Count);
+            Assert.Equal("added-tab", writtenTabs[1].Attribute("id")?.Value);
+            Assert.Equal("10", writtenTabs[1].Attribute("ordinalvalue")?.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_ManagedFilesWriteBackToManagedPaths()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-choice-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-choice-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "Entities", "account", "FormXml", "main"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "AppModules", "test_app"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "AppModuleSiteMaps", "test_app"));
+
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+
+            File.WriteAllText(Path.Combine(inputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{11111111-1111-1111-1111-111111111111}</formid>
+                    <LocalizedNames>
+                      <LocalizedName description="Base Form" languagecode="1033" />
+                    </LocalizedNames>
+                  </systemform>
+                </forms>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{11111111-1111-1111-1111-111111111111}</formid>
+                    <LocalizedNames>
+                      <LocalizedName description="Managed Form" languagecode="1033" />
+                    </LocalizedNames>
+                  </systemform>
+                </forms>
+                """);
+
+            File.WriteAllText(Path.Combine(inputPath, "AppModules", "test_app", "AppModule.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModule>
+                  <UniqueName>test_app</UniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base App" languagecode="1033" />
+                  </LocalizedNames>
+                </AppModule>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "AppModules", "test_app", "AppModule_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModule>
+                  <UniqueName>test_app</UniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed App" languagecode="1033" />
+                  </LocalizedNames>
+                </AppModule>
+                """);
+
+            File.WriteAllText(Path.Combine(inputPath, "AppModuleSiteMaps", "test_app", "AppModuleSiteMap.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>test_app_sitemap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+            File.WriteAllText(Path.Combine(inputPath, "AppModuleSiteMaps", "test_app", "AppModuleSiteMap_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>test_app_sitemap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+            workspace.Forms[0].DisplayName = new Label("Updated Managed Form");
+            workspace.AppModules[0].DisplayName = new Label("Updated Managed App");
+            workspace.SiteMaps[0].DisplayName = new Label("Updated Managed SiteMap");
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            Assert.True(File.Exists(Path.Combine(outputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}_managed.xml")));
+            Assert.True(File.Exists(Path.Combine(outputPath, "AppModules", "test_app", "AppModule_managed.xml")));
+            Assert.True(File.Exists(Path.Combine(outputPath, "AppModuleSiteMaps", "test_app", "AppModuleSiteMap_managed.xml")));
+
+            Assert.False(File.Exists(Path.Combine(outputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml")));
+            Assert.False(File.Exists(Path.Combine(outputPath, "AppModules", "test_app", "AppModule.xml")));
+            Assert.False(File.Exists(Path.Combine(outputPath, "AppModuleSiteMaps", "test_app", "AppModuleSiteMap.xml")));
+
+            Assert.Contains("Updated Managed Form", File.ReadAllText(Path.Combine(outputPath, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}_managed.xml")));
+            Assert.Contains("Updated Managed App", File.ReadAllText(Path.Combine(outputPath, "AppModules", "test_app", "AppModule_managed.xml")));
+            Assert.Contains("Updated Managed SiteMap", File.ReadAllText(Path.Combine(outputPath, "AppModuleSiteMaps", "test_app", "AppModuleSiteMap_managed.xml")));
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
     public void Roundtrip_WebResourceWithBlankDisplayName_RemovesDisplayNameElement()
     {
         var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-webresource-in-{Guid.NewGuid():N}");
@@ -703,5 +1042,17 @@ public class XmlWorkspaceWriterTests
 
             File.Copy(file, destinationFile);
         }
+    }
+
+    private static MergeableNode? FindFirst(MergeableNode root, string name)
+    {
+        if (root.Name == name) return root;
+        foreach (var child in root.Children)
+        {
+            var result = FindFirst(child, name);
+            if (result != null) return result;
+        }
+
+        return null;
     }
 }
