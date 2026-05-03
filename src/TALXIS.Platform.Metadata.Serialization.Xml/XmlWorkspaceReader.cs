@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata;
@@ -819,59 +820,320 @@ public sealed class XmlWorkspaceReader
         };
 
         var properties = root["properties"] as JObject;
-        var connectionReferences = properties?["connectionReferences"] as JObject;
+        if (properties == null)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW001", FlowDiagnosticSeverity.Error,
+                "Flow JSON must contain a properties object.", root);
+        }
+
+        var connectionReferencesToken = properties?["connectionReferences"];
+        if (connectionReferencesToken != null && connectionReferencesToken is not JObject)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW002", FlowDiagnosticSeverity.Error,
+                "Flow properties.connectionReferences must be an object.", connectionReferencesToken);
+        }
+
+        var connectionReferences = connectionReferencesToken as JObject;
         if (connectionReferences != null)
         {
             foreach (var property in connectionReferences.Properties())
             {
                 var reference = property.Value as JObject;
+                if (reference == null)
+                {
+                    AddFlowDiagnostic(flow, filePath, "FLOW003", FlowDiagnosticSeverity.Error,
+                        $"Connection reference '{property.Name}' must be an object.", property, property.Name);
+                    continue;
+                }
+
                 flow.AddConnectionReference(new FlowConnectionReferenceMetadata
                 {
                     Name = property.Name,
-                    ApiId = reference?.SelectToken("api.id")?.Value<string>(),
-                    ConnectionName = reference?.SelectToken("connectionName")?.Value<string>()
-                        ?? reference?.SelectToken("connection.name")?.Value<string>(),
-                    ConnectionReferenceLogicalName = reference?.SelectToken("connection.connectionReferenceLogicalName")?.Value<string>()
-                        ?? reference?.SelectToken("connectionReferenceLogicalName")?.Value<string>(),
+                    ApiId = reference.SelectToken("api.id")?.Value<string>(),
+                    ConnectionName = reference.SelectToken("connectionName")?.Value<string>()
+                        ?? reference.SelectToken("connection.name")?.Value<string>(),
+                    ConnectionReferenceLogicalName = reference.SelectToken("connection.connectionReferenceLogicalName")?.Value<string>()
+                        ?? reference.SelectToken("connectionReferenceLogicalName")?.Value<string>(),
                     Source = CreateSourceLocation(filePath, property)
                 });
             }
         }
 
-        var definition = properties?["definition"] as JObject;
+        var definitionToken = properties?["definition"];
+        if (definitionToken == null)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW004", FlowDiagnosticSeverity.Error,
+                "Flow JSON must contain properties.definition.", properties ?? root);
+        }
+        else if (definitionToken is not JObject)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW004", FlowDiagnosticSeverity.Error,
+                "Flow properties.definition must be an object.", definitionToken);
+        }
+
+        var definition = definitionToken as JObject;
         if (definition != null)
         {
             flow.FlowSchema = definition["$schema"]?.Value<string>();
             flow.ContentVersion = definition["contentVersion"]?.Value<string>();
-            AddFlowNodes(flow, filePath, definition["triggers"] as JObject, "trigger");
-            AddFlowNodes(flow, filePath, definition["actions"] as JObject, "action");
+            AddRootFlowNodes(flow, filePath, definition, "triggers", "trigger");
+            AddRootFlowNodes(flow, filePath, definition, "actions", "action");
         }
 
         return flow;
     }
 
-    private static void AddFlowNodes(FlowDefinitionMetadata flow, string filePath, JObject? container, string kind)
+    private static void AddRootFlowNodes(FlowDefinitionMetadata flow, string filePath, JObject definition, string propertyName, string kind)
     {
-        if (container == null) return;
+        var token = definition[propertyName];
+        if (token == null)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW005", FlowDiagnosticSeverity.Warning,
+                $"Flow definition does not contain a {propertyName} object.", definition);
+            return;
+        }
+
+        if (token is not JObject container)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW005", FlowDiagnosticSeverity.Error,
+                $"Flow definition {propertyName} value must be an object.", token);
+            return;
+        }
+
+        AddFlowNodes(flow, filePath, container, kind, null, propertyName, null);
+    }
+
+    private static void AddFlowNodes(
+        FlowDefinitionMetadata flow,
+        string filePath,
+        JObject container,
+        string kind,
+        FlowNodeMetadata? parent,
+        string containerPath,
+        string? branchName)
+    {
+        var siblingNames = new HashSet<string>(container.Properties().Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
 
         foreach (var property in container.Properties())
         {
-            var node = property.Value as JObject;
+            if (property.Value is not JObject node)
+            {
+                AddFlowDiagnostic(flow, filePath, "FLOW006", FlowDiagnosticSeverity.Error,
+                    $"{kind} '{property.Name}' must be an object.", property, property.Name);
+                continue;
+            }
+
             var metadata = new FlowNodeMetadata
             {
                 Name = property.Name,
                 Kind = kind,
-                Type = node?["type"]?.Value<string>(),
-                OperationId = node?.SelectToken("inputs.host.operationId")?.Value<string>() ?? node?["operationId"]?.Value<string>(),
-                RawJson = property.Value.ToString(Newtonsoft.Json.Formatting.None),
+                Type = node["type"]?.Value<string>(),
+                OperationId = node.SelectToken("inputs.host.operationId")?.Value<string>() ?? node["operationId"]?.Value<string>(),
+                JsonPath = property.Path,
+                ParentPath = parent?.JsonPath,
+                ContainerPath = containerPath,
+                BranchName = branchName,
                 Source = CreateSourceLocation(filePath, property)
             };
 
+            AddRunAfterDependencies(flow, filePath, metadata, node["runAfter"], siblingNames);
+            AddConnectionReferenceUsage(flow, filePath, metadata, node);
+            AddExpressionReferences(filePath, metadata, node);
+
             if (string.Equals(kind, "trigger", StringComparison.Ordinal))
+            {
                 flow.AddTrigger(metadata);
-            else
+            }
+            else if (parent == null)
+            {
                 flow.AddAction(metadata);
+            }
+            else
+            {
+                parent.AddChild(metadata);
+            }
+
+            if (string.Equals(kind, "action", StringComparison.Ordinal))
+                AddNestedFlowActionContainers(flow, filePath, metadata, node);
         }
+    }
+
+    private static void AddNestedFlowActionContainers(FlowDefinitionMetadata flow, string filePath, FlowNodeMetadata parent, JObject node)
+    {
+        AddOptionalActionContainer(flow, filePath, parent, node, "actions", "actions", null);
+
+        if (node["else"] is JObject elseNode)
+            AddOptionalActionContainer(flow, filePath, parent, elseNode, "actions", "else.actions", "else");
+        else if (node["else"] != null)
+            AddFlowDiagnostic(flow, filePath, "FLOW007", FlowDiagnosticSeverity.Error,
+                $"Action '{parent.Name}' has an else value that must be an object.", node["else"], parent.Name);
+
+        if (node["cases"] is JObject cases)
+        {
+            foreach (var caseProperty in cases.Properties())
+            {
+                if (caseProperty.Value is not JObject caseNode)
+                {
+                    AddFlowDiagnostic(flow, filePath, "FLOW007", FlowDiagnosticSeverity.Error,
+                        $"Switch case '{caseProperty.Name}' must be an object.", caseProperty, caseProperty.Name);
+                    continue;
+                }
+
+                AddOptionalActionContainer(flow, filePath, parent, caseNode, "actions", $"cases.{caseProperty.Name}.actions", caseProperty.Name);
+            }
+        }
+        else if (node["cases"] != null)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW007", FlowDiagnosticSeverity.Error,
+                $"Action '{parent.Name}' has a cases value that must be an object.", node["cases"], parent.Name);
+        }
+
+        if (node["default"] is JObject defaultNode)
+            AddOptionalActionContainer(flow, filePath, parent, defaultNode, "actions", "default.actions", "default");
+        else if (node["default"] != null)
+            AddFlowDiagnostic(flow, filePath, "FLOW007", FlowDiagnosticSeverity.Error,
+                $"Action '{parent.Name}' has a default value that must be an object.", node["default"], parent.Name);
+    }
+
+    private static void AddOptionalActionContainer(
+        FlowDefinitionMetadata flow,
+        string filePath,
+        FlowNodeMetadata parent,
+        JObject owner,
+        string propertyName,
+        string containerPath,
+        string? branchName)
+    {
+        var token = owner[propertyName];
+        if (token == null) return;
+
+        if (token is not JObject container)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW007", FlowDiagnosticSeverity.Error,
+                $"Action '{parent.Name}' has a {containerPath} value that must be an object.", token, parent.Name);
+            return;
+        }
+
+        AddFlowNodes(flow, filePath, container, "action", parent, containerPath, branchName);
+    }
+
+    private static void AddRunAfterDependencies(
+        FlowDefinitionMetadata flow,
+        string filePath,
+        FlowNodeMetadata node,
+        JToken? runAfterToken,
+        HashSet<string> siblingNames)
+    {
+        if (runAfterToken == null) return;
+
+        if (runAfterToken is not JObject runAfter)
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW008", FlowDiagnosticSeverity.Error,
+                $"Action '{node.Name}' has a runAfter value that must be an object.", runAfterToken, node.Name);
+            return;
+        }
+
+        foreach (var dependencyProperty in runAfter.Properties())
+        {
+            IReadOnlyList<string> statuses = dependencyProperty.Value is JArray statusArray
+                ? statusArray.Values<string>().Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!).ToArray()
+                : Array.Empty<string>();
+
+            node.AddRunAfter(new FlowRunAfterDependency
+            {
+                TargetName = dependencyProperty.Name,
+                Statuses = statuses,
+                JsonPath = dependencyProperty.Path
+            });
+
+            if (!siblingNames.Contains(dependencyProperty.Name))
+            {
+                AddFlowDiagnostic(flow, filePath, "FLOW009", FlowDiagnosticSeverity.Error,
+                    $"Action '{node.Name}' has a runAfter dependency on unknown sibling action '{dependencyProperty.Name}'.",
+                    dependencyProperty,
+                    dependencyProperty.Name);
+            }
+        }
+    }
+
+    private static void AddConnectionReferenceUsage(FlowDefinitionMetadata flow, string filePath, FlowNodeMetadata node, JObject nodeObject)
+    {
+        var connectionReferenceName = nodeObject.SelectToken("inputs.host.connectionReferenceName")?.Value<string>();
+        if (string.IsNullOrWhiteSpace(connectionReferenceName)) return;
+
+        node.AddConnectionReferenceName(connectionReferenceName!);
+
+        if (!flow.ConnectionReferences.Any(r => string.Equals(r.Name, connectionReferenceName, StringComparison.OrdinalIgnoreCase)))
+        {
+            AddFlowDiagnostic(flow, filePath, "FLOW010", FlowDiagnosticSeverity.Error,
+                $"Action '{node.Name}' uses unknown connection reference '{connectionReferenceName}'.",
+                nodeObject.SelectToken("inputs.host.connectionReferenceName") ?? nodeObject,
+                connectionReferenceName);
+        }
+    }
+
+    private static void AddExpressionReferences(string filePath, FlowNodeMetadata node, JObject nodeObject)
+    {
+        foreach (var value in nodeObject.DescendantsAndSelf().OfType<JValue>())
+        {
+            if (value.Type != JTokenType.String || value.Value is not string expression)
+                continue;
+
+            if (!expression.Contains("@") && expression.IndexOf("parameters(", StringComparison.Ordinal) < 0 && expression.IndexOf("outputs(", StringComparison.Ordinal) < 0)
+                continue;
+
+            foreach (var reference in ExtractExpressionReferences(expression, value.Path, CreateSourceLocation(filePath, value)))
+                node.AddExpressionReference(reference);
+        }
+    }
+
+    private static IEnumerable<FlowExpressionReference> ExtractExpressionReferences(string expression, string jsonPath, SourceLocation source)
+    {
+        foreach (Match match in Regex.Matches(expression, @"(?<kind>parameters|outputs|body|variables|items|environment)\('(?<name>[^']+)'\)"))
+        {
+            yield return new FlowExpressionReference
+            {
+                Kind = match.Groups["kind"].Value,
+                Name = match.Groups["name"].Value,
+                Expression = expression,
+                JsonPath = jsonPath,
+                Source = source
+            };
+        }
+
+        foreach (Match match in Regex.Matches(expression, @"(?<kind>triggerOutputs|triggerBody)\(\)"))
+        {
+            yield return new FlowExpressionReference
+            {
+                Kind = match.Groups["kind"].Value,
+                Expression = expression,
+                JsonPath = jsonPath,
+                Source = source
+            };
+        }
+    }
+
+    private static void AddFlowDiagnostic(
+        FlowDefinitionMetadata flow,
+        string filePath,
+        string code,
+        FlowDiagnosticSeverity severity,
+        string message,
+        JToken? source,
+        string? relatedName = null)
+    {
+        var location = CreateSourceLocation(filePath, source);
+        flow.AddDiagnostic(new FlowDiagnostic
+        {
+            Severity = severity,
+            Code = code,
+            Message = message,
+            FilePath = filePath,
+            JsonPath = source?.Path,
+            Line = location.Line,
+            Column = location.Column,
+            RelatedName = relatedName
+        });
     }
 
     private static void AttachFlowDefinition(Workspace workspace, FlowDefinitionMetadata flow, string filePath)
