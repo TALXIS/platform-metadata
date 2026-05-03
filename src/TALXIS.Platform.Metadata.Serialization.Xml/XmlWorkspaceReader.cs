@@ -1,3 +1,6 @@
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
@@ -11,6 +14,8 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml;
 /// </summary>
 public sealed class XmlWorkspaceReader
 {
+    private const LoadOptions XmlLoadOptions = LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo;
+
     /// <summary>
     /// Loads a solution workspace from disk.
     /// </summary>
@@ -30,6 +35,7 @@ public sealed class XmlWorkspaceReader
         LoadViews(workspace, workspacePath);
         LoadWebResources(workspace, workspacePath);
         LoadWorkflows(workspace, workspacePath);
+        LoadFlowDefinitions(workspace, workspacePath);
         LoadPluginAssemblies(workspace, workspacePath);
         LoadSdkMessageProcessingSteps(workspace, workspacePath);
         LoadSecurityRoles(workspace, workspacePath);
@@ -45,7 +51,7 @@ public sealed class XmlWorkspaceReader
         var solutionFile = Path.Combine(rootPath, "Other", "Solution.xml");
         if (!File.Exists(solutionFile)) return;
 
-        var doc = XDocument.Load(solutionFile, LoadOptions.PreserveWhitespace);
+        var doc = LoadDocument(solutionFile);
         workspace.OriginalDocuments["Solution.xml"] = doc;
         var manifest = doc.Root?.Element("SolutionManifest");
         if (manifest == null) return;
@@ -55,7 +61,7 @@ public sealed class XmlWorkspaceReader
             UniqueName = manifest.Element("UniqueName")?.Value ?? "Unknown",
             Version = manifest.Element("Version")?.Value ?? "1.0.0.0",
             ManagedValue = manifest.Element("Managed")?.Value ?? "0",
-            Source = new SourceLocation(solutionFile, 1, 1)
+            Source = CreateSourceLocation(solutionFile, manifest)
         };
 
         // Display name (all languages)
@@ -70,7 +76,7 @@ public sealed class XmlWorkspaceReader
             {
                 UniqueName = pubEl.Element("UniqueName")?.Value ?? "Unknown",
                 Prefix = pubEl.Element("CustomizationPrefix")?.Value ?? "new",
-                Source = new SourceLocation(solutionFile, 1, 1)
+                Source = CreateSourceLocation(solutionFile, pubEl)
             };
 
             var pubLabel = ReadLabel(pubEl.Element("LocalizedNames"), "LocalizedName");
@@ -131,7 +137,7 @@ public sealed class XmlWorkspaceReader
 
     private static (EntityMetadata? entity, XDocument? doc) ParseEntityFile(string filePath)
     {
-        var doc = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
+        var doc = LoadDocument(filePath);
         var root = doc.Root; // <Entity>
         if (root == null) return (null, null);
 
@@ -146,7 +152,7 @@ public sealed class XmlWorkspaceReader
         {
             LogicalName = logicalName,
             SchemaName = logicalName,
-            Source = new SourceLocation(filePath, 1, 1)
+            Source = CreateSourceLocation(filePath, entityInfo)
         };
 
         // Display name from <Name LocalizedName="...">
@@ -227,7 +233,7 @@ public sealed class XmlWorkspaceReader
         attr.IsAuditEnabled = attrEl.Element("IsAuditEnabled")?.Value == "1";
         attr.IsSecured = attrEl.Element("IsSecured")?.Value == "1";
         attr.IsSearchable = attrEl.Element("IsSearchable")?.Value == "1";
-        attr.Source = new SourceLocation(filePath, 1, 1);
+        attr.Source = CreateSourceLocation(filePath, attrEl);
 
         // Required level
         attr.RequiredLevel = RequiredLevelXml.Parse(attrEl.Element("RequiredLevel")?.Value);
@@ -405,7 +411,7 @@ public sealed class XmlWorkspaceReader
 
     private static (OptionSetMetadata? optionSet, XDocument? doc) ParseOptionSetFile(string filePath)
     {
-        var doc = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
+        var doc = LoadDocument(filePath);
         var root = doc.Root; // <optionset>
         if (root == null) return (null, null);
 
@@ -417,7 +423,7 @@ public sealed class XmlWorkspaceReader
             Name = name,
             OptionSetId = root.Attribute("OptionSetId")?.Value,
             IsGlobal = root.Element("IsGlobal")?.Value == "1",
-            Source = new SourceLocation(filePath, 1, 1)
+            Source = CreateSourceLocation(filePath, root)
         };
 
         // Display name
@@ -457,7 +463,7 @@ public sealed class XmlWorkspaceReader
         var relationshipsFile = Path.Combine(rootPath, "Other", "Relationships.xml");
         if (!File.Exists(relationshipsFile)) return;
 
-        var doc = XDocument.Load(relationshipsFile, LoadOptions.PreserveWhitespace);
+        var doc = LoadDocument(relationshipsFile);
         workspace.OriginalDocuments["Relationships.xml"] = doc;
         var root = doc.Root; // <EntityRelationships>
         if (root == null) return;
@@ -487,7 +493,7 @@ public sealed class XmlWorkspaceReader
                     Entity1LogicalName = entity1,
                     Entity2LogicalName = entity2,
                     IntersectEntityName = intersect,
-                    Source = new SourceLocation(relationshipsFile, 1, 1)
+                    Source = CreateSourceLocation(relationshipsFile, relEl)
                 };
             }
             else
@@ -499,7 +505,7 @@ public sealed class XmlWorkspaceReader
                     ReferencedAttribute = referencedAttr ?? "",
                     ReferencingEntity = referencingEntity ?? "",
                     ReferencingAttribute = referencingAttr ?? "",
-                    Source = new SourceLocation(relationshipsFile, 1, 1)
+                    Source = CreateSourceLocation(relationshipsFile, relEl)
                 };
             }
 
@@ -523,7 +529,7 @@ public sealed class XmlWorkspaceReader
                 var formType = Path.GetFileName(formTypeDir);
                 foreach (var formFile in Directory.GetFiles(formTypeDir, "*.xml"))
                 {
-                    var doc = XDocument.Load(formFile, LoadOptions.PreserveWhitespace);
+                    var doc = LoadDocument(formFile);
                     var systemForm = doc.Root?.Element("systemform");
                     if (systemForm == null) continue;
 
@@ -538,7 +544,7 @@ public sealed class XmlWorkspaceReader
                         IntroducedVersion = systemForm.Element("IntroducedVersion")?.Value,
                         FormPresentation = ParseInt(systemForm.Element("FormPresentation")?.Value, 0),
                         FormActivationState = ParseInt(systemForm.Element("FormActivationState")?.Value, 0),
-                        Source = new SourceLocation(formFile, 1, 1)
+                        Source = CreateSourceLocation(formFile, systemForm)
                     };
 
                     var displayLabel = ReadLabel(systemForm.Element("LocalizedNames"), "LocalizedName");
@@ -567,7 +573,7 @@ public sealed class XmlWorkspaceReader
 
             foreach (var viewFile in Directory.GetFiles(savedQueriesDir, "*.xml"))
             {
-                var doc = XDocument.Load(viewFile, LoadOptions.PreserveWhitespace);
+                var doc = LoadDocument(viewFile);
                 var savedQuery = doc.Root?.Element("savedquery");
                 if (savedQuery == null) continue;
 
@@ -583,7 +589,7 @@ public sealed class XmlWorkspaceReader
                     FetchXml = savedQuery.Element("fetchxml")?.Value,
                     LayoutXml = savedQuery.Element("layoutxml")?.Value,
                     IntroducedVersion = savedQuery.Element("IntroducedVersion")?.Value,
-                    Source = new SourceLocation(viewFile, 1, 1)
+                    Source = CreateSourceLocation(viewFile, savedQuery)
                 };
 
                 var displayLabel = ReadLabel(savedQuery.Element("LocalizedNames"), "LocalizedName");
@@ -621,7 +627,7 @@ public sealed class XmlWorkspaceReader
                 IsHidden = root.Element("IsHidden")?.Value == "1",
                 IsEnabledForMobileClient = root.Element("IsEnabledForMobileClient")?.Value == "1",
                 IsAvailableForMobileOffline = root.Element("IsAvailableForMobileOffline")?.Value == "1",
-                Source = new SourceLocation(file, 1, 1)
+                Source = CreateSourceLocation(file, root)
             };
 
             workspace.AddWebResource(webResource);
@@ -658,7 +664,7 @@ public sealed class XmlWorkspaceReader
                 DeleteStage = ParseInt(root.Element("DeleteStage")?.Value),
                 Rank = ParseInt(root.Element("Rank")?.Value),
                 ProcessOrder = ParseInt(root.Element("ProcessOrder")?.Value),
-                Source = new SourceLocation(file, 1, 1)
+                Source = CreateSourceLocation(file, root)
             };
 
             var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
@@ -670,6 +676,113 @@ public sealed class XmlWorkspaceReader
             workspace.AddWorkflow(workflow);
             workspace.OriginalDocuments[$"Workflow:{workflowId}"] = doc;
         }
+    }
+
+    private static void LoadFlowDefinitions(Workspace workspace, string rootPath)
+    {
+        var workflowsDir = Path.Combine(rootPath, "Workflows");
+        if (!Directory.Exists(workflowsDir)) return;
+
+        foreach (var file in Directory.EnumerateFiles(workflowsDir, "*.json", SearchOption.AllDirectories))
+        {
+            JObject root;
+            try
+            {
+                root = LoadJsonDocument(file);
+            }
+            catch (JsonReaderException ex)
+            {
+                workspace.AddLoadError(
+                    file,
+                    $"Invalid JSON: {ex.Message}",
+                    ex.LineNumber > 0 ? ex.LineNumber : null,
+                    ex.LineNumber > 0 ? System.Math.Max(ex.LinePosition, 1) : null);
+                continue;
+            }
+
+            var flow = ParseFlowDefinition(rootPath, file, root);
+            workspace.AddFlowDefinition(flow);
+            AttachFlowDefinition(workspace, flow, file);
+        }
+    }
+
+    private static FlowDefinitionMetadata ParseFlowDefinition(string rootPath, string filePath, JObject root)
+    {
+        var flow = new FlowDefinitionMetadata
+        {
+            Name = Path.GetFileNameWithoutExtension(filePath),
+            FilePath = GetRelativePath(rootPath, filePath),
+            SchemaVersion = root["schemaVersion"]?.Value<string>(),
+            RawJson = root.ToString(Newtonsoft.Json.Formatting.None),
+            Source = CreateSourceLocation(filePath, root)
+        };
+
+        var properties = root["properties"] as JObject;
+        var connectionReferences = properties?["connectionReferences"] as JObject;
+        if (connectionReferences != null)
+        {
+            foreach (var property in connectionReferences.Properties())
+            {
+                var reference = property.Value as JObject;
+                flow.AddConnectionReference(new FlowConnectionReferenceMetadata
+                {
+                    Name = property.Name,
+                    ApiId = reference?.SelectToken("api.id")?.Value<string>(),
+                    ConnectionName = reference?.SelectToken("connectionName")?.Value<string>()
+                        ?? reference?.SelectToken("connection.name")?.Value<string>(),
+                    ConnectionReferenceLogicalName = reference?.SelectToken("connection.connectionReferenceLogicalName")?.Value<string>()
+                        ?? reference?.SelectToken("connectionReferenceLogicalName")?.Value<string>(),
+                    Source = CreateSourceLocation(filePath, property)
+                });
+            }
+        }
+
+        var definition = properties?["definition"] as JObject;
+        if (definition != null)
+        {
+            flow.FlowSchema = definition["$schema"]?.Value<string>();
+            flow.ContentVersion = definition["contentVersion"]?.Value<string>();
+            AddFlowNodes(flow, filePath, definition["triggers"] as JObject, "trigger");
+            AddFlowNodes(flow, filePath, definition["actions"] as JObject, "action");
+        }
+
+        return flow;
+    }
+
+    private static void AddFlowNodes(FlowDefinitionMetadata flow, string filePath, JObject? container, string kind)
+    {
+        if (container == null) return;
+
+        foreach (var property in container.Properties())
+        {
+            var node = property.Value as JObject;
+            var metadata = new FlowNodeMetadata
+            {
+                Name = property.Name,
+                Kind = kind,
+                Type = node?["type"]?.Value<string>(),
+                OperationId = node?.SelectToken("inputs.host.operationId")?.Value<string>() ?? node?["operationId"]?.Value<string>(),
+                RawJson = property.Value.ToString(Newtonsoft.Json.Formatting.None),
+                Source = CreateSourceLocation(filePath, property)
+            };
+
+            if (string.Equals(kind, "trigger", StringComparison.Ordinal))
+                flow.AddTrigger(metadata);
+            else
+                flow.AddAction(metadata);
+        }
+    }
+
+    private static void AttachFlowDefinition(Workspace workspace, FlowDefinitionMetadata flow, string filePath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        var workflow = workspace.Workflows.FirstOrDefault(w =>
+            string.Equals(w.UniqueName, fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileNameWithoutExtension(w.XamlFileName), fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileName(w.XamlFileName), Path.GetFileName(filePath), StringComparison.OrdinalIgnoreCase));
+
+        if (workflow != null)
+            workflow.FlowDefinition = flow;
     }
 
     private static void LoadPluginAssemblies(Workspace workspace, string rootPath)
@@ -690,7 +803,7 @@ public sealed class XmlWorkspaceReader
                 FileName = root.Element("FileName")?.Value,
                 IntroducedVersion = root.Element("IntroducedVersion")?.Value,
                 CustomizationLevel = ParseInt(root.Element("CustomizationLevel")?.Value, 0),
-                Source = new SourceLocation(file, 1, 1)
+                Source = CreateSourceLocation(file, root)
             };
 
             var pluginTypes = root.Element("PluginTypes");
@@ -709,7 +822,7 @@ public sealed class XmlWorkspaceReader
                         FriendlyName = ptEl.Element("FriendlyName")?.Value,
                         TypeName = ptEl.Element("TypeName")?.Value,
                         WorkflowActivityGroupName = ptEl.Element("WorkflowActivityGroupName")?.Value,
-                        Source = new SourceLocation(file, 1, 1)
+                        Source = CreateSourceLocation(file, ptEl)
                     };
 
                     assembly.AddPluginType(pluginType);
@@ -746,7 +859,7 @@ public sealed class XmlWorkspaceReader
                 IntroducedVersion = root.Element("IntroducedVersion")?.Value,
                 IsCustomizable = root.Element("IsCustomizable")?.Value == "1",
                 IsHidden = root.Element("IsHidden")?.Value == "1",
-                Source = new SourceLocation(file, 1, 1)
+                Source = CreateSourceLocation(file, root)
             };
 
             var imagesEl = root.Element("SdkMessageProcessingStepImages");
@@ -764,7 +877,7 @@ public sealed class XmlWorkspaceReader
                         MessagePropertyName = imgEl.Element("MessagePropertyName")?.Value,
                         EntityAlias = imgEl.Element("EntityAlias")?.Value,
                         Attributes = imgEl.Element("Attributes")?.Value,
-                        Source = new SourceLocation(file, 1, 1)
+                        Source = CreateSourceLocation(file, imgEl)
                     };
 
                     step.AddImage(image);
@@ -790,7 +903,7 @@ public sealed class XmlWorkspaceReader
                 Name = roleName,
                 IsInherited = root.Attribute("isinherited")?.Value == "1",
                 IntroducedVersion = root.Element("IntroducedVersion")?.Value,
-                Source = new SourceLocation(file, 1, 1)
+                Source = CreateSourceLocation(file, root)
             };
 
             var privilegesEl = root.Element("RolePrivileges");
@@ -825,7 +938,7 @@ public sealed class XmlWorkspaceReader
             var appModuleFile = Path.Combine(appModuleDir, "AppModule.xml");
             if (!File.Exists(appModuleFile)) continue;
 
-            var doc = XDocument.Load(appModuleFile, LoadOptions.PreserveWhitespace);
+            var doc = LoadDocument(appModuleFile);
             var root = doc.Root; // <AppModule>
             if (root == null) continue;
 
@@ -840,7 +953,7 @@ public sealed class XmlWorkspaceReader
                 FormFactor = ParseInt(root.Element("FormFactor")?.Value, 0),
                 ClientType = ParseInt(root.Element("ClientType")?.Value, 0),
                 NavigationType = ParseInt(root.Element("NavigationType")?.Value, 0),
-                Source = new SourceLocation(appModuleFile, 1, 1)
+                Source = CreateSourceLocation(appModuleFile, root)
             };
 
             var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
@@ -905,7 +1018,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadSiteMapFile(Workspace workspace, string file)
     {
-        var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
+        var doc = LoadDocument(file);
         var root = doc.Root; // <AppModuleSiteMap>
         if (root == null) return;
 
@@ -920,7 +1033,7 @@ public sealed class XmlWorkspaceReader
             ShowHome = root.Element("ShowHome")?.Value?.Equals("True", StringComparison.OrdinalIgnoreCase) == true,
             ShowPinned = root.Element("ShowPinned")?.Value?.Equals("True", StringComparison.OrdinalIgnoreCase) == true,
             ShowRecents = root.Element("ShowRecents")?.Value?.Equals("True", StringComparison.OrdinalIgnoreCase) == true,
-            Source = new SourceLocation(file, 1, 1)
+            Source = CreateSourceLocation(file, root)
         };
 
         var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
@@ -1024,7 +1137,7 @@ public sealed class XmlWorkspaceReader
         XDocument doc;
         try
         {
-            doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
+            doc = LoadDocument(file);
         }
         catch (System.Xml.XmlException ex)
         {
@@ -1055,8 +1168,8 @@ public sealed class XmlWorkspaceReader
             Id = id,
             Name = name,
             FilePath = relativePath,
-            SerializedContent = doc.ToString(),
-            Source = new SourceLocation(file, 1, 1)
+            Source = CreateSourceLocation(file, root),
+            SerializedContent = doc.ToString()
         };
 
         workspace.AddGenericComponent(component);
@@ -1064,7 +1177,7 @@ public sealed class XmlWorkspaceReader
     }
 
     /// <summary>
-    /// Enumerates XML files in a directory, loading each as an XDocument with PreserveWhitespace.
+    /// Enumerates XML files in a directory, loading each as an XDocument with PreserveWhitespace and SetLineInfo.
     /// Skips files that are malformed XML or have no root element.
     /// </summary>
     private static IEnumerable<(string filePath, XDocument doc, XElement root)> LoadXmlFiles(
@@ -1075,7 +1188,7 @@ public sealed class XmlWorkspaceReader
         foreach (var file in Directory.EnumerateFiles(directory, pattern, searchOption))
         {
             XDocument doc;
-            try { doc = XDocument.Load(file, LoadOptions.PreserveWhitespace); }
+            try { doc = LoadDocument(file); }
             catch (System.Xml.XmlException ex)
             {
                 workspace.AddLoadError(file, $"Malformed XML: {ex.Message}");
@@ -1095,5 +1208,43 @@ public sealed class XmlWorkspaceReader
     private static int? ParseInt(string? value)
     {
         return int.TryParse(value, out var result) ? result : null;
+    }
+
+    private static XDocument LoadDocument(string filePath) => XDocument.Load(filePath, XmlLoadOptions);
+
+    private static JObject LoadJsonDocument(string filePath)
+    {
+        using var textReader = File.OpenText(filePath);
+        using var jsonReader = new JsonTextReader(textReader)
+        {
+            DateParseHandling = DateParseHandling.None
+        };
+
+        return JObject.Load(jsonReader, new JsonLoadSettings
+        {
+            CommentHandling = CommentHandling.Ignore,
+            LineInfoHandling = LineInfoHandling.Load
+        });
+    }
+
+    private static SourceLocation CreateSourceLocation(string filePath, XObject? source)
+    {
+        if (source is IXmlLineInfo lineInfo && lineInfo.HasLineInfo())
+            return new SourceLocation(filePath, lineInfo.LineNumber, lineInfo.LinePosition);
+
+        return new SourceLocation(filePath, 1, 1);
+    }
+
+    private static SourceLocation CreateSourceLocation(string filePath, JToken? source)
+    {
+        if (source is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
+            return new SourceLocation(filePath, lineInfo.LineNumber, lineInfo.LinePosition);
+
+        return new SourceLocation(filePath, 1, 1);
+    }
+
+    private static string GetRelativePath(string rootPath, string filePath)
+    {
+        return filePath.Substring(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length + 1);
     }
 }

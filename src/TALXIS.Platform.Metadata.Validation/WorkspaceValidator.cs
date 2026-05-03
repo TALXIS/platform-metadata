@@ -102,7 +102,9 @@ public sealed class WorkspaceValidator
                 results.Add(new ValidationResult(
                     ValidationSeverity.Error,
                     $"Load error: {loadError.Message}",
-                    loadError.FilePath, null, null));
+                    loadError.FilePath,
+                    loadError.Line,
+                    loadError.Column));
             }
         }
         catch (Exception ex)
@@ -162,10 +164,11 @@ public sealed class ComponentSummary
     public int SiteMaps { get; }
     public int WebResources { get; }
     public int Workflows { get; }
+    public int FlowDefinitions { get; }
     public int GenericComponents { get; }
     public int Total => Entities + Forms + Views + GlobalOptionSets + Relationships +
                         PluginAssemblies + SdkMessageProcessingSteps + SecurityRoles +
-                        AppModules + SiteMaps + WebResources + Workflows + GenericComponents;
+                        AppModules + SiteMaps + WebResources + Workflows + FlowDefinitions + GenericComponents;
 
     public ComponentSummary(Workspace workspace)
     {
@@ -182,6 +185,7 @@ public sealed class ComponentSummary
         SiteMaps = workspace.SiteMaps.Count;
         WebResources = workspace.WebResources.Count;
         Workflows = workspace.Workflows.Count;
+        FlowDefinitions = workspace.FlowDefinitions.Count;
         GenericComponents = workspace.GenericComponents.Count;
     }
 
@@ -200,6 +204,7 @@ public sealed class ComponentSummary
         if (SiteMaps > 0) parts.Add($"{SiteMaps} sitemaps");
         if (WebResources > 0) parts.Add($"{WebResources} web resources");
         if (Workflows > 0) parts.Add($"{Workflows} workflows");
+        if (FlowDefinitions > 0) parts.Add($"{FlowDefinitions} flow definitions");
         if (GenericComponents > 0) parts.Add($"{GenericComponents} generic");
         return string.Join(", ", parts);
     }

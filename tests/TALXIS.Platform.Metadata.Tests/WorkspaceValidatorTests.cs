@@ -105,4 +105,28 @@ public class WorkspaceValidatorTests
             if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
         }
     }
+
+    [Fact]
+    public void InvalidFlowJson_SurfacedWithLineAndColumn()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-flow-json-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempDir, "Workflows"));
+            File.WriteAllText(Path.Combine(tempDir, "Workflows", "broken-flow.json"), "{\n  \"properties\": {\n");
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+
+            Assert.Contains(report.Results, r =>
+                r.Severity == ValidationSeverity.Error &&
+                r.FilePath != null &&
+                r.FilePath.EndsWith("broken-flow.json", StringComparison.Ordinal) &&
+                r.Line > 0 &&
+                r.Column > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
 }
