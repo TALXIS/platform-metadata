@@ -84,21 +84,50 @@ public sealed class Workspace
     /// </summary>
     internal Dictionary<string, XDocument> OriginalDocuments { get; } = new();
 
-    public void AddEntity(EntityMetadata entity) => _entities.Add(entity);
-    public void AddGlobalOptionSet(OptionSetMetadata optionSet) => _globalOptionSets.Add(optionSet);
-    public void AddRelationship(RelationshipMetadata relationship) => _relationships.Add(relationship);
-    public void AddForm(FormMetadata form) => _forms.Add(form);
-    public void AddView(SavedQueryMetadata view) => _views.Add(view);
-    public void AddPluginAssembly(PluginAssemblyMetadata pluginAssembly) => _pluginAssemblies.Add(pluginAssembly);
-    public void AddSdkMessageProcessingStep(SdkMessageProcessingStepMetadata step) => _sdkMessageProcessingSteps.Add(step);
-    public void AddSecurityRole(SecurityRoleMetadata securityRole) => _securityRoles.Add(securityRole);
-    public void AddAppModule(AppModuleMetadata appModule) => _appModules.Add(appModule);
-    public void AddSiteMap(SiteMapMetadata siteMap) => _siteMaps.Add(siteMap);
-    public void AddWebResource(WebResourceMetadata webResource) => _webResources.Add(webResource);
-    public void AddWorkflow(WorkflowMetadata workflow) => _workflows.Add(workflow);
-    public void AddRibbon(RibbonMetadata ribbon) => _ribbons.Add(ribbon);
-    public void AddFlowDefinition(FlowDefinitionMetadata flowDefinition) => _flowDefinitions.Add(flowDefinition);
-    public void AddGenericComponent(GenericComponentMetadata component) => _genericComponents.Add(component);
+    public void AddEntity(EntityMetadata entity) =>
+        AddUnique(_entities, entity, e => e.LogicalName, "entity");
+
+    public void AddGlobalOptionSet(OptionSetMetadata optionSet) =>
+        AddUnique(_globalOptionSets, optionSet, o => o.Name, "option set");
+
+    public void AddRelationship(RelationshipMetadata relationship) =>
+        AddUnique(_relationships, relationship, r => r.SchemaName, "relationship");
+
+    public void AddForm(FormMetadata form) =>
+        AddUnique(_forms, form, f => f.FormId, "form");
+
+    public void AddView(SavedQueryMetadata view) =>
+        AddUnique(_views, view, v => v.SavedQueryId, "view");
+
+    public void AddPluginAssembly(PluginAssemblyMetadata pluginAssembly) =>
+        AddUnique(_pluginAssemblies, pluginAssembly, p => p.PluginAssemblyId, "plugin assembly");
+
+    public void AddSdkMessageProcessingStep(SdkMessageProcessingStepMetadata step) =>
+        AddUnique(_sdkMessageProcessingSteps, step, s => s.SdkMessageProcessingStepId, "SDK message processing step");
+
+    public void AddSecurityRole(SecurityRoleMetadata securityRole) =>
+        AddUnique(_securityRoles, securityRole, r => r.RoleId, "security role");
+
+    public void AddAppModule(AppModuleMetadata appModule) =>
+        AddUnique(_appModules, appModule, a => a.UniqueName, "app module");
+
+    public void AddSiteMap(SiteMapMetadata siteMap) =>
+        AddUnique(_siteMaps, siteMap, s => s.UniqueName, "site map");
+
+    public void AddWebResource(WebResourceMetadata webResource) =>
+        AddUnique(_webResources, webResource, w => w.WebResourceId, "web resource");
+
+    public void AddWorkflow(WorkflowMetadata workflow) =>
+        AddUnique(_workflows, workflow, w => w.WorkflowId, "workflow");
+
+    public void AddRibbon(RibbonMetadata ribbon) =>
+        AddUnique(_ribbons, ribbon, r => r.EntityLogicalName, "ribbon");
+
+    public void AddFlowDefinition(FlowDefinitionMetadata flowDefinition) =>
+        AddUnique(_flowDefinitions, flowDefinition, f => f.FilePath, "flow definition");
+
+    public void AddGenericComponent(GenericComponentMetadata component) =>
+        AddUnique(_genericComponents, component, c => c.FilePath, "generic component");
 
     public EntityMetadata? FindEntity(string logicalName) =>
         _entities.FirstOrDefault(e => string.Equals(e.LogicalName, logicalName, StringComparison.OrdinalIgnoreCase));
@@ -138,9 +167,9 @@ public sealed class Workspace
         foreach (var ribbon in _ribbons)
             yield return (ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon);
         foreach (var flowDefinition in _flowDefinitions)
-            yield return (ComponentType.GenericComponent, flowDefinition.Name ?? flowDefinition.FilePath ?? "flow", flowDefinition);
+            yield return (ComponentType.GenericComponent, flowDefinition.FilePath ?? flowDefinition.Name ?? "flow", flowDefinition);
         foreach (var component in _genericComponents)
-            yield return (ComponentType.GenericComponent, component.Id ?? component.FilePath ?? component.ComponentTypeName, component);
+            yield return (ComponentType.GenericComponent, component.FilePath ?? component.Id ?? component.ComponentTypeName, component);
     }
 
     private static bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
@@ -158,6 +187,22 @@ public sealed class Workspace
         }
 
         return false;
+    }
+
+    private static void AddUnique<T>(
+        List<T> items,
+        T item,
+        Func<T, string?> getKey,
+        string componentType)
+    {
+        var key = getKey(item);
+        if (string.IsNullOrWhiteSpace(key))
+            throw new InvalidOperationException($"A {componentType} must have a non-empty identity key before it can be added to the workspace.");
+
+        if (items.Any(existing => string.Equals(getKey(existing), key, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"A {componentType} with key '{key}' already exists in the workspace.");
+
+        items.Add(item);
     }
 }
 
