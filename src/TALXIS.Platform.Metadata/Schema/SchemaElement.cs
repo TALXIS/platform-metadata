@@ -1,7 +1,7 @@
-namespace TALXIS.Platform.Metadata.Validation;
+namespace TALXIS.Platform.Metadata.Schema;
 
 /// <summary>
-/// Describes an XML element declared in an XSD schema, including its children and attributes.
+/// Describes an element declared in a schema, including its children and attributes.
 /// </summary>
 public sealed class SchemaElement
 {

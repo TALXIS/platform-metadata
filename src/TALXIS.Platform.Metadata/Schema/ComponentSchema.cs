@@ -1,7 +1,7 @@
-namespace TALXIS.Platform.Metadata.Validation;
+namespace TALXIS.Platform.Metadata.Schema;
 
 /// <summary>
-/// Describes the full schema structure for a root XML element, as extracted from the XSD schema set.
+/// Describes the full schema structure for a root element, as extracted from a schema source.
 /// </summary>
 public sealed class ComponentSchema
 {

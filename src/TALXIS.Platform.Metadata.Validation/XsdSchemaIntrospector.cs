@@ -1,5 +1,6 @@
 using System.Xml;
 using System.Xml.Schema;
+using TALXIS.Platform.Metadata.Schema;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
@@ -7,13 +8,13 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// Walks a compiled <see cref="XmlSchemaSet"/> to extract a <see cref="ComponentSchema"/>
 /// describing the expected XML structure for a given root element.
 /// </summary>
-public sealed class SchemaIntrospector
+public sealed class XsdSchemaIntrospector : ISchemaIntrospector
 {
     private const int MaxDepth = 5;
 
     private readonly XmlSchemaSet _schemaSet;
 
-    public SchemaIntrospector()
+    public XsdSchemaIntrospector()
     {
         _schemaSet = new XmlSchemaSet();
         foreach (var schemaFile in SchemaResourceLoader.GetAvailableSchemas()

@@ -1,10 +1,11 @@
+using TALXIS.Platform.Metadata.Schema;
 using TALXIS.Platform.Metadata.Validation;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
-public class SchemaIntrospectorTests
+public class XsdSchemaIntrospectorTests
 {
-    private readonly SchemaIntrospector _introspector = new();
+    private readonly XsdSchemaIntrospector _introspector = new();
 
     [Fact]
     public void GetSchema_Entity_ReturnsStructure()

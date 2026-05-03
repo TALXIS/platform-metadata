@@ -1,7 +1,7 @@
-namespace TALXIS.Platform.Metadata.Validation;
+namespace TALXIS.Platform.Metadata.Schema;
 
 /// <summary>
-/// Describes an XML attribute declared in an XSD schema.
+/// Describes an attribute declared in a schema.
 /// </summary>
 public sealed class SchemaAttribute
 {
