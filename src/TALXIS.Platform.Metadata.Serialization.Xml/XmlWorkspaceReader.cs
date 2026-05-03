@@ -601,15 +601,8 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadWebResources(Workspace workspace, string rootPath)
     {
-        var webResourcesDir = Path.Combine(rootPath, "WebResources");
-        if (!Directory.Exists(webResourcesDir)) return;
-
-        foreach (var file in Directory.GetFiles(webResourcesDir, "*.data.xml", SearchOption.AllDirectories))
+        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "WebResources"), "*.data.xml", SearchOption.AllDirectories))
         {
-            var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <WebResource>
-            if (root == null) continue;
-
             var webResourceId = root.Element("WebResourceId")?.Value ?? "";
             var name = root.Element("Name")?.Value ?? "";
             if (string.IsNullOrEmpty(webResourceId) || string.IsNullOrEmpty(name)) continue;
@@ -637,15 +630,8 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadWorkflows(Workspace workspace, string rootPath)
     {
-        var workflowsDir = Path.Combine(rootPath, "Workflows");
-        if (!Directory.Exists(workflowsDir)) return;
-
-        foreach (var file in Directory.GetFiles(workflowsDir, "*.data.xml"))
+        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "Workflows"), "*.data.xml"))
         {
-            var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <Workflow>
-            if (root == null) continue;
-
             var workflowId = root.Attribute("WorkflowId")?.Value ?? "";
             if (string.IsNullOrEmpty(workflowId)) continue;
 
@@ -680,15 +666,8 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadPluginAssemblies(Workspace workspace, string rootPath)
     {
-        var pluginsDir = Path.Combine(rootPath, "PluginAssemblies");
-        if (!Directory.Exists(pluginsDir)) return;
-
-        foreach (var file in Directory.GetFiles(pluginsDir, "*.data.xml", SearchOption.AllDirectories))
+        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "PluginAssemblies"), "*.data.xml", SearchOption.AllDirectories))
         {
-            var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <PluginAssembly>
-            if (root == null) continue;
-
             var assemblyId = root.Attribute("PluginAssemblyId")?.Value ?? "";
             if (string.IsNullOrEmpty(assemblyId)) continue;
 
@@ -736,15 +715,8 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadSdkMessageProcessingSteps(Workspace workspace, string rootPath)
     {
-        var stepsDir = Path.Combine(rootPath, "SdkMessageProcessingSteps");
-        if (!Directory.Exists(stepsDir)) return;
-
-        foreach (var file in Directory.GetFiles(stepsDir, "*.xml"))
+        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "SdkMessageProcessingSteps")))
         {
-            var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <SdkMessageProcessingStep>
-            if (root == null) continue;
-
             var stepId = root.Attribute("SdkMessageProcessingStepId")?.Value ?? "";
             if (string.IsNullOrEmpty(stepId)) continue;
 
@@ -798,15 +770,8 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadSecurityRoles(Workspace workspace, string rootPath)
     {
-        var rolesDir = Path.Combine(rootPath, "Roles");
-        if (!Directory.Exists(rolesDir)) return;
-
-        foreach (var file in Directory.GetFiles(rolesDir, "*.xml"))
+        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "Roles")))
         {
-            var doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
-            var root = doc.Root; // <Role>
-            if (root == null) continue;
-
             var roleId = root.Attribute("id")?.Value ?? "";
             var roleName = root.Attribute("name")?.Value ?? "";
             if (string.IsNullOrEmpty(roleId) || string.IsNullOrEmpty(roleName)) continue;
@@ -1088,6 +1053,25 @@ public sealed class XmlWorkspaceReader
 
         workspace.AddGenericComponent(component);
         workspace.OriginalDocuments[key] = doc;
+    }
+
+    /// <summary>
+    /// Enumerates XML files in a directory, loading each as an XDocument with PreserveWhitespace.
+    /// Skips files that are malformed XML or have no root element.
+    /// </summary>
+    private static IEnumerable<(string filePath, XDocument doc, XElement root)> LoadXmlFiles(
+        string directory, string pattern = "*.xml", SearchOption searchOption = SearchOption.TopDirectoryOnly)
+    {
+        if (!Directory.Exists(directory)) yield break;
+        foreach (var file in Directory.EnumerateFiles(directory, pattern, searchOption))
+        {
+            XDocument doc;
+            try { doc = XDocument.Load(file, LoadOptions.PreserveWhitespace); }
+            catch (System.Xml.XmlException) { continue; }
+            var root = doc.Root;
+            if (root == null) continue;
+            yield return (file, doc, root);
+        }
     }
 
     private static int ParseInt(string? value, int defaultValue)
