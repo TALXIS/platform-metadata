@@ -172,6 +172,10 @@ public sealed class XmlWorkspaceReader
         entity.IsActivity = entityInfo.Element("IsActivity")?.Value == "1";
         entity.IsAuditEnabled = entityInfo.Element("IsAuditEnabled")?.Value == "1";
         entity.ChangeTrackingEnabled = entityInfo.Element("ChangeTrackingEnabled")?.Value == "1";
+        entity.IsMSTeamsIntegrationEnabled = entityInfo.Element("IsMSTeamsIntegrationEnabled")?.Value == "1";
+        entity.ExternalName = entityInfo.Element("ExternalName")?.Value;
+        entity.ExternalCollectionName = entityInfo.Element("ExternalCollectionName")?.Value;
+        entity.EntityColor = entityInfo.Element("EntityColor")?.Value;
 
         var ownership = entityInfo.Element("OwnershipTypeMask")?.Value;
         entity.Ownership = ownership switch
@@ -411,6 +415,7 @@ public sealed class XmlWorkspaceReader
         var optionSet = new OptionSetMetadata
         {
             Name = name,
+            OptionSetId = root.Attribute("OptionSetId")?.Value,
             IsGlobal = root.Element("IsGlobal")?.Value == "1",
             Source = new SourceLocation(filePath, 1, 1)
         };
@@ -644,6 +649,13 @@ public sealed class XmlWorkspaceReader
                 TriggerOnCreate = root.Element("TriggerOnCreate")?.Value == "1",
                 TriggerOnDelete = root.Element("TriggerOnDelete")?.Value == "1",
                 OnDemand = root.Element("OnDemand")?.Value == "1",
+                ModernFlowType = ParseInt(root.Element("ModernFlowType")?.Value),
+                JsonFileName = root.Element("JsonFileName")?.Value,
+                CreateStage = ParseInt(root.Element("CreateStage")?.Value),
+                UpdateStage = ParseInt(root.Element("UpdateStage")?.Value),
+                DeleteStage = ParseInt(root.Element("DeleteStage")?.Value),
+                Rank = ParseInt(root.Element("Rank")?.Value),
+                ProcessOrder = ParseInt(root.Element("ProcessOrder")?.Value),
                 Source = new SourceLocation(file, 1, 1)
             };
 
@@ -1076,5 +1088,10 @@ public sealed class XmlWorkspaceReader
     private static int ParseInt(string? value, int defaultValue)
     {
         return int.TryParse(value, out var result) ? result : defaultValue;
+    }
+
+    private static int? ParseInt(string? value)
+    {
+        return int.TryParse(value, out var result) ? result : null;
     }
 }

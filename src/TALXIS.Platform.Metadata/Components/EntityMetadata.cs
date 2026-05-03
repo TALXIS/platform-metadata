@@ -17,6 +17,10 @@ public sealed class EntityMetadata : MetadataBase
     public bool HasActivities { get; set; }
     public bool IsAuditEnabled { get; set; }
     public bool ChangeTrackingEnabled { get; set; }
+    public bool IsMSTeamsIntegrationEnabled { get; set; }
+    public string? ExternalName { get; set; }
+    public string? ExternalCollectionName { get; set; }
+    public string? EntityColor { get; set; }
 
     private readonly List<AttributeMetadata> _attributes = new();
     public IReadOnlyList<AttributeMetadata> Attributes => _attributes;

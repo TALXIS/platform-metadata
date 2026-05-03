@@ -29,6 +29,7 @@
             <xs:element name="SupportedDeployment" type="xs:integer" minOccurs="0" maxOccurs="1" />
             <xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="SdkMessageProcessingStepImages" type="sdkmessageprocessingstepimagestype" minOccurs="0" maxOccurs="1" />
+            <xs:element name="SdkMessageName" type="xs:string" minOccurs="0" maxOccurs="1" />
         </xs:all>
         <xs:attribute name="SdkMessageProcessingStepId" use="required" type="GuidType" />
         <xs:attribute name="Name" use="optional" type="xs:string" />

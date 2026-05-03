@@ -19,4 +19,11 @@ public sealed class WorkflowMetadata : MetadataBase
     public bool OnDemand { get; set; }
     public string? IntroducedVersion { get; set; }
     public bool IsCustomizable { get; set; }
+    public int? ModernFlowType { get; set; }
+    public string? JsonFileName { get; set; }
+    public int? CreateStage { get; set; }
+    public int? UpdateStage { get; set; }
+    public int? DeleteStage { get; set; }
+    public int? Rank { get; set; }
+    public int? ProcessOrder { get; set; }
 }

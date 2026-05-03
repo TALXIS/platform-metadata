@@ -18,6 +18,7 @@
 	<xs:complexType name="SystemFormsType">
 		<xs:sequence>
 			<xs:element name="systemform" minOccurs="1" maxOccurs="unbounded">
+
 				<xs:complexType>
 					<xs:all>
 						<xs:element name="formid" type="GuidType" minOccurs="1" maxOccurs="1" />
@@ -35,6 +36,7 @@
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
+		<xs:attribute name="type" type="SystemFormType" />
 	</xs:complexType>
 	<xs:complexType name="FormType">
 		<xs:all>
@@ -190,6 +192,7 @@
 								<xs:attribute name="collapsible" type="xs:boolean" />
 								<xs:attribute name="ordinalvalue" type="xs:nonNegativeInteger" />
 								<xs:attribute name="solutionaction" type="solutionactionType" />
+								<xs:attribute name="contenttype" type="xs:string" />
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
@@ -594,6 +597,7 @@
 							<xs:element name="ControlMode" type="xs:string" minOccurs="0" maxOccurs="1" />
 							<xs:element name="ReferencePanelQuickFormCollectionIconUrl" type="xs:string" minOccurs="0" maxOccurs="1" />
 							<xs:element name="DisplayAsCustomer360Tile" type="xs:boolean" minOccurs="0" maxOccurs="1" />
+							<xs:element name="HideQuickFormBorder" type="xs:boolean" minOccurs="0" maxOccurs="1" />
 						</xs:choice>
 						<!-- Parameters for the tabs control -->
 						<xs:choice minOccurs="1" maxOccurs="unbounded">
@@ -688,6 +692,7 @@
 		<xs:attribute name="isrequired" type="xs:boolean" />
 		<xs:attribute name="relationship" type="xs:string" />
 		<xs:attribute name="indicationOfSubgrid" type="xs:boolean" />
+		<xs:attribute name="contenttype" type="xs:string" />
 		<xs:attribute name="solutionaction" type="solutionactionType" />
 	</xs:complexType>
 	<xs:complexType name="FormXmlLibraryType">
@@ -871,6 +876,8 @@
 		<xs:attribute name="isstreamcell" type="xs:boolean" />
 		<xs:attribute name="ischartcell" type="xs:boolean" />
 		<xs:attribute name="istilecell" type="xs:boolean" />
+		<xs:attribute name="contenttype" type="xs:string" />
+		<xs:attribute name="type" type="xs:string" />
 	</xs:attributeGroup>
 	<xs:simpleType name="BehaviorInBulkEditForm">
 		<xs:restriction base="xs:string">

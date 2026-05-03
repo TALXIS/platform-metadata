@@ -33,9 +33,11 @@
     </xs:complexType>
     <xs:complexType name="plugintypetype">
         <xs:sequence>
-            <xs:element name="Description" type="xs:string" minOccurs="0" maxOccurs="1" />
-            <xs:element name="FriendlyName" type="xs:string" minOccurs="1" maxOccurs="1" />
-            <xs:element name="WorkflowActivityGroupName" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="Description" type="xs:string" />
+                <xs:element name="FriendlyName" type="xs:string" />
+                <xs:element name="WorkflowActivityGroupName" type="xs:string" />
+            </xs:choice>
         </xs:sequence>
         <xs:attribute name="Name" use="optional" type="xs:string" />
         <xs:attribute name="AssemblyQualifiedName" use="required" type="xs:string" />

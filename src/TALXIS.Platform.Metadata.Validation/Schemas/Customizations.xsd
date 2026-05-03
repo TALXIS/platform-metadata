@@ -69,6 +69,7 @@
     <xs:complexType name="displaynamestype">
         <xs:sequence>
             <xs:element name="displayname" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="label" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="statestype">
