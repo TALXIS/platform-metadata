@@ -211,6 +211,26 @@ public class XmlWorkspaceReaderTests
     }
 
     [Fact]
+    public void Load_MalformedRibbonDiff_AddsLoadError()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-ribbon-error-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "account", "RibbonDiffXml"));
+            var ribbonPath = Path.Combine(dir, "Entities", "account", "RibbonDiffXml", "RibbonDiff.xml");
+            File.WriteAllText(ribbonPath, "<RibbonDiffXml><CustomActions>");
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Empty(workspace.Ribbons);
+            var error = Assert.Single(workspace.LoadErrors);
+            Assert.Equal(ribbonPath, error.FilePath);
+            Assert.Contains("Malformed XML", error.Message);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Load_EntityCountMatchesFolders()
     {
         var entityFolderCount = Directory.GetDirectories(Path.Combine(SamplePath, "Entities")).Length;

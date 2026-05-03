@@ -1173,7 +1173,17 @@ public sealed class XmlWorkspaceReader
             var entityLogicalName = Path.GetFileName(entityDir);
             foreach (var ribbonDiffFile in Directory.GetFiles(entityDir, "RibbonDiff.xml", SearchOption.AllDirectories))
             {
-                var doc = XDocument.Load(ribbonDiffFile, LoadOptions.PreserveWhitespace);
+                XDocument doc;
+                try
+                {
+                    doc = LoadDocument(ribbonDiffFile);
+                }
+                catch (System.Xml.XmlException ex)
+                {
+                    workspace.AddLoadError(ribbonDiffFile, $"Malformed XML: {ex.Message}");
+                    continue;
+                }
+
                 var root = doc.Root;
                 if (root == null) continue;
 
@@ -1181,7 +1191,7 @@ public sealed class XmlWorkspaceReader
                 {
                     EntityLogicalName = entityLogicalName,
                     Body = MergeableNodeXmlConverter.FromXElement(root),
-                    Source = new SourceLocation(ribbonDiffFile, 1, 1)
+                    Source = CreateSourceLocation(ribbonDiffFile, root)
                 };
                 workspace.AddRibbon(ribbon);
                 workspace.OriginalDocuments[$"Ribbon:{entityLogicalName}"] = doc;

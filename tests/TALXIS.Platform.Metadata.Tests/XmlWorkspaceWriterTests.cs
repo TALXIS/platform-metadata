@@ -739,6 +739,68 @@ public class XmlWorkspaceWriterTests
     }
 
     [Fact]
+    public void Roundtrip_PerEntityRelationships_WritesWithoutSolutionXml()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-relationships-nosolution-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-relationships-nosolution-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other", "Relationships"));
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Relationships", "account.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <EntityRelationships>
+                  <EntityRelationship Name="account_contact_parentcustomerid">
+                    <EntityRelationshipType>OneToMany</EntityRelationshipType>
+                    <ReferencingEntityName>contact</ReferencingEntityName>
+                    <ReferencedEntityName>account</ReferencedEntityName>
+                    <ReferencingAttributeName>parentcustomerid</ReferencingAttributeName>
+                    <ReferencedAttributeName>accountid</ReferencedAttributeName>
+                  </EntityRelationship>
+                </EntityRelationships>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(inputPath);
+
+            Assert.Null(workspace.Solution);
+            new XmlWorkspaceWriter().Write(workspace, outputPath);
+
+            Assert.True(File.Exists(Path.Combine(outputPath, "Other", "Relationships", "account.xml")));
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Write_RibbonWithoutSource_UsesRibbonDiffXmlFolder()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"write-ribbon-default-path-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            var workspace = new Workspace(Path.GetTempPath());
+            workspace.AddRibbon(new RibbonMetadata
+            {
+                EntityLogicalName = "account",
+                Body = new MergeableNode { Name = "RibbonDiffXml" }
+            });
+
+            new XmlWorkspaceWriter().Write(workspace, outputPath);
+
+            Assert.True(File.Exists(Path.Combine(outputPath, "Entities", "account", "RibbonDiffXml", "RibbonDiff.xml")));
+            Assert.False(File.Exists(Path.Combine(outputPath, "Entities", "account", "RibbonDiff.xml")));
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
     public void Roundtrip_Forms_WritesMergeableBodyFromModel()
     {
         var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-form-body-in-{Guid.NewGuid():N}");

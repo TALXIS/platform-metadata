@@ -34,6 +34,7 @@ public sealed class XmlWorkspaceWriter
         WriteEntities(workspace, outputPath);
         WriteGlobalOptionSets(workspace, outputPath);
         WriteRelationships(workspace, outputPath);
+        WritePerEntityRelationshipFiles(workspace, outputPath);
         SaveForms(workspace, outputPath);
         SaveViews(workspace, outputPath);
         SaveWebResources(workspace, outputPath);
@@ -69,7 +70,6 @@ public sealed class XmlWorkspaceWriter
         }
 
         SaveDocument(doc, filePath);
-        WritePerEntityRelationshipFiles(workspace, outputPath);
     }
 
     private static void PatchSolution(XDocument doc, Solution solution)
@@ -1519,7 +1519,7 @@ public sealed class XmlWorkspaceWriter
             var filePath = TryGetOriginalRelativePath(ribbon.Source, workspace.RootPath, outputPath);
             if (filePath == null)
             {
-                var entityDir = Path.Combine(outputPath, "Entities", ribbon.EntityLogicalName ?? "Unknown");
+                var entityDir = Path.Combine(outputPath, "Entities", ribbon.EntityLogicalName ?? "Unknown", "RibbonDiffXml");
                 Directory.CreateDirectory(entityDir);
                 filePath = Path.Combine(entityDir, "RibbonDiff.xml");
             }
