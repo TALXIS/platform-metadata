@@ -10,7 +10,7 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class JsonSchemaIntrospector : ISchemaIntrospector
 {
-    private const int MaxDepth = 5;
+    private const int MaxDepth = 10;
 
     /// <summary>
     /// Maps lowered schema-file stem (e.g. "flow") → parsed JSchema.
@@ -43,7 +43,12 @@ public sealed class JsonSchemaIntrospector : ISchemaIntrospector
             return null;
 
         var (fileName, schema) = entry;
-        var rootName = componentName;
+
+        // Use the file stem as the canonical root element name
+        var rootName = fileName;
+        var dotIndex = rootName.IndexOf('.');
+        if (dotIndex > 0)
+            rootName = rootName.Substring(0, dotIndex);
 
         var elements = WalkProperties(schema, depth: 0);
         return new ComponentSchema(rootName, elements, Array.Empty<SchemaAttribute>());

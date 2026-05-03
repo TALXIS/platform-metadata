@@ -10,7 +10,7 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class XsdSchemaIntrospector : ISchemaIntrospector
 {
-    private const int MaxDepth = 5;
+    private const int MaxDepth = 10;
 
     private readonly XmlSchemaSet _schemaSet;
 
@@ -51,21 +51,23 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
     {
         var def = ComponentDefinitionRegistry.GetByType(type);
         if (def == null) return null;
-        return GetSchema(def.Name);
+        // Try SerializedName first (plural container roots like ConnectionRoles,
+        // FieldSecurityProfiles), then fall back to Name (Entity, Role).
+        return GetSchema(def.SerializedName) ?? GetSchema(def.Name);
     }
 
     private (IReadOnlyList<SchemaElement>? Elements, IReadOnlyList<SchemaAttribute>? Attributes) WalkType(
-        XmlSchemaType? schemaType, int depth)
+        XmlSchemaType? schemaType, int depth, bool parentOptional = false)
     {
         if (schemaType is XmlSchemaComplexType complexType && depth < MaxDepth)
         {
-            var elements = WalkParticle(complexType.Particle, depth);
+            var elements = WalkParticle(complexType.Particle, depth, parentOptional);
             var attributes = WalkAttributes(complexType.Attributes);
 
             // Also check ContentTypeParticle for types using simpleContent/complexContent extensions
             if (elements.Count == 0 && complexType.ContentTypeParticle is XmlSchemaGroupBase groupBase)
             {
-                elements = WalkGroupBase(groupBase, depth);
+                elements = WalkGroupBase(groupBase, depth, parentOptional);
             }
 
             return (
@@ -76,38 +78,75 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
         return (null, null);
     }
 
-    private List<SchemaElement> WalkParticle(XmlSchemaParticle? particle, int depth)
+    private List<SchemaElement> WalkParticle(XmlSchemaParticle? particle, int depth, bool parentOptional = false)
     {
         if (particle is XmlSchemaGroupBase groupBase)
-            return WalkGroupBase(groupBase, depth);
+            return WalkGroupBase(groupBase, depth, parentOptional);
+
+        if (particle is XmlSchemaGroupRef groupRef)
+        {
+            var resolvedParticle = groupRef.Particle;
+            if (resolvedParticle != null)
+            {
+                bool groupOptional = parentOptional || groupRef.MinOccurs == 0;
+                return WalkGroupBase(resolvedParticle, depth, groupOptional);
+            }
+        }
+
+        if (particle is XmlSchemaAny)
+        {
+            return new List<SchemaElement>
+            {
+                new SchemaElement("*", required: false, maxOccurs: null, typeName: "any",
+                    allowedValues: null, children: null, attributes: null)
+            };
+        }
 
         return new List<SchemaElement>();
     }
 
-    private List<SchemaElement> WalkGroupBase(XmlSchemaGroupBase groupBase, int depth)
+    private List<SchemaElement> WalkGroupBase(XmlSchemaGroupBase groupBase, int depth, bool parentOptional = false)
     {
+        bool isOptionalContext = parentOptional
+            || groupBase.MinOccurs == 0
+            || groupBase is XmlSchemaChoice;
+
         var result = new List<SchemaElement>();
         foreach (var item in groupBase.Items)
         {
             if (item is XmlSchemaElement childElement)
             {
-                result.Add(BuildElement(childElement, depth + 1));
+                result.Add(BuildElement(childElement, depth + 1, isOptionalContext));
             }
             else if (item is XmlSchemaGroupBase nestedGroup)
             {
-                result.AddRange(WalkGroupBase(nestedGroup, depth));
+                result.AddRange(WalkGroupBase(nestedGroup, depth, isOptionalContext));
+            }
+            else if (item is XmlSchemaGroupRef nestedRef)
+            {
+                var resolvedParticle = nestedRef.Particle;
+                if (resolvedParticle != null)
+                {
+                    bool refOptional = isOptionalContext || nestedRef.MinOccurs == 0;
+                    result.AddRange(WalkGroupBase(resolvedParticle, depth, refOptional));
+                }
+            }
+            else if (item is XmlSchemaAny)
+            {
+                result.Add(new SchemaElement("*", required: false, maxOccurs: null, typeName: "any",
+                    allowedValues: null, children: null, attributes: null));
             }
         }
         return result;
     }
 
-    private SchemaElement BuildElement(XmlSchemaElement element, int depth)
+    private SchemaElement BuildElement(XmlSchemaElement element, int depth, bool parentOptional = false)
     {
-        bool required = element.MinOccurs > 0;
+        bool required = element.MinOccurs > 0 && !parentOptional;
         int? maxOccurs = element.MaxOccursString == "unbounded" ? null : (int)element.MaxOccurs;
 
         var (typeName, allowedValues) = ResolveTypeName(element.ElementSchemaType);
-        var (children, attributes) = WalkType(element.ElementSchemaType, depth);
+        var (children, attributes) = WalkType(element.ElementSchemaType, depth, parentOptional);
 
         return new SchemaElement(
             element.Name ?? element.QualifiedName.Name,
@@ -208,6 +247,18 @@ public sealed class XsdSchemaIntrospector : ISchemaIntrospector
                     attr.Use == XmlSchemaUse.Required,
                     typeName,
                     allowedValues));
+            }
+            else if (item is XmlSchemaAttributeGroupRef groupRef)
+            {
+                var resolved = _schemaSet.AttributeGroups[groupRef.RefName] as XmlSchemaAttributeGroup;
+                if (resolved != null)
+                {
+                    result.AddRange(WalkAttributes(resolved.Attributes));
+                }
+            }
+            else if (item is XmlSchemaAnyAttribute)
+            {
+                result.Add(new SchemaAttribute("*", required: false, typeName: "any", allowedValues: null));
             }
         }
         return result;

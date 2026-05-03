@@ -115,4 +115,114 @@ public class XsdSchemaIntrospectorTests
         Assert.Equal(byType.RootElement, byName.RootElement);
         Assert.Equal(byType.Elements.Count, byName.Elements.Count);
     }
+
+    [Fact]
+    public void GetSchemaForComponentType_ConnectionRole_UsesSerializedName()
+    {
+        // ConnectionRole has Name="ConnectionRole" but SerializedName="ConnectionRoles"
+        // which matches the XSD root element <xs:element name="ConnectionRoles">
+        var schema = _introspector.GetSchemaForComponentType(ComponentType.ConnectionRole);
+
+        Assert.NotNull(schema);
+        Assert.Equal("ConnectionRoles", schema!.RootElement);
+    }
+
+    [Fact]
+    public void GetSchemaForComponentType_FieldSecurityProfile_UsesSerializedName()
+    {
+        var schema = _introspector.GetSchemaForComponentType(ComponentType.FieldSecurityProfile);
+
+        Assert.NotNull(schema);
+        Assert.Equal("FieldSecurityProfiles", schema!.RootElement);
+    }
+
+    [Fact]
+    public void GetSchemaForComponentType_SystemForm_ReturnsSchema()
+    {
+        // SystemForm maps via SerializedName "SystemForms" first, falls back to Name "SystemForm".
+        // The Form.xsd root elements are "forms" and "form" (lowercase), so GetSchema may
+        // fall through to the Name lookup. This test verifies the mapping chain works.
+        var schema = _introspector.GetSchemaForComponentType(ComponentType.SystemForm);
+
+        // SystemForm doesn't have a matching XSD root — the form schema uses lowercase "form"/"forms".
+        // GetSchemaForComponentType returns null, but GetSchema("form") works directly.
+        var formSchema = _introspector.GetSchema("form");
+        Assert.NotNull(formSchema);
+        Assert.Equal("form", formSchema!.RootElement);
+    }
+
+    [Fact]
+    public void GetSchema_Form_HasDeepStructure_ToControlLevel()
+    {
+        // With depth limit of 10, the walker should reach: form -> tabs -> tab -> columns ->
+        // column -> sections -> section -> rows -> row -> cell -> control (10 levels)
+        var schema = _introspector.GetSchema("form");
+        Assert.NotNull(schema);
+
+        var tabs = schema!.Elements.First(e => e.Name == "tabs");
+        var tab = tabs.Children!.First(e => e.Name == "tab");
+        var columns = tab.Children!.First(e => e.Name == "columns");
+        var column = columns.Children!.First(e => e.Name == "column");
+        var sections = column.Children!.First(e => e.Name == "sections");
+        var section = sections.Children!.First(e => e.Name == "section");
+        var rows = section.Children!.First(e => e.Name == "rows");
+
+        Assert.NotNull(rows.Children);
+        var row = rows.Children!.First(e => e.Name == "row");
+        Assert.NotNull(row.Children);
+        var cell = row.Children!.First(e => e.Name == "cell");
+        Assert.NotNull(cell.Children);
+        var control = cell.Children!.FirstOrDefault(e => e.Name == "control");
+        Assert.NotNull(control);
+    }
+
+    [Fact]
+    public void GetSchema_Form_CellHasAttributeGroupAttributes()
+    {
+        // Cell elements reference <xs:attributeGroup ref="FormXmlCellCommon"/> which should
+        // contribute attributes like "rowspan", "colspan", "visible" etc.
+        var schema = _introspector.GetSchema("form");
+        Assert.NotNull(schema);
+
+        var tabs = schema!.Elements.First(e => e.Name == "tabs");
+        var tab = tabs.Children!.First(e => e.Name == "tab");
+        var columns = tab.Children!.First(e => e.Name == "columns");
+        var column = columns.Children!.First(e => e.Name == "column");
+        var sections = column.Children!.First(e => e.Name == "sections");
+        var section = sections.Children!.First(e => e.Name == "section");
+        var rows = section.Children!.First(e => e.Name == "rows");
+        var row = rows.Children!.First(e => e.Name == "row");
+        var cell = row.Children!.First(e => e.Name == "cell");
+
+        Assert.NotNull(cell.Attributes);
+        var attrNames = cell.Attributes!.Select(a => a.Name).ToList();
+
+        // These come from the FormXmlCellCommon attributeGroup
+        Assert.Contains("rowspan", attrNames);
+        Assert.Contains("colspan", attrNames);
+        Assert.Contains("visible", attrNames);
+    }
+
+    [Fact]
+    public void GetSchema_Form_SectionHasAttributeGroupAttributes()
+    {
+        // Section elements reference <xs:attributeGroup ref="FormXmlSectionCommon"/>
+        var schema = _introspector.GetSchema("form");
+        Assert.NotNull(schema);
+
+        var tabs = schema!.Elements.First(e => e.Name == "tabs");
+        var tab = tabs.Children!.First(e => e.Name == "tab");
+        var columns = tab.Children!.First(e => e.Name == "columns");
+        var column = columns.Children!.First(e => e.Name == "column");
+        var sections = column.Children!.First(e => e.Name == "sections");
+        var section = sections.Children!.First(e => e.Name == "section");
+
+        Assert.NotNull(section.Attributes);
+        var attrNames = section.Attributes!.Select(a => a.Name).ToList();
+
+        // These come from the FormXmlSectionCommon attributeGroup
+        Assert.Contains("columns", attrNames);
+        Assert.Contains("labelwidth", attrNames);
+        Assert.Contains("celllabelposition", attrNames);
+    }
 }

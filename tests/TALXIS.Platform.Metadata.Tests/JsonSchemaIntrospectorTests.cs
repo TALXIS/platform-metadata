@@ -54,7 +54,8 @@ public class JsonSchemaIntrospectorTests
         var schema = _introspector.GetSchema("flow");
 
         Assert.NotNull(schema);
-        Assert.Equal("flow", schema!.RootElement);
+        // Canonical root is always the file stem, regardless of caller casing
+        Assert.Equal("Flow", schema!.RootElement);
     }
 
     [Fact]
