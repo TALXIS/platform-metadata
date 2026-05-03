@@ -80,6 +80,9 @@ public sealed class XmlWorkspaceReader
         foreach (var source in orderedSources)
         {
             var sourceWorkspace = LoadCore(source.Path, registerSolutionSource: false);
+            if (sourceWorkspace.Solutions.Count != 1)
+                throw new InvalidOperationException($"Workspace source '{source.Path}' must contain exactly one solution manifest.");
+
             workspace.CopyOriginalDocumentsFrom(sourceWorkspace);
             workspace.CopyLoadErrorsFrom(sourceWorkspace);
             workspace.MergeComponentsFrom(sourceWorkspace, preferSource: true);

@@ -18,7 +18,7 @@ public class SolutionLayeringTests
         stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Active", Order = 2, IsManaged = false, LayerKind = SolutionLayerKind.Active });
 
         Assert.Equal(3, stack.Layers.Count);
-        Assert.Equal("Active", stack.ActiveLayer!.SolutionUniqueName);
+        Assert.Equal("Active", stack.TopLayer!.SolutionUniqueName);
         Assert.Equal("Base", stack.BaseLayer!.SolutionUniqueName);
     }
 
@@ -168,7 +168,7 @@ public class SolutionLayeringTests
     }
 
     [Fact]
-    public void SolutionLayerManager_ActiveLayer_SortsAboveManagedLayer()
+    public void SolutionLayerManager_TopLayer_SortsAboveManagedLayer()
     {
         var mgr = new SolutionLayerManager();
         var managedSolution = new Solution { UniqueName = "ManagedBase", IsManaged = true };
@@ -188,8 +188,8 @@ public class SolutionLayeringTests
         var stack = mgr.FindStack(ComponentType.Entity, "account")!;
 
         Assert.Equal("ManagedBase", stack.BaseLayer!.SolutionUniqueName);
-        Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.ActiveLayer!.SolutionUniqueName);
-        Assert.Equal("UnmanagedEdits", stack.ActiveLayer.SourceSolutionUniqueName);
+        Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.SolutionUniqueName);
+        Assert.Equal("UnmanagedEdits", stack.TopLayer.SourceSolutionUniqueName);
         Assert.Equal("Active", ((EntityMetadata)mgr.Resolve(stack)!).DisplayName.Default);
     }
 
@@ -231,7 +231,7 @@ public class SolutionLayeringTests
         Assert.Equal("UnmanagedUi", snapshot.SourceSolutionUniqueName);
         Assert.False(snapshot.IsManaged);
 
-        var layer = workspace.Layers.FindStack(ComponentType.Entity, "account")!.ActiveLayer!;
+        var layer = workspace.Layers.FindStack(ComponentType.Entity, "account")!.TopLayer!;
         Assert.Equal(SolutionLayerManager.ActiveSolutionName, layer.SolutionUniqueName);
         Assert.Equal("UnmanagedUi", layer.SourceSolutionUniqueName);
         Assert.Equal(SolutionLayerKind.Active, layer.LayerKind);
@@ -280,14 +280,14 @@ public class SolutionLayeringTests
 
         Assert.Equal(3, stack.Layers.Count);
         Assert.All(stack.Layers, layer => Assert.Equal(SolutionLayerKind.Active, layer.LayerKind));
-        Assert.Equal("UnmanagedTwo", stack.ActiveLayer!.SourceSolutionUniqueName);
+        Assert.Equal("UnmanagedTwo", stack.TopLayer!.SourceSolutionUniqueName);
         Assert.Equal("Two", ((EntityMetadata)workspace.Layers.Resolve(stack)!).DisplayName.Default);
 
         Assert.True(workspace.RemoveSolution("UnmanagedTwo"));
         stack = workspace.Layers.FindStack(ComponentType.Entity, "account")!;
 
         Assert.Equal(2, stack.Layers.Count);
-        Assert.Equal("UnmanagedOne", stack.ActiveLayer!.SourceSolutionUniqueName);
+        Assert.Equal("UnmanagedOne", stack.TopLayer!.SourceSolutionUniqueName);
         Assert.Equal("One Again", ((EntityMetadata)workspace.Layers.Resolve(stack)!).DisplayName.Default);
 
         Assert.True(workspace.RemoveSolution("UnmanagedOne"));

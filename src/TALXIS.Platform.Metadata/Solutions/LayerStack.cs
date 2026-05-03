@@ -24,8 +24,8 @@ public sealed class LayerStack
     /// </summary>
     public IReadOnlyList<ComponentLayer> Layers => _layers;
 
-    /// <summary>The topmost (active) layer.</summary>
-    public ComponentLayer? ActiveLayer => _layers.Count > 0 ? _layers[_layers.Count - 1] : null;
+    /// <summary>The topmost layer in the stack, regardless of whether it is managed or Active.</summary>
+    public ComponentLayer? TopLayer => _layers.Count > 0 ? _layers[_layers.Count - 1] : null;
 
     /// <summary>The bottom (base) layer.</summary>
     public ComponentLayer? BaseLayer => _layers.Count > 0 ? _layers[0] : null;
@@ -34,7 +34,8 @@ public sealed class LayerStack
     public bool RequiresMerge { get; set; }
 
     /// <summary>
-    /// Adds a layer while keeping the stack ordered by <see cref="ComponentLayer.Order"/>.
+    /// Adds a layer while keeping the stack ordered by layer kind, <see cref="ComponentLayer.Order"/>,
+    /// and <see cref="ComponentLayer.SourceOrder"/>. Repeated snapshots from the same source are retained.
     /// </summary>
     public void PushLayer(ComponentLayer layer)
     {
@@ -62,15 +63,15 @@ public sealed class LayerStack
     }
 
     /// <summary>
-    /// Resolves the effective component for non-mergeable types (top-wins).
-    /// Returns the topmost active layer's component.
+    /// Resolves the effective component for non-mergeable types.
+    /// Returns the topmost layer's component when it is published; a deleted top layer hides lower layers.
     /// For mergeable types, use IComponentMerger instead.
     /// </summary>
     public T? ResolveTopWins<T>() where T : MetadataBase
     {
-        var active = ActiveLayer;
-        if (active?.State != ComponentState.Publish) return null;
-        return active.Component as T;
+        var top = TopLayer;
+        if (top?.State != ComponentState.Publish) return null;
+        return top.Component as T;
     }
 
     private static int CompareLayerOrder(ComponentLayer left, ComponentLayer right)

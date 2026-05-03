@@ -454,11 +454,34 @@ public class XmlWorkspaceReaderTests
             Assert.NotNull(stack);
             Assert.Equal(2, stack!.Layers.Count);
             Assert.Equal("ManagedBase", stack.BaseLayer!.SolutionUniqueName);
-            Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.ActiveLayer!.SolutionUniqueName);
-            Assert.Equal("UnmanagedUi", stack.ActiveLayer.SourceSolutionUniqueName);
+            Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.SolutionUniqueName);
+            Assert.Equal("UnmanagedUi", stack.TopLayer.SourceSolutionUniqueName);
 
             var resolved = Assert.IsType<EntityMetadata>(workspace.Layers.Resolve(stack));
             Assert.Equal("Active Account", resolved.DisplayName.Default);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void LoadMany_SourceWithoutSingleSolution_Throws()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"reader-loadmany-nosolution-{Guid.NewGuid():N}");
+        var sourcePath = Path.Combine(root, "source");
+
+        try
+        {
+            Directory.CreateDirectory(sourcePath);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => new XmlWorkspaceReader().LoadMany(new[]
+            {
+                new SolutionWorkspaceSource(sourcePath, 0)
+            }));
+
+            Assert.Contains("exactly one solution", ex.Message);
         }
         finally
         {
