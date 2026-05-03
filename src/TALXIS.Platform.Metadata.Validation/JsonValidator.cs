@@ -93,38 +93,36 @@ public sealed class JsonValidator
         token.Validate(schema, (_, args) =>
         {
             var error = args.ValidationError;
-            var line = GetLineNumber(token, error);
-            var column = GetLinePosition(token, error);
-            results.Add(new ValidationResult(ValidationSeverity.Error, error.Message, filePath, line, column));
+            var location = ResolveLocation(token, error);
+            results.Add(new ValidationResult(
+                ValidationSeverity.Error,
+                error.Message,
+                filePath,
+                location.lineNumber,
+                location.linePosition));
         });
 
         return results;
     }
 
-    private static int? GetLineNumber(JToken root, ValidationError error)
+    private static (int? lineNumber, int? linePosition) ResolveLocation(JToken root, ValidationError error)
     {
-        var line = TryGetLineInfo(error);
-        if (line.lineNumber.HasValue)
-            return line.lineNumber;
+        var location = TryGetLineInfo(error);
+        if (location.lineNumber.HasValue || location.linePosition.HasValue)
+            return location;
 
-        var byPath = TryGetLineInfo(root, error.Path);
-        if (byPath.lineNumber.HasValue)
-            return byPath.lineNumber;
+        location = TryGetLineInfo(root, error.Path);
+        if (location.lineNumber.HasValue || location.linePosition.HasValue)
+            return location;
 
-        return error.ChildErrors.Select(e => GetLineNumber(root, e)).FirstOrDefault(x => x.HasValue);
-    }
+        foreach (var childError in error.ChildErrors)
+        {
+            location = ResolveLocation(root, childError);
+            if (location.lineNumber.HasValue || location.linePosition.HasValue)
+                return location;
+        }
 
-    private static int? GetLinePosition(JToken root, ValidationError error)
-    {
-        var line = TryGetLineInfo(error);
-        if (line.linePosition.HasValue)
-            return line.linePosition;
-
-        var byPath = TryGetLineInfo(root, error.Path);
-        if (byPath.linePosition.HasValue)
-            return byPath.linePosition;
-
-        return error.ChildErrors.Select(e => GetLinePosition(root, e)).FirstOrDefault(x => x.HasValue);
+        return (null, null);
     }
 
     private static (int? lineNumber, int? linePosition) TryGetLineInfo(ValidationError error)
