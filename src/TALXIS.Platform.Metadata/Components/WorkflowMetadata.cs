@@ -26,4 +26,5 @@ public sealed class WorkflowMetadata : MetadataBase, ILocalizedMetadata, IVersio
     public int? DeleteStage { get; set; }
     public int? Rank { get; set; }
     public int? ProcessOrder { get; set; }
+    public FlowDefinitionMetadata? FlowDefinition { get; set; }
 }

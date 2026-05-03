@@ -1,3 +1,4 @@
+using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 
@@ -69,6 +70,37 @@ public class ExpandedReaderTests
             Assert.Equal("Main Form", form.DisplayName.Default);
             Assert.Equal(1, form.FormPresentation);
             Assert.Equal(1, form.FormActivationState);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadForms_SetsSourceLocationToSystemFormElement()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var formDir = Path.Combine(dir, "Entities", "test_entity", "FormXml", "main");
+            Directory.CreateDirectory(formDir);
+
+            var formFile = Path.Combine(formDir, "{a1b2c3d4-0000-0000-0000-000000000001}.xml");
+            File.WriteAllText(formFile, string.Join(Environment.NewLine, new[]
+            {
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+                "<forms>",
+                "  <systemform>",
+                "    <formid>{a1b2c3d4-0000-0000-0000-000000000001}</formid>",
+                "    <IntroducedVersion>1.0.0.0</IntroducedVersion>",
+                "    <FormPresentation>1</FormPresentation>",
+                "    <FormActivationState>1</FormActivationState>",
+                "  </systemform>",
+                "</forms>"
+            }));
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Equal(new SourceLocation(formFile, 3, 4), workspace.Forms[0].Source);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
@@ -194,6 +226,86 @@ public class ExpandedReaderTests
             Assert.Equal("test_entity", wf.PrimaryEntity);
             Assert.Equal("Test Workflow", wf.DisplayName.Default);
             Assert.True(wf.TriggerOnCreate);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadFlowDefinitions_ParsesJsonAndAttachesToWorkflow()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            File.WriteAllText(Path.Combine(workflowsDir, "test_flow.data.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Workflow WorkflowId="{d1b2c3d4-0000-0000-0000-000000000004}">
+                  <Category>5</Category>
+                  <Type>1</Type>
+                  <PrimaryEntity>test_entity</PrimaryEntity>
+                  <UniqueName>test_flow</UniqueName>
+                  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+                  <IsCustomizable>1</IsCustomizable>
+                  <LocalizedNames>
+                    <LocalizedName description="Test Flow" languagecode="1033" />
+                  </LocalizedNames>
+                </Workflow>
+                """);
+
+            var flowFile = Path.Combine(workflowsDir, "test_flow.json");
+            File.WriteAllText(flowFile, string.Join(Environment.NewLine, new[]
+            {
+                "{",
+                "  \"properties\": {",
+                "    \"connectionReferences\": {",
+                "      \"shared_commondataserviceforapps\": {",
+                "        \"api\": {",
+                "          \"id\": \"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps\"",
+                "        },",
+                "        \"connection\": {",
+                "          \"connectionReferenceLogicalName\": \"tp_sharedcommondataserviceforapps\"",
+                "        },",
+                "        \"connectionName\": \"shared-commondataserviceforapps-1\"",
+                "      }",
+                "    },",
+                "    \"definition\": {",
+                "      \"$schema\": \"https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#\",",
+                "      \"contentVersion\": \"1.0.0.0\",",
+                "      \"triggers\": {",
+                "        \"When_a_row_is_added\": {",
+                "          \"type\": \"OpenApiConnection\"",
+                "        }",
+                "      },",
+                "      \"actions\": {",
+                "        \"Compose\": {",
+                "          \"type\": \"Compose\"",
+                "        }",
+                "      }",
+                "    }",
+                "  },",
+                "  \"schemaVersion\": \"1.0.0.0\"",
+                "}"
+            }));
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.FlowDefinitions);
+            var flow = workspace.FlowDefinitions[0];
+            Assert.Equal("Workflows" + Path.DirectorySeparatorChar + "test_flow.json", flow.FilePath);
+            Assert.Equal("1.0.0.0", flow.SchemaVersion);
+            Assert.Equal("1.0.0.0", flow.ContentVersion);
+            Assert.Equal(new SourceLocation(flowFile, 1, 1), flow.Source);
+            Assert.Single(flow.ConnectionReferences);
+            Assert.Equal(new SourceLocation(flowFile, 4, 40), flow.ConnectionReferences[0].Source);
+            Assert.Single(flow.Triggers);
+            Assert.Equal(new SourceLocation(flowFile, 18, 30), flow.Triggers[0].Source);
+            Assert.Single(flow.Actions);
+            Assert.Equal(new SourceLocation(flowFile, 23, 18), flow.Actions[0].Source);
+            Assert.Same(flow, workspace.Workflows[0].FlowDefinition);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
