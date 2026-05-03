@@ -70,6 +70,15 @@
             <xs:element name="labels" minOccurs="0" maxOccurs="1" type="WorkflowLabelsType" />
             <xs:element name="ProcessTriggers" type="ProcessTriggersType" minOccurs="0" maxOccurs="1" />
             <xs:element name="ModernFlowType" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+            <xs:element name="ProcessTriggerFormId" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="BillingContext" type="xs:string" minOccurs="0" maxOccurs="1" />
+            <xs:element name="ConnectionReferences" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
         </xs:all>
         <xs:attribute name="Name" use="required" type="xs:string" />
         <xs:attribute name="Description" use="optional" type="xs:string" />

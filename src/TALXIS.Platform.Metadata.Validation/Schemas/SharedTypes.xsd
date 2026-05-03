@@ -61,6 +61,7 @@
     <xs:complexType name="DescriptionsType">
         <xs:sequence>
             <xs:element name="Description" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="displayname" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
             <xs:element name="Descriptions" type="DescriptionsType" minOccurs="0" maxOccurs="1" />
         </xs:sequence>
     </xs:complexType>
@@ -105,6 +106,7 @@
             <xs:enumeration value="phoneticguide" />
             <xs:enumeration value="HierarchyId" />
             <xs:enumeration value="managedproperty" />
+            <xs:enumeration value="file" />
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="LengthPositiveInteger">

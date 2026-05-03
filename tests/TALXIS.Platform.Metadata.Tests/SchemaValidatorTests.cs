@@ -299,4 +299,204 @@ public class SchemaValidatorTests
         var errors = allErrors.Where(r => r.Severity == ValidationSeverity.Error).ToList();
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void Entity_WithLowercaseIsAuditEnabled_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name OriginalName="test_entity" LocalizedName="Test Entity">test_entity</Name>
+              <EntityInfo>
+                <entity Name="test_entity">
+                  <isAuditEnabled>1</isAuditEnabled>
+                  <attributes />
+                  <EntitySetName>test_entities</EntitySetName>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Entity.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void EnvironmentVariable_WithApiId_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <environmentvariabledefinition schemaname="tp_SomeVar">
+              <displayname default="Some Var">
+                <label description="Some Var" languagecode="1033" />
+              </displayname>
+              <introducedversion>1.0</introducedversion>
+              <iscustomizable>1</iscustomizable>
+              <isrequired>0</isrequired>
+              <type>100000000</type>
+              <apiid>some-api-id</apiid>
+            </environmentvariabledefinition>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "EnvironmentVariable.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void CustomApi_RootElement_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <customapi>
+              <name>test_CustomApi</name>
+              <displayname>Test Custom API</displayname>
+            </customapi>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "CustomApi.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void CustomApiRequestParameter_RootElement_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <customapirequestparameter>
+              <uniquename>Target</uniquename>
+              <type>10</type>
+            </customapirequestparameter>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "CustomApiRequestParameter.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void PluginType_WithDuplicateWorkflowActivityGroupName_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <PluginAssembly FullName="Test.Assembly, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+              <PluginTypes>
+                <PluginType AssemblyQualifiedName="Test.Workflow, Test.Assembly">
+                  <FriendlyName>Test Workflow</FriendlyName>
+                  <WorkflowActivityGroupName>Test Group</WorkflowActivityGroupName>
+                  <WorkflowActivityGroupName>Test Group</WorkflowActivityGroupName>
+                </PluginType>
+              </PluginTypes>
+            </PluginAssembly>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "PluginAssembly.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Descriptions_WithDisplayname_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name OriginalName="test_entity" LocalizedName="Test Entity">test_entity</Name>
+              <EntityInfo>
+                <entity Name="test_entity">
+                  <Descriptions>
+                    <Description description="Test" languagecode="1033" />
+                    <displayname description="Test Name" languagecode="1033" />
+                  </Descriptions>
+                  <attributes />
+                  <EntitySetName>test_entities</EntitySetName>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Entity.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ResidualCustomizations_WithRibbonDiffXmlAndDashboards_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Entities />
+              <Roles />
+              <Workflows />
+              <RibbonDiffXml />
+              <Dashboards />
+              <AppModuleSiteMaps />
+              <AppModules />
+              <Languages>
+                <Language>1033</Language>
+              </Languages>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void FormCell_WithContentTypeAndTypeAttributes_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <forms>
+              <systemform>
+                <formid>{12345678-1234-1234-1234-123456789012}</formid>
+                <form>
+                  <tabs>
+                    <tab name="general" id="{00000000-0000-0000-0000-000000000001}">
+                      <columns>
+                        <column width="100%">
+                          <sections>
+                            <section name="sec" columns="1">
+                              <rows>
+                                <row>
+                                  <cell id="{00000000-0000-0000-0000-000000000002}" contenttype="cardSections" type="something">
+                                    <control id="field1" classid="{00000000-0000-0000-0000-000000000003}" datafieldname="field1" />
+                                  </cell>
+                                </row>
+                              </rows>
+                            </section>
+                          </sections>
+                        </column>
+                      </columns>
+                    </tab>
+                  </tabs>
+                </form>
+              </systemform>
+            </forms>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "SystemForms.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
 }

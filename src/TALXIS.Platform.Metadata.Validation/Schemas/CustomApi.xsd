@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <xs:element name="customapi">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+            <xs:anyAttribute processContents="lax" />
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="customapirequestparameter">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+            <xs:anyAttribute processContents="lax" />
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="customapiresponseproperty">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+            <xs:anyAttribute processContents="lax" />
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

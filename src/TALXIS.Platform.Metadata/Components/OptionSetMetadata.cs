@@ -3,6 +3,7 @@ namespace TALXIS.Platform.Metadata.Components;
 public sealed class OptionSetMetadata : MetadataBase
 {
     public required string Name { get; set; }
+    public string? OptionSetId { get; set; }
     public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();
     public bool IsGlobal { get; set; }
