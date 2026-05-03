@@ -51,15 +51,14 @@ public sealed class LayerStack
     public void InsertLayer(int index, ComponentLayer layer) => _layers.Insert(index, layer);
 
     /// <summary>
-    /// Removes the first layer belonging to the supplied solution.
+    /// Removes all layers belonging to the supplied layer or source solution.
     /// </summary>
     public bool RemoveLayer(string solutionName)
     {
-        var layer = _layers.FirstOrDefault(l =>
+        var removed = _layers.RemoveAll(l =>
             string.Equals(l.SolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(l.SourceSolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase));
-        if (layer == null) return false;
-        return _layers.Remove(layer);
+        return removed > 0;
     }
 
     /// <summary>

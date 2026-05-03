@@ -1144,6 +1144,7 @@ public class XmlWorkspaceWriterTests
                 new SolutionWorkspaceSource(firstPath, 0),
                 new SolutionWorkspaceSource(secondPath, 1)
             });
+            workspace.FindEntity("account")!.DisplayName = new Label("Updated Second Account");
 
             new XmlWorkspaceWriter().WriteSolution(workspace, "SecondSolution", outputPath);
 
@@ -1151,7 +1152,7 @@ public class XmlWorkspaceWriterTests
             Assert.Equal("SecondSolution", writtenSolution.Root!.Element("SolutionManifest")!.Element("UniqueName")!.Value);
 
             var writtenEntity = XDocument.Load(Path.Combine(outputPath, "Entities", "account", "Entity.xml"));
-            Assert.Equal("Second Account", writtenEntity.Root!.Element("EntityInfo")!.Element("entity")!
+            Assert.Equal("Updated Second Account", writtenEntity.Root!.Element("EntityInfo")!.Element("entity")!
                 .Element("LocalizedNames")!.Element("LocalizedName")!.Attribute("description")!.Value);
         }
         finally

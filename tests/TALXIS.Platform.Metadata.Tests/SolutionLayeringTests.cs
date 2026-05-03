@@ -259,6 +259,14 @@ public class SolutionLayeringTests
                 new EntityMetadata { LogicalName = "account", DisplayName = new Label("One") },
                 "Entity:account")
         });
+        workspace.RegisterSolutionSource(firstSolution, 1, "/tmp/one", new[]
+        {
+            new LayerComponentDescriptor(
+                ComponentType.Entity,
+                "account",
+                new EntityMetadata { LogicalName = "account", DisplayName = new Label("One Again") },
+                "Entity:account")
+        });
         workspace.RegisterSolutionSource(secondSolution, 1, "/tmp/two", new[]
         {
             new LayerComponentDescriptor(
@@ -270,7 +278,7 @@ public class SolutionLayeringTests
 
         var stack = workspace.Layers.FindStack(ComponentType.Entity, "account")!;
 
-        Assert.Equal(2, stack.Layers.Count);
+        Assert.Equal(3, stack.Layers.Count);
         Assert.All(stack.Layers, layer => Assert.Equal(SolutionLayerKind.Active, layer.LayerKind));
         Assert.Equal("UnmanagedTwo", stack.ActiveLayer!.SourceSolutionUniqueName);
         Assert.Equal("Two", ((EntityMetadata)workspace.Layers.Resolve(stack)!).DisplayName.Default);
@@ -278,9 +286,12 @@ public class SolutionLayeringTests
         Assert.True(workspace.RemoveSolution("UnmanagedTwo"));
         stack = workspace.Layers.FindStack(ComponentType.Entity, "account")!;
 
-        Assert.Single(stack.Layers);
+        Assert.Equal(2, stack.Layers.Count);
         Assert.Equal("UnmanagedOne", stack.ActiveLayer!.SourceSolutionUniqueName);
-        Assert.Equal("One", ((EntityMetadata)workspace.Layers.Resolve(stack)!).DisplayName.Default);
+        Assert.Equal("One Again", ((EntityMetadata)workspace.Layers.Resolve(stack)!).DisplayName.Default);
+
+        Assert.True(workspace.RemoveSolution("UnmanagedOne"));
+        Assert.Null(workspace.Layers.FindStack(ComponentType.Entity, "account"));
     }
 
     [Fact]

@@ -20,6 +20,11 @@ public sealed class XmlWorkspaceReader
     /// <param name="workspacePath">Root directory of the solution project (contains Other/Solution.xml).</param>
     public Workspace Load(string workspacePath)
     {
+        return LoadCore(workspacePath, registerSolutionSource: true);
+    }
+
+    private Workspace LoadCore(string workspacePath, bool registerSolutionSource)
+    {
         if (!Directory.Exists(workspacePath))
             throw new DirectoryNotFoundException($"Workspace directory not found: {workspacePath}");
 
@@ -43,7 +48,8 @@ public sealed class XmlWorkspaceReader
         LoadRoundtripPassthroughFiles(workspace, workspacePath);
         LoadGenericComponents(workspace, workspacePath);
 
-        RegisterLoadedSolutionSource(workspace, workspacePath, order: 0);
+        if (registerSolutionSource)
+            RegisterLoadedSolutionSource(workspace, workspacePath, order: 0);
 
         return workspace;
     }
@@ -73,7 +79,7 @@ public sealed class XmlWorkspaceReader
         var workspace = new Workspace(orderedSources[0].Path);
         foreach (var source in orderedSources)
         {
-            var sourceWorkspace = Load(source.Path);
+            var sourceWorkspace = LoadCore(source.Path, registerSolutionSource: false);
             workspace.CopyOriginalDocumentsFrom(sourceWorkspace);
             workspace.CopyLoadErrorsFrom(sourceWorkspace);
             workspace.MergeComponentsFrom(sourceWorkspace, preferSource: true);

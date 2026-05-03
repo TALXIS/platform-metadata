@@ -83,11 +83,84 @@ public sealed class XmlWorkspaceWriter
         else
         {
             Directory.CreateDirectory(outputPath);
-            if (sourceRoot == null)
-                WriteComponents(workspace, outputPath);
         }
 
+        if (sourceRoot != null)
+            WriteComponents(CreateSolutionExportWorkspace(workspace, solution, sourceRoot), outputPath);
+        else
+            WriteComponents(workspace, outputPath);
+
         WriteSolutionManifest(solution, outputPath, workspace);
+    }
+
+    private static Workspace CreateSolutionExportWorkspace(Workspace workspace, Solution solution, string sourceRoot)
+    {
+        var exportWorkspace = new Workspace(sourceRoot);
+        exportWorkspace.AddSolution(solution);
+        exportWorkspace.CopyOriginalDocumentsFrom(workspace);
+
+        foreach (var snapshot in workspace.ComponentSources.Where(source =>
+            string.Equals(source.SourceSolutionUniqueName, solution.UniqueName, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (snapshot.Metadata != null)
+                AddMetadata(exportWorkspace, snapshot.Metadata);
+        }
+
+        return exportWorkspace;
+    }
+
+    private static void AddMetadata(Workspace workspace, MetadataBase metadata)
+    {
+        switch (metadata)
+        {
+            case EntityMetadata entity:
+                workspace.AddEntity(entity);
+                break;
+            case OptionSetMetadata optionSet:
+                workspace.AddGlobalOptionSet(optionSet);
+                break;
+            case RelationshipMetadata relationship:
+                workspace.AddRelationship(relationship);
+                break;
+            case FormMetadata form:
+                workspace.AddForm(form);
+                break;
+            case SavedQueryMetadata view:
+                workspace.AddView(view);
+                break;
+            case PluginAssemblyMetadata pluginAssembly:
+                workspace.AddPluginAssembly(pluginAssembly);
+                break;
+            case SdkMessageProcessingStepMetadata step:
+                workspace.AddSdkMessageProcessingStep(step);
+                break;
+            case SecurityRoleMetadata securityRole:
+                workspace.AddSecurityRole(securityRole);
+                break;
+            case AppModuleMetadata appModule:
+                workspace.AddAppModule(appModule);
+                break;
+            case SiteMapMetadata siteMap:
+                workspace.AddSiteMap(siteMap);
+                break;
+            case WebResourceMetadata webResource:
+                workspace.AddWebResource(webResource);
+                break;
+            case WorkflowMetadata workflow:
+                workspace.AddWorkflow(workflow);
+                break;
+            case RibbonMetadata ribbon:
+                workspace.AddRibbon(ribbon);
+                break;
+            case FlowDefinitionMetadata flowDefinition:
+                workspace.AddFlowDefinition(flowDefinition);
+                break;
+            case GenericComponentMetadata genericComponent:
+                workspace.AddGenericComponent(genericComponent);
+                break;
+            default:
+                throw new InvalidOperationException($"Cannot export source-owned component of type '{metadata.GetType().FullName}'.");
+        }
     }
 
     private void WriteSolutionManifest(Solution solution, string outputPath, Workspace workspace)
