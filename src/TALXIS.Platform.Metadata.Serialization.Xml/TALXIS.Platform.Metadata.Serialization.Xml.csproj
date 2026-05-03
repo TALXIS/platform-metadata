@@ -8,6 +8,7 @@
     <RootNamespace>TALXIS.Platform.Metadata.Serialization.Xml</RootNamespace>
     <PackageId>TALXIS.Platform.Metadata.Serialization.Xml</PackageId>
     <Description>SolutionPackager XML serialization for TALXIS Platform Metadata. Roundtrip-safe read/write of Dataverse solution workspace files.</Description>
+    <Title>TALXIS Platform Metadata Serialization XML</Title>
   </PropertyGroup>
 
   <ItemGroup>

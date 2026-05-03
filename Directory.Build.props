@@ -4,5 +4,13 @@
     <RepositoryUrl>https://github.com/TALXIS/platform-metadata</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/TALXIS/platform-metadata</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>package-icon.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" Link="README.md" />
+    <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="" Link="package-icon.png" />
+  </ItemGroup>
 </Project>
