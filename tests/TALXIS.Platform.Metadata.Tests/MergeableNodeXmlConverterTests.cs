@@ -55,7 +55,7 @@ public class MergeableNodeXmlConverterTests
     public void MergeAction_Maps_To_SolutionAction()
     {
         var node = new MergeableNode { Name = "section", Action = MergeAction.Removed };
-        node.Attributes["id"] = "s1";
+        node.SetAttribute("id", "s1");
 
         var xml = MergeableNodeXmlConverter.ToXElement(node);
 

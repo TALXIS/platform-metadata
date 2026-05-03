@@ -32,6 +32,20 @@ public class LabelTests
     }
 
     [Fact]
+    public void Constructor_WithLocalizedLabels_SeedsAllLanguages()
+    {
+        var label = new Label(new Dictionary<int, string>
+        {
+            [1033] = "Account",
+            [1031] = "Konto"
+        });
+
+        Assert.Equal("Account", label[1033]);
+        Assert.Equal("Konto", label[1031]);
+        Assert.Equal("Account", label.Default);
+    }
+
+    [Fact]
     public void MultiLanguageLabel()
     {
         var label = new Label("Account");

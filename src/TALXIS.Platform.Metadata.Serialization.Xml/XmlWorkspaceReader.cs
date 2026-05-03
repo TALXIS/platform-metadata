@@ -20,6 +20,11 @@ public sealed class XmlWorkspaceReader
     /// <param name="workspacePath">Root directory of the solution project (contains Other/Solution.xml).</param>
     public Workspace Load(string workspacePath)
     {
+        return LoadCore(workspacePath, registerSolutionSource: true);
+    }
+
+    private Workspace LoadCore(string workspacePath, bool registerSolutionSource)
+    {
         if (!Directory.Exists(workspacePath))
             throw new DirectoryNotFoundException($"Workspace directory not found: {workspacePath}");
 
@@ -43,6 +48,52 @@ public sealed class XmlWorkspaceReader
         LoadRoundtripPassthroughFiles(workspace, workspacePath);
         LoadGenericComponents(workspace, workspacePath);
 
+        if (registerSolutionSource)
+            RegisterLoadedSolutionSource(workspace, workspacePath, order: 0);
+
+        return workspace;
+    }
+
+    /// <summary>
+    /// Loads multiple SolutionPackager projects into one in-memory workspace using caller-defined order.
+    /// </summary>
+    /// <param name="sources">Solution projects to load and their import/source order.</param>
+    /// <returns>A workspace containing all loaded solution manifests, memberships, source snapshots, and layers.</returns>
+    public Workspace LoadMany(IEnumerable<SolutionWorkspaceSource> sources)
+    {
+        if (sources == null) throw new ArgumentNullException(nameof(sources));
+
+        var orderedSources = sources
+            .OrderBy(source => source.ImportOrder)
+            .ToArray();
+
+        if (orderedSources.Length == 0)
+            throw new ArgumentException("At least one solution workspace source must be supplied.", nameof(sources));
+
+        foreach (var source in orderedSources)
+        {
+            if (!Directory.Exists(source.Path))
+                throw new DirectoryNotFoundException($"Workspace directory not found: {source.Path}");
+        }
+
+        var workspace = new Workspace(orderedSources[0].Path);
+        foreach (var source in orderedSources)
+        {
+            var sourceWorkspace = LoadCore(source.Path, registerSolutionSource: false);
+            if (sourceWorkspace.Solutions.Count != 1)
+                throw new InvalidOperationException($"Workspace source '{source.Path}' must contain exactly one solution manifest.");
+
+            workspace.CopyOriginalDocumentsFrom(sourceWorkspace);
+            workspace.CopyLoadErrorsFrom(sourceWorkspace);
+            workspace.MergeComponentsFrom(sourceWorkspace, preferSource: true);
+
+            foreach (var solution in sourceWorkspace.Solutions)
+            {
+                workspace.AddSolution(solution);
+                RegisterLoadedSolutionSource(workspace, source.Path, source.ImportOrder, solution, sourceWorkspace.EnumerateLayerComponents());
+            }
+        }
+
         return workspace;
     }
 
@@ -52,7 +103,6 @@ public sealed class XmlWorkspaceReader
         if (!File.Exists(solutionFile)) return;
 
         var doc = LoadDocument(solutionFile);
-        workspace.OriginalDocuments["Solution.xml"] = doc;
         var manifest = doc.Root?.Element("SolutionManifest");
         if (manifest == null) return;
 
@@ -100,7 +150,7 @@ public sealed class XmlWorkspaceReader
 
                 var component = new RootComponent
                 {
-                    TypeCode = typeCode,
+                    Type = (ComponentType)typeCode,
                     SchemaName = rc.Attribute("schemaName")?.Value,
                     Behavior = ParseInt(rc.Attribute("behavior")?.Value, 0)
                 };
@@ -113,7 +163,22 @@ public sealed class XmlWorkspaceReader
             }
         }
 
-        workspace.Solution = solution;
+        workspace.OriginalDocuments[Workspace.GetSolutionDocumentKey(solution.UniqueName)] = doc;
+        workspace.AddSolution(solution);
+    }
+
+    private static void RegisterLoadedSolutionSource(
+        Workspace workspace,
+        string workspacePath,
+        int order,
+        Solution? solution = null,
+        IEnumerable<LayerComponentDescriptor>? components = null)
+    {
+        solution ??= workspace.Solutions.Count == 1 ? workspace.Solutions[0] : null;
+        if (solution == null)
+            return;
+
+        workspace.RegisterSolutionSource(solution, order, workspacePath, components ?? workspace.EnumerateLayerComponents());
     }
 
     private static void LoadEntities(Workspace workspace, string rootPath)
@@ -968,7 +1033,7 @@ public sealed class XmlWorkspaceReader
 
                         var component = new AppModuleComponent
                         {
-                            Type = typeCode,
+                            Type = (ComponentType)typeCode,
                             SchemaName = compEl.Attribute("schemaName")?.Value,
                             Id = compEl.Attribute("id")?.Value
                         };

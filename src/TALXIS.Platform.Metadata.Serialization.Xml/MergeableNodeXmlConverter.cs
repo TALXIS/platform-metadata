@@ -36,7 +36,7 @@ public static class MergeableNodeXmlConverter
             }
             else
             {
-                node.Attributes[attr.Name.LocalName] = attr.Value;
+                node.SetAttribute(attr.Name.LocalName, attr.Value);
             }
         }
 
@@ -47,7 +47,7 @@ public static class MergeableNodeXmlConverter
 
         foreach (var child in element.Elements())
         {
-            node.Children.Add(FromXElement(child));
+            node.AddChild(FromXElement(child));
         }
 
         return node;

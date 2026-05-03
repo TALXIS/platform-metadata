@@ -244,6 +244,14 @@ public static class ComponentDefinitionRegistry
         }
     }
 
+    /// <summary>
+    /// Registers a component definition in the global registry.
+    /// </summary>
+    /// <param name="def">Definition to register.</param>
+    /// <param name="replaceExisting">
+    /// When <see langword="true"/>, replaces any existing definition with the same type code
+    /// or serialized name; otherwise duplicate registrations throw.
+    /// </param>
     public static void Register(ComponentDefinition def, bool replaceExisting = false)
     {
         if (string.IsNullOrWhiteSpace(def.Name))

@@ -8,9 +8,17 @@ using TALXIS.Platform.Metadata.Merging;
 /// </summary>
 public sealed class SolutionLayerManager
 {
+    /// <summary>
+    /// Dataverse name of the shared unmanaged active layer.
+    /// </summary>
+    public const string ActiveSolutionName = "Active";
+
     private readonly Dictionary<string, LayerStack> _stacks = new();
     private readonly Dictionary<ComponentType, IComponentMerger> _mergers = new();
 
+    /// <summary>
+    /// Creates a layer manager preconfigured with the built-in mergers for mergeable component types.
+    /// </summary>
     public SolutionLayerManager()
     {
         RegisterMerger(new FormMerger());
@@ -19,16 +27,18 @@ public sealed class SolutionLayerManager
         RegisterMerger(new RibbonMerger());
     }
 
-    /// <summary>Gets or creates a layer stack for a component.</summary>
-    public LayerStack GetOrCreateStack(ComponentType componentType, string componentId)
+    /// <summary>
+    /// Gets an existing layer stack for the component or creates a new one.
+    /// </summary>
+    public LayerStack GetOrCreateStack(ComponentType componentType, string componentObjectId)
     {
-        var key = $"{(int)componentType}:{componentId}";
+        var key = $"{(int)componentType}:{componentObjectId}";
         if (!_stacks.TryGetValue(key, out var stack))
         {
             stack = new LayerStack
             {
                 ComponentType = componentType,
-                ComponentId = componentId,
+                ComponentObjectId = componentObjectId,
                 RequiresMerge = ComponentDefinitionRegistry.GetByType(componentType)?.IsMergeable == true
             };
             _stacks[key] = stack;
@@ -36,32 +46,105 @@ public sealed class SolutionLayerManager
         return stack;
     }
 
-    public LayerStack? FindStack(ComponentType componentType, string componentId)
+    /// <summary>
+    /// Finds an existing layer stack without creating a new one.
+    /// </summary>
+    public LayerStack? FindStack(ComponentType componentType, string componentObjectId)
     {
-        var key = $"{(int)componentType}:{componentId}";
+        var key = $"{(int)componentType}:{componentObjectId}";
         return _stacks.TryGetValue(key, out var stack) ? stack : null;
     }
 
-    public IReadOnlyCollection<LayerStack> AllStacks => _stacks.Values;
-
-    public void RegisterMerger(IComponentMerger merger) => _mergers[merger.ComponentType] = merger;
+    /// <summary>
+    /// Gets all tracked component stacks.
+    /// </summary>
+    public IReadOnlyCollection<LayerStack> Stacks => _stacks.Values;
 
     /// <summary>
-    /// Imports a solution's components as a new layer.
-    /// Each component gets a layer with the given solution name and order.
+    /// Registers or replaces the merger used for a mergeable component type.
     /// </summary>
-    public void ImportSolutionLayer(string solutionName, int order, bool isManaged,
-        IEnumerable<(ComponentType type, string id, MetadataBase? component)> components)
+    public void RegisterMerger(IComponentMerger merger)
     {
-        foreach (var (type, id, component) in components)
+        if (merger == null) throw new ArgumentNullException(nameof(merger));
+
+        _mergers[merger.ComponentType] = merger;
+    }
+
+    /// <summary>
+    /// Imports managed solution components as a Dataverse-style managed layer.
+    /// </summary>
+    /// <param name="solution">Managed solution that owns the layer.</param>
+    /// <param name="importOrder">Caller-defined import order.</param>
+    /// <param name="components">Components in this layer.</param>
+    /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
+    public void ImportManagedLayer(
+        Solution solution,
+        int importOrder,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath = null)
+    {
+        if (solution == null) throw new ArgumentNullException(nameof(solution));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+
+        ImportLayer(
+            solution.UniqueName,
+            solution.UniqueName,
+            SolutionLayerKind.Managed,
+            importOrder,
+            true,
+            components,
+            sourceRootPath);
+    }
+
+    /// <summary>
+    /// Imports unmanaged solution components as source-owned snapshots of the shared Active layer.
+    /// </summary>
+    /// <param name="solution">Unmanaged solution project that owns the source snapshots.</param>
+    /// <param name="importOrder">Caller-defined source precedence order.</param>
+    /// <param name="components">Components in this source snapshot.</param>
+    /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
+    public void ImportActiveLayerSnapshot(
+        Solution solution,
+        int importOrder,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath = null)
+    {
+        if (solution == null) throw new ArgumentNullException(nameof(solution));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+
+        ImportLayer(
+            ActiveSolutionName,
+            solution.UniqueName,
+            SolutionLayerKind.Active,
+            importOrder,
+            false,
+            components,
+            sourceRootPath);
+    }
+
+    private void ImportLayer(
+        string layerSolutionName,
+        string sourceSolutionName,
+        SolutionLayerKind layerKind,
+        int order,
+        bool isManaged,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath)
+    {
+        foreach (var component in components)
         {
-            var stack = GetOrCreateStack(type, id);
-            stack.PushLayer(new ComponentLayer
+            var stack = GetOrCreateStack(component.Type, component.ObjectId);
+            stack.AddLayer(new ComponentLayer
             {
-                SolutionName = solutionName,
-                Order = order,
+                LayerSolutionUniqueName = layerSolutionName,
+                SourceSolutionUniqueName = sourceSolutionName,
+                LayerKind = layerKind,
+                SourceRootPath = sourceRootPath,
+                SourceDocumentKey = component.SourceDocumentKey,
+                SourceOrder = order,
+                LayerOrder = order,
                 IsManaged = isManaged,
-                Component = component
+                Metadata = component.Metadata
             });
         }
     }
@@ -72,6 +155,8 @@ public sealed class SolutionLayerManager
     /// </summary>
     public MetadataBase? Resolve(LayerStack stack)
     {
+        if (stack == null) throw new ArgumentNullException(nameof(stack));
+
         if (stack.RequiresMerge && _mergers.TryGetValue(stack.ComponentType, out var merger))
         {
             return merger.Merge(stack.Layers);
@@ -84,7 +169,7 @@ public sealed class SolutionLayerManager
     {
         foreach (var stack in _stacks.Values)
         {
-            stack.RemoveLayer(solutionName);
+            stack.RemoveLayersForSolution(solutionName);
         }
 
         var emptyKeys = _stacks.Where(kvp => kvp.Value.Layers.Count == 0)

@@ -80,8 +80,8 @@ public class ComponentBodyMergerTests
 
     private static IReadOnlyList<ComponentLayer> Layers(MetadataBase baseComponent, MetadataBase topComponent) =>
     [
-        new ComponentLayer { SolutionName = "base", Order = 1, IsManaged = true, Component = baseComponent },
-        new ComponentLayer { SolutionName = "top", Order = 2, IsManaged = false, Component = topComponent }
+        new ComponentLayer { LayerSolutionUniqueName = "base", LayerOrder = 1, IsManaged = true, Metadata = baseComponent },
+        new ComponentLayer { LayerSolutionUniqueName = "top", LayerOrder = 2, IsManaged = false, Metadata = topComponent }
     ];
 
     private static MergeableNode Node(string name, params MergeableNode[] children) => Node(name, null, children);
@@ -92,10 +92,11 @@ public class ComponentBodyMergerTests
         if (attributes != null)
         {
             foreach (var attribute in attributes)
-                node.Attributes[attribute.Key] = attribute.Value;
+                node.SetAttribute(attribute.Key, attribute.Value);
         }
 
-        node.Children.AddRange(children);
+        foreach (var child in children)
+            node.AddChild(child);
         return node;
     }
 

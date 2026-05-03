@@ -19,26 +19,26 @@ public sealed class FormMerger : IComponentMerger
 
         // If the topmost layer marks the component as deleted, return null
         var topLayer = layers[layers.Count - 1];
-        if (topLayer.State == ComponentState.Deleted || topLayer.State == ComponentState.DeletedUnpublished)
+        if (topLayer.State == ComponentState.Delete || topLayer.State == ComponentState.UnpublishedDelete)
             return null;
 
         // Filter out deleted layers, keep Published and Unpublished
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Deleted && l.State != ComponentState.DeletedUnpublished && l.Component is FormMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Metadata is FormMetadata)
             .ToList();
 
         if (activeLayers.Count == 0)
             return null;
 
         var baseLayer = activeLayers[0];
-        if (baseLayer.Component is not FormMetadata baseForm || baseForm.Body == null)
-            return baseLayer.Component;
+        if (baseLayer.Metadata is not FormMetadata baseForm || baseForm.Body == null)
+            return baseLayer.Metadata;
 
         var current = baseForm.Body;
 
         for (int i = 1; i < activeLayers.Count; i++)
         {
-            if (activeLayers[i].Component is FormMetadata layerForm && layerForm.Body != null)
+            if (activeLayers[i].Metadata is FormMetadata layerForm && layerForm.Body != null)
             {
                 current = TreeMergeEngine.Merge(current, layerForm.Body);
             }
@@ -65,7 +65,7 @@ public sealed class FormMerger : IComponentMerger
             result.Description[kvp.Key] = kvp.Value;
 
         // Apply top-wins for scalar properties from topmost layer
-        var topForm = activeLayers[activeLayers.Count - 1].Component as FormMetadata;
+        var topForm = activeLayers[activeLayers.Count - 1].Metadata as FormMetadata;
         if (topForm != null && activeLayers.Count > 1)
         {
             result.FormType = topForm.FormType ?? result.FormType;

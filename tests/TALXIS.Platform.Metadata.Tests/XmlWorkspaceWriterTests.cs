@@ -221,10 +221,11 @@ public class XmlWorkspaceWriterTests
 
             // Re-read the written output and verify it loads correctly
             var workspace2 = reader.Load(outputPath);
+            var solution = Assert.Single(workspace.Solutions);
+            var solution2 = Assert.Single(workspace2.Solutions);
 
-            Assert.NotNull(workspace2.Solution);
-            Assert.Equal(workspace.Solution!.UniqueName, workspace2.Solution.UniqueName);
-            Assert.Equal(workspace.Solution.Version, workspace2.Solution.Version);
+            Assert.Equal(solution.UniqueName, solution2.UniqueName);
+            Assert.Equal(solution.Version, solution2.Version);
             Assert.Equal(workspace.Entities.Count, workspace2.Entities.Count);
             Assert.Equal(workspace.GlobalOptionSets.Count, workspace2.GlobalOptionSets.Count);
             Assert.Equal(workspace.Relationships.Count, workspace2.Relationships.Count);
@@ -248,12 +249,12 @@ public class XmlWorkspaceWriterTests
     public void Write_InMemoryEntity_ProducesValidXml()
     {
         var workspace = new Workspace("in-memory");
-        workspace.Solution = new Solution
+        workspace.AddSolution(new Solution
         {
             UniqueName = "InMemorySolution",
             Version = "2.0",
             Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
-        };
+        });
 
         var entity = new EntityMetadata
         {
@@ -302,12 +303,12 @@ public class XmlWorkspaceWriterTests
     public void Write_SolutionWithNoEntities_OnlySolutionXmlCreated()
     {
         var workspace = new Workspace("empty");
-        workspace.Solution = new Solution
+        workspace.AddSolution(new Solution
         {
             UniqueName = "EmptySolution",
             Version = "1.0",
             Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
-        };
+        });
 
         var outputPath = Path.Combine(Path.GetTempPath(), $"writer-noentities-{Guid.NewGuid():N}");
         try
@@ -328,12 +329,12 @@ public class XmlWorkspaceWriterTests
     public void Write_MultipleEntities_OneFolderPerEntity()
     {
         var workspace = new Workspace("multi");
-        workspace.Solution = new Solution
+        workspace.AddSolution(new Solution
         {
             UniqueName = "MultiEntitySolution",
             Version = "1.0",
             Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
-        };
+        });
 
         workspace.AddEntity(new EntityMetadata
         {
@@ -389,7 +390,7 @@ public class XmlWorkspaceWriterTests
 
             var reloaded = reader.Load(outputPath);
 
-            Assert.Equal(original.Solution!.UniqueName, reloaded.Solution!.UniqueName);
+            Assert.Equal(Assert.Single(original.Solutions).UniqueName, Assert.Single(reloaded.Solutions).UniqueName);
             Assert.Equal(original.Entities.Count, reloaded.Entities.Count);
             Assert.Equal(original.GlobalOptionSets.Count, reloaded.GlobalOptionSets.Count);
             Assert.Equal(original.Relationships.Count, reloaded.Relationships.Count);
@@ -763,7 +764,7 @@ public class XmlWorkspaceWriterTests
 
             var workspace = new XmlWorkspaceReader().Load(inputPath);
 
-            Assert.Null(workspace.Solution);
+            Assert.Empty(workspace.Solutions);
             new XmlWorkspaceWriter().Write(workspace, outputPath);
 
             Assert.True(File.Exists(Path.Combine(outputPath, "Other", "Relationships", "account.xml")));
@@ -844,9 +845,9 @@ public class XmlWorkspaceWriterTests
             var form = Assert.Single(workspace.Forms);
             var tabs = FindFirst(form.Body!, "tabs")!;
             var addedTab = new MergeableNode { Name = "tab" };
-            addedTab.Attributes["id"] = "added-tab";
-            addedTab.Attributes["ordinalvalue"] = "10";
-            tabs.Children.Add(addedTab);
+            addedTab.SetAttribute("id", "added-tab");
+            addedTab.SetAttribute("ordinalvalue", "10");
+            tabs.AddChild(addedTab);
 
             new XmlWorkspaceWriter().Write(workspace, outputPath);
 
@@ -1053,12 +1054,12 @@ public class XmlWorkspaceWriterTests
     public void Write_InMemoryWebResourceWithBlankDisplayName_DoesNotWriteDisplayNameElement()
     {
         var workspace = new Workspace("in-memory");
-        workspace.Solution = new Solution
+        workspace.AddSolution(new Solution
         {
             UniqueName = "InMemorySolution",
             Version = "1.0",
             Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
-        };
+        });
         workspace.AddWebResource(new WebResourceMetadata
         {
             WebResourceId = "{c1b2c3d4-0000-0000-0000-000000000003}",
@@ -1081,6 +1082,82 @@ public class XmlWorkspaceWriterTests
         finally
         {
             if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Write_MultiSolutionWorkspace_RequiresExplicitSolution()
+    {
+        var workspace = new Workspace("multi");
+        workspace.AddSolution(new Solution { UniqueName = "One" });
+        workspace.AddSolution(new Solution { UniqueName = "Two" });
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"writer-multisolution-{Guid.NewGuid():N}");
+        try
+        {
+            var ex = Assert.Throws<InvalidOperationException>(() => new XmlWorkspaceWriter().Write(workspace, outputPath));
+
+            Assert.Contains("multiple solutions", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void WriteSolution_MultiSolutionWithoutSourceOwnership_Throws()
+    {
+        var workspace = new Workspace("multi");
+        workspace.AddSolution(new Solution { UniqueName = "One" });
+        workspace.AddSolution(new Solution { UniqueName = "Two" });
+        workspace.AddEntity(new EntityMetadata { LogicalName = "account", DisplayName = new Label("Account") });
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"writer-no-source-{Guid.NewGuid():N}");
+        try
+        {
+            var ex = Assert.Throws<InvalidOperationException>(() => new XmlWorkspaceWriter().WriteSolution(workspace, "One", outputPath));
+
+            Assert.Contains("source ownership", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void WriteSolution_ExportsSelectedSourceProject()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"writer-solution-export-{Guid.NewGuid():N}");
+        var firstPath = Path.Combine(root, "first");
+        var secondPath = Path.Combine(root, "second");
+        var outputPath = Path.Combine(root, "out");
+
+        try
+        {
+            WriteMinimalEntityWorkspace(firstPath, "FirstSolution", "First Account");
+            WriteMinimalEntityWorkspace(secondPath, "SecondSolution", "Second Account");
+
+            var workspace = new XmlWorkspaceReader().LoadMany(new[]
+            {
+                new SolutionWorkspaceSource(firstPath, 0),
+                new SolutionWorkspaceSource(secondPath, 1)
+            });
+            workspace.FindEntity("account")!.DisplayName = new Label("Updated Second Account");
+
+            new XmlWorkspaceWriter().WriteSolution(workspace, "SecondSolution", outputPath);
+
+            var writtenSolution = XDocument.Load(Path.Combine(outputPath, "Other", "Solution.xml"));
+            Assert.Equal("SecondSolution", writtenSolution.Root!.Element("SolutionManifest")!.Element("UniqueName")!.Value);
+
+            var writtenEntity = XDocument.Load(Path.Combine(outputPath, "Entities", "account", "Entity.xml"));
+            Assert.Equal("Updated Second Account", writtenEntity.Root!.Element("EntityInfo")!.Element("entity")!
+                .Element("LocalizedNames")!.Element("LocalizedName")!.Attribute("description")!.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
         }
     }
 
@@ -1116,5 +1193,43 @@ public class XmlWorkspaceWriterTests
         }
 
         return null;
+    }
+
+    private static void WriteMinimalEntityWorkspace(string path, string solutionName, string entityDisplayName)
+    {
+        Directory.CreateDirectory(Path.Combine(path, "Other"));
+        Directory.CreateDirectory(Path.Combine(path, "Entities", "account"));
+        File.WriteAllText(Path.Combine(path, "Other", "Solution.xml"),
+            $$"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml>
+              <SolutionManifest>
+                <UniqueName>{{solutionName}}</UniqueName>
+                <Version>1.0</Version>
+                <Managed>0</Managed>
+                <Publisher>
+                  <UniqueName>test</UniqueName>
+                  <CustomizationPrefix>test</CustomizationPrefix>
+                </Publisher>
+                <RootComponents>
+                  <RootComponent type="1" schemaName="account" behavior="2" />
+                </RootComponents>
+              </SolutionManifest>
+            </ImportExportXml>
+            """);
+        File.WriteAllText(Path.Combine(path, "Entities", "account", "Entity.xml"),
+            $$"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity>
+              <EntityInfo>
+                <entity Name="account">
+                  <EntitySetName>accounts</EntitySetName>
+                  <LocalizedNames><LocalizedName description="{{entityDisplayName}}" languagecode="1033" /></LocalizedNames>
+                  <LocalizedCollectionNames><LocalizedCollectionName description="Accounts" languagecode="1033" /></LocalizedCollectionNames>
+                  <attributes />
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """);
     }
 }

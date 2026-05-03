@@ -5,6 +5,9 @@ namespace TALXIS.Platform.Metadata;
 /// </summary>
 public interface IDisplayNamedMetadata
 {
+    /// <summary>
+    /// Gets or sets the localized display name shown to users.
+    /// </summary>
     Label DisplayName { get; set; }
 }
 
@@ -13,6 +16,9 @@ public interface IDisplayNamedMetadata
 /// </summary>
 public interface IDescribedMetadata
 {
+    /// <summary>
+    /// Gets or sets the localized description shown to users.
+    /// </summary>
     Label Description { get; set; }
 }
 
@@ -28,6 +34,9 @@ public interface ILocalizedMetadata : IDisplayNamedMetadata, IDescribedMetadata
 /// </summary>
 public interface IVersionedMetadata
 {
+    /// <summary>
+    /// Gets or sets the product version that first introduced the metadata item.
+    /// </summary>
     string? IntroducedVersion { get; set; }
 }
 
@@ -36,6 +45,9 @@ public interface IVersionedMetadata
 /// </summary>
 public interface ICustomizableMetadata
 {
+    /// <summary>
+    /// Gets or sets whether the metadata item is customizable in the target environment.
+    /// </summary>
     bool IsCustomizable { get; set; }
 }
 
@@ -44,5 +56,8 @@ public interface ICustomizableMetadata
 /// </summary>
 public interface IDeletableMetadata
 {
+    /// <summary>
+    /// Gets or sets whether the metadata item can be deleted from a solution.
+    /// </summary>
     bool CanBeDeleted { get; set; }
 }
