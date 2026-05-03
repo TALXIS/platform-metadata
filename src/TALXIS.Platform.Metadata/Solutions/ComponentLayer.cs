@@ -11,6 +11,11 @@ public sealed class ComponentLayer
     public bool IsManaged { get; set; }
     public ComponentState State { get; set; } = ComponentState.Published;
 
-    /// <summary>Raw XML content of this layer (for merge operations).</summary>
-    public string? XmlContent { get; set; }
+    /// <summary>
+    /// The component metadata for this layer. Can be any MetadataBase subclass
+    /// (EntityMetadata, FormMetadata, SecurityRoleMetadata, etc.).
+    /// For top-wins resolution, the active layer's Component is the effective value.
+    /// For mergeable types, all layers' Components are inputs to the merge engine.
+    /// </summary>
+    public MetadataBase? Component { get; set; }
 }

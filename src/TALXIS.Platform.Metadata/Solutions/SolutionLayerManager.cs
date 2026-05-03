@@ -7,6 +7,7 @@ namespace TALXIS.Platform.Metadata.Solutions;
 public sealed class SolutionLayerManager
 {
     private readonly Dictionary<string, LayerStack> _stacks = new();
+    private readonly Dictionary<ComponentType, IComponentMerger> _mergers = new();
 
     /// <summary>Gets or creates a layer stack for a component.</summary>
     public LayerStack GetOrCreateStack(ComponentType componentType, string componentId)
@@ -32,14 +33,16 @@ public sealed class SolutionLayerManager
 
     public IReadOnlyCollection<LayerStack> AllStacks => _stacks.Values;
 
+    public void RegisterMerger(IComponentMerger merger) => _mergers[merger.ComponentType] = merger;
+
     /// <summary>
     /// Imports a solution's components as a new layer.
     /// Each component gets a layer with the given solution name and order.
     /// </summary>
     public void ImportSolutionLayer(string solutionName, int order, bool isManaged,
-        IEnumerable<(ComponentType type, string id, string? xmlContent)> components)
+        IEnumerable<(ComponentType type, string id, MetadataBase? component)> components)
     {
-        foreach (var (type, id, xml) in components)
+        foreach (var (type, id, component) in components)
         {
             var stack = GetOrCreateStack(type, id);
             stack.PushLayer(new ComponentLayer
@@ -47,9 +50,22 @@ public sealed class SolutionLayerManager
                 SolutionName = solutionName,
                 Order = order,
                 IsManaged = isManaged,
-                XmlContent = xml
+                Component = component
             });
         }
+    }
+
+    /// <summary>
+    /// Resolves the effective component for a given stack.
+    /// Uses top-wins for non-mergeable types, registered merger for mergeable types.
+    /// </summary>
+    public MetadataBase? Resolve(LayerStack stack)
+    {
+        if (stack.RequiresMerge && _mergers.TryGetValue(stack.ComponentType, out var merger))
+        {
+            return merger.Merge(stack.Layers);
+        }
+        return stack.ResolveTopWins<MetadataBase>();
     }
 
     /// <summary>Removes all layers for a solution (uninstall).</summary>

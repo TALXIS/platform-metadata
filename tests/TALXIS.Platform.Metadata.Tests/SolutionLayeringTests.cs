@@ -1,4 +1,6 @@
 using TALXIS.Platform.Metadata;
+using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -34,36 +36,46 @@ public class SolutionLayeringTests
     }
 
     [Fact]
-    public void LayerStack_ResolveTopWins_ReturnsTopContent()
+    public void LayerStack_ResolveTopWins_ReturnsTopComponent()
     {
-        var stack = new LayerStack { ComponentType = ComponentType.SystemForm, ComponentId = "form-1" };
-        stack.PushLayer(new ComponentLayer { SolutionName = "Base", Order = 0, IsManaged = true, XmlContent = "<form>base</form>" });
-        stack.PushLayer(new ComponentLayer { SolutionName = "Active", Order = 1, IsManaged = false, XmlContent = "<form>custom</form>" });
+        var baseForm = new FormMetadata { FormId = "form-1", Name = "Base Form" };
+        var customForm = new FormMetadata { FormId = "form-1", Name = "Custom Form" };
 
-        Assert.Equal("<form>custom</form>", stack.ResolveTopWins());
+        var stack = new LayerStack { ComponentType = ComponentType.SystemForm, ComponentId = "form-1" };
+        stack.PushLayer(new ComponentLayer { SolutionName = "Base", Order = 0, IsManaged = true, Component = baseForm });
+        stack.PushLayer(new ComponentLayer { SolutionName = "Active", Order = 1, IsManaged = false, Component = customForm });
+
+        var resolved = stack.ResolveTopWins<FormMetadata>();
+        Assert.NotNull(resolved);
+        Assert.Equal("Custom Form", resolved!.Name);
     }
 
     [Fact]
     public void LayerStack_ResolveTopWins_ReturnsNull_WhenTopDeleted()
     {
+        var entity = new EntityMetadata { LogicalName = "account" };
+
         var stack = new LayerStack { ComponentType = ComponentType.WebResource, ComponentId = "wr-1" };
         stack.PushLayer(new ComponentLayer
         {
-            SolutionName = "Active", Order = 0, XmlContent = "<wr/>",
+            SolutionName = "Active", Order = 0, Component = entity,
             State = ComponentState.Deleted
         });
 
-        Assert.Null(stack.ResolveTopWins());
+        Assert.Null(stack.ResolveTopWins<EntityMetadata>());
     }
 
     [Fact]
     public void SolutionLayerManager_ImportAndFind()
     {
         var mgr = new SolutionLayerManager();
-        var components = new (ComponentType, string, string?)[]
+        var accountEntity = new EntityMetadata { LogicalName = "account" };
+        var mainForm = new FormMetadata { FormId = "form-1", Name = "Main" };
+
+        var components = new (ComponentType, string, MetadataBase?)[]
         {
-            (ComponentType.Entity, "account", "<entity>account</entity>"),
-            (ComponentType.SystemForm, "form-1", "<form>main</form>")
+            (ComponentType.Entity, "account", accountEntity),
+            (ComponentType.SystemForm, "form-1", mainForm)
         };
 
         mgr.ImportSolutionLayer("MySolution", 1, true, components);
@@ -73,11 +85,15 @@ public class SolutionLayeringTests
         Assert.Single(entityStack!.Layers);
         Assert.Equal("MySolution", entityStack.Layers[0].SolutionName);
         Assert.True(entityStack.Layers[0].IsManaged);
-        Assert.Equal("<entity>account</entity>", entityStack.Layers[0].XmlContent);
+        var resolvedEntity = entityStack.Layers[0].Component as EntityMetadata;
+        Assert.NotNull(resolvedEntity);
+        Assert.Equal("account", resolvedEntity!.LogicalName);
 
         var formStack = mgr.FindStack(ComponentType.SystemForm, "form-1");
         Assert.NotNull(formStack);
-        Assert.Equal("<form>main</form>", formStack!.Layers[0].XmlContent);
+        var resolvedForm = formStack!.Layers[0].Component as FormMetadata;
+        Assert.NotNull(resolvedForm);
+        Assert.Equal("Main", resolvedForm!.Name);
 
         Assert.Null(mgr.FindStack(ComponentType.Entity, "nonexistent"));
     }
@@ -87,14 +103,18 @@ public class SolutionLayeringTests
     {
         var mgr = new SolutionLayerManager();
 
-        mgr.ImportSolutionLayer("Sol1", 0, true, new[]
+        var sol1Entity = new EntityMetadata { LogicalName = "account" };
+        var sol1Attr = new StringAttributeMetadata { LogicalName = "name" };
+        var sol2Entity = new EntityMetadata { LogicalName = "account" };
+
+        mgr.ImportSolutionLayer("Sol1", 0, true, new (ComponentType, string, MetadataBase?)[]
         {
-            (ComponentType.Entity, "account", (string?)"<e>sol1</e>"),
-            (ComponentType.Attribute, "name", (string?)"<a>sol1</a>")
+            (ComponentType.Entity, "account", sol1Entity),
+            (ComponentType.Attribute, "name", sol1Attr)
         });
-        mgr.ImportSolutionLayer("Sol2", 1, true, new[]
+        mgr.ImportSolutionLayer("Sol2", 1, true, new (ComponentType, string, MetadataBase?)[]
         {
-            (ComponentType.Entity, "account", (string?)"<e>sol2</e>")
+            (ComponentType.Entity, "account", sol2Entity)
         });
 
         mgr.RemoveSolutionLayers("Sol1");
@@ -119,5 +139,69 @@ public class SolutionLayeringTests
         var stack2 = mgr.GetOrCreateStack(ComponentType.Entity, "account");
 
         Assert.Same(stack1, stack2);
+    }
+
+    [Fact]
+    public void SolutionLayerManager_Resolve_TopWins_ForNonMergeableType()
+    {
+        var mgr = new SolutionLayerManager();
+        var baseEntity = new EntityMetadata { LogicalName = "account" };
+        var activeEntity = new EntityMetadata { LogicalName = "account", IsAuditEnabled = true };
+
+        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        {
+            (ComponentType.Entity, "account", baseEntity)
+        });
+        mgr.ImportSolutionLayer("Active", 1, false, new (ComponentType, string, MetadataBase?)[]
+        {
+            (ComponentType.Entity, "account", activeEntity)
+        });
+
+        var stack = mgr.FindStack(ComponentType.Entity, "account")!;
+        var resolved = mgr.Resolve(stack) as EntityMetadata;
+
+        Assert.NotNull(resolved);
+        Assert.True(resolved!.IsAuditEnabled);
+    }
+
+    [Fact]
+    public void SolutionLayerManager_Resolve_UsesMerger_ForMergeableType()
+    {
+        var mgr = new SolutionLayerManager();
+        mgr.RegisterMerger(new StubFormMerger());
+
+        var baseForm = new FormMetadata { FormId = "form-1", Name = "Base" };
+        var activeForm = new FormMetadata { FormId = "form-1", Name = "Active" };
+
+        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        {
+            (ComponentType.SystemForm, "form-1", baseForm)
+        });
+        mgr.ImportSolutionLayer("Active", 1, false, new (ComponentType, string, MetadataBase?)[]
+        {
+            (ComponentType.SystemForm, "form-1", activeForm)
+        });
+
+        var stack = mgr.FindStack(ComponentType.SystemForm, "form-1")!;
+        stack.RequiresMerge = true;
+
+        var resolved = mgr.Resolve(stack) as FormMetadata;
+        Assert.NotNull(resolved);
+        Assert.Equal("Merged(2)", resolved!.Name);
+    }
+
+    /// <summary>Stub merger that returns a FormMetadata indicating how many layers were merged.</summary>
+    private sealed class StubFormMerger : IComponentMerger
+    {
+        public ComponentType ComponentType => ComponentType.SystemForm;
+
+        public MetadataBase? Merge(IReadOnlyList<ComponentLayer> layers)
+        {
+            return new FormMetadata
+            {
+                FormId = "merged",
+                Name = $"Merged({layers.Count})"
+            };
+        }
     }
 }

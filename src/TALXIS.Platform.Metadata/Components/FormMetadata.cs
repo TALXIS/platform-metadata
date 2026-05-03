@@ -1,3 +1,5 @@
+using TALXIS.Platform.Metadata.Merging;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 public sealed class FormMetadata : MetadataBase
@@ -13,4 +15,7 @@ public sealed class FormMetadata : MetadataBase
     public bool IsCustomizable { get; set; }
     public bool CanBeDeleted { get; set; }
     public string? EntityLogicalName { get; set; }
+
+    /// <summary>The form body as a mergeable tree (tabs/sections/rows/cells/controls).</summary>
+    public MergeableNode? Body { get; set; }
 }
