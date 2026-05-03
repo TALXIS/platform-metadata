@@ -1,5 +1,6 @@
 using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -70,6 +71,50 @@ public class ExpandedReaderTests
             Assert.Equal("Main Form", form.DisplayName.Default);
             Assert.Equal(1, form.FormPresentation);
             Assert.Equal(1, form.FormActivationState);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadForms_PrefersManagedVariantWhenBothExist()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var formDir = Path.Combine(dir, "Entities", "test_entity", "FormXml", "main");
+            Directory.CreateDirectory(formDir);
+
+            File.WriteAllText(Path.Combine(formDir, "{a1b2c3d4-0000-0000-0000-000000000001}.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{a1b2c3d4-0000-0000-0000-000000000001}</formid>
+                    <LocalizedNames>
+                      <LocalizedName description="Base Form" languagecode="1033" />
+                    </LocalizedNames>
+                  </systemform>
+                </forms>
+                """);
+            File.WriteAllText(Path.Combine(formDir, "{a1b2c3d4-0000-0000-0000-000000000001}_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{a1b2c3d4-0000-0000-0000-000000000001}</formid>
+                    <LocalizedNames>
+                      <LocalizedName description="Managed Form" languagecode="1033" />
+                    </LocalizedNames>
+                  </systemform>
+                </forms>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.Forms);
+            Assert.Equal("Managed Form", workspace.Forms[0].DisplayName.Default);
+            Assert.EndsWith("_managed.xml", workspace.Forms[0].Source!.FilePath, StringComparison.OrdinalIgnoreCase);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
@@ -442,7 +487,7 @@ public class ExpandedReaderTests
                   </LocalizedNames>
                   <AppModuleComponents>
                     <AppModuleComponent type="1" schemaName="test_entity" />
-                    <AppModuleComponent type="26" id="{a1b2c3d4-0000-0000-0000-000000000001}" />
+                    <AppModuleComponent type="26" id="{a1b2c3d4-0000-0000-0000-000000000001}" solutionaction="Added" ordinalvalue="10" />
                   </AppModuleComponents>
                   <AppModuleRoleMaps>
                     <Role id="{a0a0a0a0-0000-0000-0000-000000000008}" />
@@ -459,6 +504,50 @@ public class ExpandedReaderTests
             Assert.Equal("Test App", app.DisplayName.Default);
             Assert.Equal(2, app.Components.Count);
             Assert.Equal(2, app.RoleIds.Count);
+            Assert.NotNull(app.Body);
+            var addedComponent = FindAll(app.Body!, "AppModuleComponent").First(c => c.GetAttribute("id") == "{a1b2c3d4-0000-0000-0000-000000000001}");
+            Assert.Equal(MergeAction.Added, addedComponent.Action);
+            Assert.Equal("10", addedComponent.GetAttribute("ordinalvalue"));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadAppModules_PrefersManagedVariantWhenBothExist()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var appDir = Path.Combine(dir, "AppModules", "test_app");
+            Directory.CreateDirectory(appDir);
+
+            File.WriteAllText(Path.Combine(appDir, "AppModule.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModule>
+                  <UniqueName>test_app</UniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base App" languagecode="1033" />
+                  </LocalizedNames>
+                </AppModule>
+                """);
+            File.WriteAllText(Path.Combine(appDir, "AppModule_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModule>
+                  <UniqueName>test_app</UniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed App" languagecode="1033" />
+                  </LocalizedNames>
+                </AppModule>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.AppModules);
+            Assert.Equal("Managed App", workspace.AppModules[0].DisplayName.Default);
+            Assert.EndsWith("_managed.xml", workspace.AppModules[0].Source!.FilePath, StringComparison.OrdinalIgnoreCase);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
@@ -487,7 +576,7 @@ public class ExpandedReaderTests
                   <SiteMap IntroducedVersion="1.0.0.0">
                     <Area Id="Main">
                       <Group Id="Group1">
-                        <SubArea Id="test_entity" Entity="test_entity" />
+                        <SubArea Id="test_entity" Entity="test_entity" solutionaction="Added" ordinalvalue="10" />
                       </Group>
                     </Area>
                   </SiteMap>
@@ -503,7 +592,107 @@ public class ExpandedReaderTests
             Assert.False(sm.ShowPinned);
             Assert.True(sm.ShowRecents);
             Assert.Equal("Test SiteMap", sm.DisplayName.Default);
+            Assert.NotNull(sm.Body);
+            var subArea = FindAll(sm.Body!, "SubArea").Single();
+            Assert.Equal(MergeAction.Added, subArea.Action);
+            Assert.Equal("10", subArea.GetAttribute("ordinalvalue"));
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadSiteMaps_PrefersManagedVariantWhenBothExist()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var smDir = Path.Combine(dir, "AppModuleSiteMaps", "test_app");
+            Directory.CreateDirectory(smDir);
+
+            File.WriteAllText(Path.Combine(smDir, "AppModuleSiteMap.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>test_app_sitemap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+            File.WriteAllText(Path.Combine(smDir, "AppModuleSiteMap_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>test_app_sitemap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.SiteMaps);
+            Assert.Equal("Managed SiteMap", workspace.SiteMaps[0].DisplayName.Default);
+            Assert.EndsWith("_managed.xml", workspace.SiteMaps[0].Source!.FilePath, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadSiteMaps_PrefersLegacyManagedVariantWhenBothExist()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var otherDir = Path.Combine(dir, "Other");
+
+            File.WriteAllText(Path.Combine(otherDir, "SiteMap.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>SiteMap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base Legacy SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+            File.WriteAllText(Path.Combine(otherDir, "SiteMap_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>SiteMap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed Legacy SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.SiteMaps);
+            Assert.Equal("Managed Legacy SiteMap", workspace.SiteMaps[0].DisplayName.Default);
+            Assert.EndsWith("_managed.xml", workspace.SiteMaps[0].Source!.FilePath, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    private static List<MergeableNode> FindAll(MergeableNode root, string name)
+    {
+        var result = new List<MergeableNode>();
+        Visit(root);
+        return result;
+
+        void Visit(MergeableNode node)
+        {
+            if (node.Name == name) result.Add(node);
+            foreach (var child in node.Children) Visit(child);
+        }
     }
 }

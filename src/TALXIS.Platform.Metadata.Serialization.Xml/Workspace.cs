@@ -57,6 +57,9 @@ public sealed class Workspace
     private readonly List<WorkflowMetadata> _workflows = new();
     public IReadOnlyList<WorkflowMetadata> Workflows => _workflows;
 
+    private readonly List<RibbonMetadata> _ribbons = new();
+    public IReadOnlyList<RibbonMetadata> Ribbons => _ribbons;
+
     private readonly List<FlowDefinitionMetadata> _flowDefinitions = new();
     public IReadOnlyList<FlowDefinitionMetadata> FlowDefinitions => _flowDefinitions;
 
@@ -117,6 +120,9 @@ public sealed class Workspace
     public void AddWorkflow(WorkflowMetadata workflow) =>
         AddUnique(_workflows, workflow, w => w.WorkflowId, "workflow");
 
+    public void AddRibbon(RibbonMetadata ribbon) =>
+        AddUnique(_ribbons, ribbon, r => r.EntityLogicalName, "ribbon");
+
     public void AddFlowDefinition(FlowDefinitionMetadata flowDefinition) =>
         AddUnique(_flowDefinitions, flowDefinition, f => f.FilePath, "flow definition");
 
@@ -125,6 +131,63 @@ public sealed class Workspace
 
     public EntityMetadata? FindEntity(string logicalName) =>
         _entities.FirstOrDefault(e => string.Equals(e.LogicalName, logicalName, StringComparison.OrdinalIgnoreCase));
+
+    public IReadOnlyList<RelationshipMetadata> FindRelationshipsForEntity(string logicalName) =>
+        _relationships.Where(relationship => IsRelationshipParticipant(relationship, logicalName)).ToArray();
+
+    public RibbonMetadata? FindRibbon(string entityLogicalName) =>
+        _ribbons.FirstOrDefault(r => string.Equals(r.EntityLogicalName, entityLogicalName, StringComparison.OrdinalIgnoreCase));
+
+    public IEnumerable<(ComponentType type, string id, MetadataBase? component)> EnumerateLayerComponents()
+    {
+        foreach (var entity in _entities)
+            yield return (ComponentType.Entity, entity.LogicalName, entity);
+        foreach (var optionSet in _globalOptionSets)
+            yield return (ComponentType.OptionSet, optionSet.Name, optionSet);
+        foreach (var relationship in _relationships)
+            yield return (ComponentType.EntityRelationship, relationship.SchemaName, relationship);
+        foreach (var form in _forms)
+            yield return (ComponentType.SystemForm, form.FormId, form);
+        foreach (var view in _views)
+            yield return (ComponentType.SavedQuery, view.SavedQueryId, view);
+        foreach (var pluginAssembly in _pluginAssemblies)
+            yield return (ComponentType.PluginAssembly, pluginAssembly.PluginAssemblyId, pluginAssembly);
+        foreach (var step in _sdkMessageProcessingSteps)
+            yield return (ComponentType.SdkMessageProcessingStep, step.SdkMessageProcessingStepId, step);
+        foreach (var role in _securityRoles)
+            yield return (ComponentType.Role, role.RoleId, role);
+        foreach (var appModule in _appModules)
+            yield return (ComponentType.AppModule, appModule.UniqueName, appModule);
+        foreach (var siteMap in _siteMaps)
+            yield return (ComponentType.SiteMap, siteMap.UniqueName, siteMap);
+        foreach (var webResource in _webResources)
+            yield return (ComponentType.WebResource, webResource.WebResourceId, webResource);
+        foreach (var workflow in _workflows)
+            yield return (ComponentType.Workflow, workflow.WorkflowId, workflow);
+        foreach (var ribbon in _ribbons)
+            yield return (ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon);
+        foreach (var flowDefinition in _flowDefinitions)
+            yield return (ComponentType.GenericComponent, flowDefinition.FilePath ?? flowDefinition.Name ?? "flow", flowDefinition);
+        foreach (var component in _genericComponents)
+            yield return (ComponentType.GenericComponent, component.FilePath ?? component.Id ?? component.ComponentTypeName, component);
+    }
+
+    private static bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
+    {
+        if (relationship is OneToManyRelationshipMetadata oneToMany)
+        {
+            return string.Equals(oneToMany.ReferencedEntity, logicalName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(oneToMany.ReferencingEntity, logicalName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (relationship is ManyToManyRelationshipMetadata manyToMany)
+        {
+            return string.Equals(manyToMany.Entity1LogicalName, logicalName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(manyToMany.Entity2LogicalName, logicalName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
 
     private static void AddUnique<T>(
         List<T> items,

@@ -1,6 +1,7 @@
 using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
+using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -210,6 +211,26 @@ public class XmlWorkspaceReaderTests
     }
 
     [Fact]
+    public void Load_MalformedRibbonDiff_AddsLoadError()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-ribbon-error-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "account", "RibbonDiffXml"));
+            var ribbonPath = Path.Combine(dir, "Entities", "account", "RibbonDiffXml", "RibbonDiff.xml");
+            File.WriteAllText(ribbonPath, "<RibbonDiffXml><CustomActions>");
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Empty(workspace.Ribbons);
+            var error = Assert.Single(workspace.LoadErrors);
+            Assert.Equal(ribbonPath, error.FilePath);
+            Assert.Contains("Malformed XML", error.Message);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Load_EntityCountMatchesFolders()
     {
         var entityFolderCount = Directory.GetDirectories(Path.Combine(SamplePath, "Entities")).Length;
@@ -285,9 +306,134 @@ public class XmlWorkspaceReaderTests
     }
 
     [Fact]
+    public void Load_PerEntityRelationships_MergeWithMonolithicAndAttachToEntities()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-relationships-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Other", "Relationships"));
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "account"));
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "contact"));
+            File.WriteAllText(Path.Combine(dir, "Other", "Solution.xml"),
+                "<?xml version=\"1.0\"?><ImportExportXml><SolutionManifest><UniqueName>T</UniqueName><Version>1.0</Version><Managed>0</Managed><Publisher><UniqueName>t</UniqueName><CustomizationPrefix>t</CustomizationPrefix></Publisher><RootComponents/></SolutionManifest></ImportExportXml>");
+            File.WriteAllText(Path.Combine(dir, "Entities", "account", "Entity.xml"),
+                "<?xml version=\"1.0\"?><Entity><EntityInfo><entity Name=\"account\"><LocalizedNames><LocalizedName description=\"Account\" languagecode=\"1033\" /></LocalizedNames><attributes /></entity></EntityInfo></Entity>");
+            File.WriteAllText(Path.Combine(dir, "Entities", "contact", "Entity.xml"),
+                "<?xml version=\"1.0\"?><Entity><EntityInfo><entity Name=\"contact\"><LocalizedNames><LocalizedName description=\"Contact\" languagecode=\"1033\" /></LocalizedNames><attributes /></entity></EntityInfo></Entity>");
+            File.WriteAllText(Path.Combine(dir, "Other", "Relationships.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <EntityRelationships>
+                  <EntityRelationship Name="account_contact_parentcustomerid" />
+                </EntityRelationships>
+                """);
+            File.WriteAllText(Path.Combine(dir, "Other", "Relationships", "account.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <EntityRelationships>
+                  <EntityRelationship Name="account_contact_parentcustomerid">
+                    <EntityRelationshipType>OneToMany</EntityRelationshipType>
+                    <IsCustomizable>1</IsCustomizable>
+                    <IntroducedVersion>1.0.0.0</IntroducedVersion>
+                    <IsHierarchical>0</IsHierarchical>
+                    <ReferencingEntityName>contact</ReferencingEntityName>
+                    <ReferencedEntityName>account</ReferencedEntityName>
+                    <CascadeAssign>NoCascade</CascadeAssign>
+                    <CascadeDelete>Cascade</CascadeDelete>
+                    <CascadeArchive>RemoveLink</CascadeArchive>
+                    <CascadeReparent>NoCascade</CascadeReparent>
+                    <CascadeShare>NoCascade</CascadeShare>
+                    <CascadeUnshare>NoCascade</CascadeUnshare>
+                    <CascadeRollupView>NoCascade</CascadeRollupView>
+                    <IsValidForAdvancedFind>1</IsValidForAdvancedFind>
+                    <ReferencingAttributeName>parentcustomerid</ReferencingAttributeName>
+                    <EntityRelationshipRoles>
+                      <EntityRelationshipRole>
+                        <NavPaneDisplayOption>UseCollectionName</NavPaneDisplayOption>
+                        <NavPaneArea>Details</NavPaneArea>
+                        <NavPaneOrder>10000</NavPaneOrder>
+                        <NavigationPropertyName>parentcustomerid_account</NavigationPropertyName>
+                        <RelationshipRoleType>1</RelationshipRoleType>
+                      </EntityRelationshipRole>
+                    </EntityRelationshipRoles>
+                  </EntityRelationship>
+                </EntityRelationships>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var relationship = Assert.IsType<OneToManyRelationshipMetadata>(Assert.Single(workspace.Relationships));
+            Assert.Equal("account", relationship.ReferencedEntity);
+            Assert.Equal("contact", relationship.ReferencingEntity);
+            Assert.Equal("parentcustomerid", relationship.ReferencingAttribute);
+            Assert.Equal(CascadeType.Cascade, relationship.CascadeDelete);
+            Assert.True(relationship.IsCustomizable);
+            Assert.Equal("1.0.0.0", relationship.IntroducedVersion);
+            Assert.True(relationship.IsValidForAdvancedFind);
+            Assert.Single(relationship.Roles);
+            Assert.Equal("parentcustomerid_account", relationship.Roles[0].NavigationPropertyName);
+            Assert.Single(workspace.FindEntity("account")!.Relationships);
+            Assert.Single(workspace.FindEntity("contact")!.Relationships);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void Load_Forms_ReadsMergeableBodyWithSolutionActionAndOrdinalValue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-form-body-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Other"));
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "account", "FormXml", "main"));
+            File.WriteAllText(Path.Combine(dir, "Other", "Solution.xml"),
+                "<?xml version=\"1.0\"?><ImportExportXml><SolutionManifest><UniqueName>T</UniqueName><Version>1.0</Version><Managed>0</Managed><Publisher><UniqueName>t</UniqueName><CustomizationPrefix>t</CustomizationPrefix></Publisher><RootComponents/></SolutionManifest></ImportExportXml>");
+            File.WriteAllText(Path.Combine(dir, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms>
+                  <systemform>
+                    <formid>{11111111-1111-1111-1111-111111111111}</formid>
+                    <form>
+                      <tabs>
+                        <tab id="base-tab" ordinalvalue="20" />
+                        <tab id="added-tab" solutionaction="Added" ordinalvalue="10" />
+                      </tabs>
+                    </form>
+                  </systemform>
+                </forms>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var form = Assert.Single(workspace.Forms);
+            Assert.NotNull(form.Body);
+            var tabs = FindAll(form.Body!, "tab");
+            Assert.Equal(2, tabs.Count);
+            Assert.Equal("20", tabs[0].GetAttribute("ordinalvalue"));
+            Assert.Equal(MergeAction.Added, tabs[1].Action);
+            Assert.Null(tabs[1].GetAttribute("solutionaction"));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Load_InvalidPath_ThrowsWithPath()
     {
         var ex = Assert.Throws<DirectoryNotFoundException>(() => new XmlWorkspaceReader().Load("/nonexistent/path"));
         Assert.Contains("/nonexistent/path", ex.Message);
+    }
+
+    private static List<MergeableNode> FindAll(MergeableNode root, string name)
+    {
+        var result = new List<MergeableNode>();
+        Visit(root);
+        return result;
+
+        void Visit(MergeableNode node)
+        {
+            if (node.Name == name) result.Add(node);
+            foreach (var child in node.Children) Visit(child);
+        }
     }
 }

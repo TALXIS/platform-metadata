@@ -53,7 +53,8 @@ public static class ComponentDefinitionRegistry
             AllowOverwriteCustomizations: true, IsCustomizable: true));
 
         // RibbonCustomization — Singleton identity
-        Register(new ComponentDefinition(ComponentType.RibbonCustomization, "RibbonCustomization", "RibbonDiffXml", "Other", "$(type).xml", IdentityStrategy.Singleton));
+        Register(new ComponentDefinition(ComponentType.RibbonCustomization, "RibbonCustomization", "RibbonDiffXml", "Other", "$(type).xml", IdentityStrategy.Singleton,
+            IsMergeable: true));
 
         // Role — GUID + Name identity
         Register(new ComponentDefinition(ComponentType.Role, "Role", "Roles", "Roles", "$(PrimaryName)", IdentityStrategy.Guid,
@@ -135,12 +136,13 @@ public static class ComponentDefinitionRegistry
         // AppModule — GUID + Name, managed variant, subfolders
         Register(new ComponentDefinition(ComponentType.AppModule, "AppModule", "AppModules", "AppModules", "$(PrimaryName)/AppModule$(managed).xml", IdentityStrategy.Guid,
             SupportsMerge: true, HasSubfolders: true,
-            IsMergeable: false, HasParent: false, RootComponent: 0,
+            IsMergeable: true, HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "appmoduleid"));
 
         // AppModuleSiteMap — managed variant, subfolders
-        Register(new ComponentDefinition(ComponentType.AppModuleSiteMap, "AppModuleSiteMap", "AppModuleSiteMaps", "AppModuleSiteMaps", "$(PrimaryName)/AppModuleSiteMap$(managed).xml", IdentityStrategy.Guid, HasSubfolders: true));
+        Register(new ComponentDefinition(ComponentType.AppModuleSiteMap, "AppModuleSiteMap", "AppModuleSiteMaps", "AppModuleSiteMaps", "$(PrimaryName)/AppModuleSiteMap$(managed).xml", IdentityStrategy.Guid,
+            SupportsMerge: true, HasSubfolders: true, IsMergeable: true));
 
         // EntityPrivilege — Singleton-like
         Register(new ComponentDefinition(ComponentType.EntityPrivilege, "EntityPrivilege", "EntityPrivileges", "EntityPrivileges", "$(type)", IdentityStrategy.Singleton, SupportsMerge: true));

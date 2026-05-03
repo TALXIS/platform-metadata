@@ -20,6 +20,7 @@ public class WorkspaceTests
             { "site map", workspace => AddDuplicateSiteMap(workspace), 1 },
             { "web resource", workspace => AddDuplicateWebResource(workspace), 1 },
             { "workflow", workspace => AddDuplicateWorkflow(workspace), 1 },
+            { "ribbon", workspace => AddDuplicateRibbon(workspace), 1 },
             { "flow definition", workspace => AddDuplicateFlowDefinition(workspace), 1 },
             { "generic component", workspace => AddDuplicateGenericComponent(workspace), 1 }
         };
@@ -45,6 +46,8 @@ public class WorkspaceTests
         workspace.AddEntity(new EntityMetadata { LogicalName = "contact" });
         workspace.AddFlowDefinition(new FlowDefinitionMetadata { FilePath = "Workflows/first.json" });
         workspace.AddFlowDefinition(new FlowDefinitionMetadata { FilePath = "Workflows/second.json" });
+        workspace.AddRibbon(new RibbonMetadata { EntityLogicalName = "account" });
+        workspace.AddRibbon(new RibbonMetadata { EntityLogicalName = "contact" });
         workspace.AddGenericComponent(new GenericComponentMetadata
         {
             ComponentTypeName = "CustomComponent",
@@ -58,6 +61,7 @@ public class WorkspaceTests
 
         Assert.Equal(2, workspace.Entities.Count);
         Assert.Equal(2, workspace.FlowDefinitions.Count);
+        Assert.Equal(2, workspace.Ribbons.Count);
         Assert.Equal(2, workspace.GenericComponents.Count);
     }
 
@@ -90,6 +94,19 @@ public class WorkspaceTests
         Assert.Empty(workspace.GenericComponents);
     }
 
+    [Fact]
+    public void AddRibbon_MissingEntityLogicalName_Throws()
+    {
+        var workspace = new Workspace("/tmp/workspace");
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            workspace.AddRibbon(new RibbonMetadata()));
+
+        Assert.Contains("ribbon", exception.Message);
+        Assert.Contains("non-empty identity key", exception.Message);
+        Assert.Empty(workspace.Ribbons);
+    }
+
     private static int GetCount(Workspace workspace, string componentType) => componentType switch
     {
         "entity" => workspace.Entities.Count,
@@ -104,6 +121,7 @@ public class WorkspaceTests
         "site map" => workspace.SiteMaps.Count,
         "web resource" => workspace.WebResources.Count,
         "workflow" => workspace.Workflows.Count,
+        "ribbon" => workspace.Ribbons.Count,
         "flow definition" => workspace.FlowDefinitions.Count,
         "generic component" => workspace.GenericComponents.Count,
         _ => throw new ArgumentOutOfRangeException(nameof(componentType), componentType, null)
@@ -193,6 +211,12 @@ public class WorkspaceTests
     {
         workspace.AddWorkflow(new WorkflowMetadata { WorkflowId = "{77777777-7777-7777-7777-777777777777}" });
         workspace.AddWorkflow(new WorkflowMetadata { WorkflowId = "{77777777-7777-7777-7777-777777777777}" });
+    }
+
+    private static void AddDuplicateRibbon(Workspace workspace)
+    {
+        workspace.AddRibbon(new RibbonMetadata { EntityLogicalName = "account" });
+        workspace.AddRibbon(new RibbonMetadata { EntityLogicalName = "ACCOUNT" });
     }
 
     private static void AddDuplicateFlowDefinition(Workspace workspace)

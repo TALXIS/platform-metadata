@@ -1,3 +1,5 @@
+using TALXIS.Platform.Metadata.Merging;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 public sealed class SiteMapMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata
@@ -9,4 +11,5 @@ public sealed class SiteMapMetadata : MetadataBase, IDisplayNamedMetadata, IVers
     public bool ShowHome { get; set; }
     public bool ShowPinned { get; set; }
     public bool ShowRecents { get; set; }
+    public MergeableNode? Body { get; set; }
 }

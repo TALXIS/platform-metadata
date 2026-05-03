@@ -11,6 +11,14 @@ public sealed class SolutionLayerManager
     private readonly Dictionary<string, LayerStack> _stacks = new();
     private readonly Dictionary<ComponentType, IComponentMerger> _mergers = new();
 
+    public SolutionLayerManager()
+    {
+        RegisterMerger(new FormMerger());
+        RegisterMerger(new SiteMapMerger());
+        RegisterMerger(new AppModuleMerger());
+        RegisterMerger(new RibbonMerger());
+    }
+
     /// <summary>Gets or creates a layer stack for a component.</summary>
     public LayerStack GetOrCreateStack(ComponentType componentType, string componentId)
     {
@@ -20,7 +28,8 @@ public sealed class SolutionLayerManager
             stack = new LayerStack
             {
                 ComponentType = componentType,
-                ComponentId = componentId
+                ComponentId = componentId,
+                RequiresMerge = ComponentDefinitionRegistry.GetByType(componentType)?.IsMergeable == true
             };
             _stacks[key] = stack;
         }

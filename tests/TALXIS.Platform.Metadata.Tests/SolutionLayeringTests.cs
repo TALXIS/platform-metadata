@@ -2,6 +2,7 @@ using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.Merging;
+using TALXIS.Platform.Metadata.Serialization.Xml;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -189,6 +190,53 @@ public class SolutionLayeringTests
         var resolved = mgr.Resolve(stack) as FormMetadata;
         Assert.NotNull(resolved);
         Assert.Equal("Merged(2)", resolved!.DisplayName.Default);
+    }
+
+    [Fact]
+    public void SolutionLayerManager_MarksKnownMergeableStacksAutomatically()
+    {
+        var mgr = new SolutionLayerManager();
+
+        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        {
+            (ComponentType.SystemForm, "form-1", new FormMetadata { FormId = "form-1" }),
+            (ComponentType.SiteMap, "site-map", new SiteMapMetadata { UniqueName = "site-map" }),
+            (ComponentType.AppModule, "app", new AppModuleMetadata { UniqueName = "app" }),
+            (ComponentType.RibbonCustomization, "account", new RibbonMetadata { EntityLogicalName = "account" }),
+            (ComponentType.Entity, "account", new EntityMetadata { LogicalName = "account" })
+        });
+
+        Assert.True(mgr.FindStack(ComponentType.SystemForm, "form-1")!.RequiresMerge);
+        Assert.True(mgr.FindStack(ComponentType.SiteMap, "site-map")!.RequiresMerge);
+        Assert.True(mgr.FindStack(ComponentType.AppModule, "app")!.RequiresMerge);
+        Assert.True(mgr.FindStack(ComponentType.RibbonCustomization, "account")!.RequiresMerge);
+        Assert.False(mgr.FindStack(ComponentType.Entity, "account")!.RequiresMerge);
+    }
+
+    [Fact]
+    public void Workspace_EnumerateLayerComponents_UsesStableLayerIdentities()
+    {
+        var workspace = new Workspace("/tmp/workspace");
+        workspace.AddRelationship(new OneToManyRelationshipMetadata
+        {
+            SchemaName = "account_contact",
+            ReferencedEntity = "account",
+            ReferencedAttribute = "accountid",
+            ReferencingEntity = "contact",
+            ReferencingAttribute = "parentcustomerid"
+        });
+        workspace.AddForm(new FormMetadata { FormId = "form-1", EntityLogicalName = "account" });
+        workspace.AddSiteMap(new SiteMapMetadata { UniqueName = "app_sitemap" });
+        workspace.AddAppModule(new AppModuleMetadata { UniqueName = "app" });
+        workspace.AddRibbon(new RibbonMetadata { EntityLogicalName = "account" });
+
+        var components = workspace.EnumerateLayerComponents().ToArray();
+
+        Assert.Contains(components, c => c.type == ComponentType.EntityRelationship && c.id == "account_contact");
+        Assert.Contains(components, c => c.type == ComponentType.SystemForm && c.id == "form-1");
+        Assert.Contains(components, c => c.type == ComponentType.SiteMap && c.id == "app_sitemap");
+        Assert.Contains(components, c => c.type == ComponentType.AppModule && c.id == "app");
+        Assert.Contains(components, c => c.type == ComponentType.RibbonCustomization && c.id == "account");
     }
 
     /// <summary>Stub merger that returns a FormMetadata indicating how many layers were merged.</summary>

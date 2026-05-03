@@ -34,6 +34,7 @@ public sealed class XmlWorkspaceWriter
         WriteEntities(workspace, outputPath);
         WriteGlobalOptionSets(workspace, outputPath);
         WriteRelationships(workspace, outputPath);
+        WritePerEntityRelationshipFiles(workspace, outputPath);
         SaveForms(workspace, outputPath);
         SaveViews(workspace, outputPath);
         SaveWebResources(workspace, outputPath);
@@ -43,6 +44,7 @@ public sealed class XmlWorkspaceWriter
         SaveSecurityRoles(workspace, outputPath);
         SaveAppModules(workspace, outputPath);
         SaveSiteMaps(workspace, outputPath);
+        SaveRibbons(workspace, outputPath);
         SaveGenericComponents(workspace, outputPath);
     }
 
@@ -613,12 +615,26 @@ public sealed class XmlWorkspaceWriter
 
     private static void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
     {
+        SetElementValue(relEl, "EntityRelationshipType", rel is ManyToManyRelationshipMetadata ? "ManyToMany" : "OneToMany");
+        SetElementValueIfExists(relEl, "IsCustomizable", rel.IsCustomizable ? "1" : "0");
+        if (rel.IntroducedVersion != null)
+            SetElementValueIfExists(relEl, "IntroducedVersion", rel.IntroducedVersion);
+
         if (rel is OneToManyRelationshipMetadata oneToMany)
         {
-            SetElementValueIfExists(relEl, "ReferencedEntityName", oneToMany.ReferencedEntity);
-            SetElementValueIfExists(relEl, "ReferencedAttributeName", oneToMany.ReferencedAttribute);
             SetElementValueIfExists(relEl, "ReferencingEntityName", oneToMany.ReferencingEntity);
+            SetElementValueIfExists(relEl, "ReferencedEntityName", oneToMany.ReferencedEntity);
+            SetElementValueIfExists(relEl, "CascadeAssign", oneToMany.CascadeAssign.ToString());
+            SetElementValueIfExists(relEl, "CascadeDelete", oneToMany.CascadeDelete.ToString());
+            SetElementValueIfExists(relEl, "CascadeArchive", oneToMany.CascadeArchive.ToString());
+            SetElementValueIfExists(relEl, "CascadeReparent", oneToMany.CascadeReparent.ToString());
+            SetElementValueIfExists(relEl, "CascadeShare", oneToMany.CascadeShare.ToString());
+            SetElementValueIfExists(relEl, "CascadeUnshare", oneToMany.CascadeUnshare.ToString());
+            SetElementValueIfExists(relEl, "CascadeRollupView", oneToMany.CascadeRollupView.ToString());
+            SetElementValueIfExists(relEl, "IsHierarchical", oneToMany.IsHierarchical ? "1" : "0");
+            SetElementValueIfExists(relEl, "IsValidForAdvancedFind", oneToMany.IsValidForAdvancedFind ? "1" : "0");
             SetElementValueIfExists(relEl, "ReferencingAttributeName", oneToMany.ReferencingAttribute);
+            SetElementValueIfExists(relEl, "ReferencedAttributeName", oneToMany.ReferencedAttribute);
         }
         else if (rel is ManyToManyRelationshipMetadata manyToMany)
         {
@@ -626,23 +642,46 @@ public sealed class XmlWorkspaceWriter
             SetElementValueIfExists(relEl, "Entity2LogicalName", manyToMany.Entity2LogicalName);
             SetElementValueIfExists(relEl, "IntersectEntityName", manyToMany.IntersectEntityName);
         }
+
+        var description = relEl.Element("RelationshipDescription")?.Element("Descriptions");
+        if (description != null)
+            PatchLocalizedNames(description, "Description", rel.Description);
+
+        var rolesEl = relEl.Element("EntityRelationshipRoles");
+        if (rolesEl != null)
+        {
+            ReplaceChildElementsPreservingWhitespace(rolesEl, rel.Roles.Select(BuildRelationshipRoleElement));
+        }
     }
 
     private static XElement BuildRelationshipElement(RelationshipMetadata rel)
     {
         var relEl = new XElement("EntityRelationship",
             new XAttribute("Name", rel.SchemaName));
+        relEl.Add(new XElement("EntityRelationshipType", rel is ManyToManyRelationshipMetadata ? "ManyToMany" : "OneToMany"));
+        relEl.Add(new XElement("IsCustomizable", rel.IsCustomizable ? "1" : "0"));
+        if (rel.IntroducedVersion != null)
+            relEl.Add(new XElement("IntroducedVersion", rel.IntroducedVersion));
 
         if (rel is OneToManyRelationshipMetadata oneToMany)
         {
-            if (!string.IsNullOrEmpty(oneToMany.ReferencedEntity))
-                relEl.Add(new XElement("ReferencedEntityName", oneToMany.ReferencedEntity));
-            if (!string.IsNullOrEmpty(oneToMany.ReferencedAttribute))
-                relEl.Add(new XElement("ReferencedAttributeName", oneToMany.ReferencedAttribute));
+            relEl.Add(new XElement("IsHierarchical", oneToMany.IsHierarchical ? "1" : "0"));
             if (!string.IsNullOrEmpty(oneToMany.ReferencingEntity))
                 relEl.Add(new XElement("ReferencingEntityName", oneToMany.ReferencingEntity));
+            if (!string.IsNullOrEmpty(oneToMany.ReferencedEntity))
+                relEl.Add(new XElement("ReferencedEntityName", oneToMany.ReferencedEntity));
+            relEl.Add(new XElement("CascadeAssign", oneToMany.CascadeAssign));
+            relEl.Add(new XElement("CascadeDelete", oneToMany.CascadeDelete));
+            relEl.Add(new XElement("CascadeArchive", oneToMany.CascadeArchive));
+            relEl.Add(new XElement("CascadeReparent", oneToMany.CascadeReparent));
+            relEl.Add(new XElement("CascadeShare", oneToMany.CascadeShare));
+            relEl.Add(new XElement("CascadeUnshare", oneToMany.CascadeUnshare));
+            relEl.Add(new XElement("CascadeRollupView", oneToMany.CascadeRollupView));
+            relEl.Add(new XElement("IsValidForAdvancedFind", oneToMany.IsValidForAdvancedFind ? "1" : "0"));
             if (!string.IsNullOrEmpty(oneToMany.ReferencingAttribute))
                 relEl.Add(new XElement("ReferencingAttributeName", oneToMany.ReferencingAttribute));
+            if (!string.IsNullOrEmpty(oneToMany.ReferencedAttribute))
+                relEl.Add(new XElement("ReferencedAttributeName", oneToMany.ReferencedAttribute));
         }
         else if (rel is ManyToManyRelationshipMetadata manyToMany)
         {
@@ -654,7 +693,34 @@ public sealed class XmlWorkspaceWriter
                 relEl.Add(new XElement("IntersectEntityName", manyToMany.IntersectEntityName));
         }
 
+        if (rel.Description.LocalizedLabels.Count > 0)
+        {
+            relEl.Add(new XElement("RelationshipDescription",
+                BuildLocalizedNames("Descriptions", "Description", rel.Description)));
+        }
+
+        if (rel.Roles.Count > 0)
+        {
+            relEl.Add(new XElement("EntityRelationshipRoles", rel.Roles.Select(BuildRelationshipRoleElement)));
+        }
+
         return relEl;
+    }
+
+    private static XElement BuildRelationshipRoleElement(RelationshipRoleMetadata role)
+    {
+        var roleEl = new XElement("EntityRelationshipRole");
+        if (role.NavPaneDisplayOption != null)
+            roleEl.Add(new XElement("NavPaneDisplayOption", role.NavPaneDisplayOption));
+        if (role.NavPaneArea != null)
+            roleEl.Add(new XElement("NavPaneArea", role.NavPaneArea));
+        if (role.NavPaneOrder.HasValue)
+            roleEl.Add(new XElement("NavPaneOrder", role.NavPaneOrder.Value));
+        if (role.NavigationPropertyName != null)
+            roleEl.Add(new XElement("NavigationPropertyName", role.NavigationPropertyName));
+        if (role.RelationshipRoleType.HasValue)
+            roleEl.Add(new XElement("RelationshipRoleType", role.RelationshipRoleType.Value));
+        return roleEl;
     }
 
     private static XDocument BuildRelationshipsFromScratch(IReadOnlyList<RelationshipMetadata> relationships)
@@ -670,6 +736,68 @@ public sealed class XmlWorkspaceWriter
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
+    private void WritePerEntityRelationshipFiles(Workspace workspace, string outputPath)
+    {
+        var grouped = GroupRelationshipsByEntity(workspace.Relationships);
+        if (grouped.Count == 0) return;
+
+        var relationshipsDir = Path.Combine(outputPath, "Other", "Relationships");
+        Directory.CreateDirectory(relationshipsDir);
+
+        foreach (var group in grouped)
+        {
+            var relativePath = Path.Combine("Other", "Relationships", $"{group.Key}.xml");
+            var key = $"Relationships:{relativePath}";
+            XDocument doc;
+            if (workspace.OriginalDocuments.TryGetValue(key, out var original))
+            {
+                doc = new XDocument(original);
+                PatchRelationships(doc, group.Value);
+            }
+            else
+            {
+                doc = BuildRelationshipsFromScratch(group.Value);
+            }
+
+            SaveDocument(doc, Path.Combine(outputPath, relativePath));
+        }
+    }
+
+    private static Dictionary<string, IReadOnlyList<RelationshipMetadata>> GroupRelationshipsByEntity(IReadOnlyList<RelationshipMetadata> relationships)
+    {
+        var grouped = new Dictionary<string, List<RelationshipMetadata>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relationship in relationships)
+        {
+            foreach (var entityName in GetRelationshipEntityNames(relationship).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(entityName)) continue;
+                if (!grouped.TryGetValue(entityName, out var list))
+                {
+                    list = new List<RelationshipMetadata>();
+                    grouped[entityName] = list;
+                }
+                list.Add(relationship);
+            }
+        }
+
+        return grouped.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyList<RelationshipMetadata>)kvp.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetRelationshipEntityNames(RelationshipMetadata relationship)
+    {
+        if (relationship is OneToManyRelationshipMetadata oneToMany)
+        {
+            yield return oneToMany.ReferencedEntity;
+            yield return oneToMany.ReferencingEntity;
+        }
+        else if (relationship is ManyToManyRelationshipMetadata manyToMany)
+        {
+            yield return manyToMany.Entity1LogicalName;
+            yield return manyToMany.Entity2LogicalName;
+        }
+    }
+
     // --- New component types ---
 
     private void SaveForms(Workspace workspace, string outputPath)
@@ -683,11 +811,17 @@ public sealed class XmlWorkspaceWriter
             var doc = new XDocument(origDoc);
             PatchForm(doc, form);
 
-            var formType = form.FormType ?? "main";
-            var entityDir = Path.Combine(outputPath, "Entities", form.EntityLogicalName ?? "Unknown", "FormXml", formType);
-            Directory.CreateDirectory(entityDir);
-            var fileName = form.FormId.StartsWith("{") ? $"{form.FormId}.xml" : $"{{{form.FormId}}}.xml";
-            var filePath = Path.Combine(entityDir, fileName);
+            var filePath = TryGetOriginalRelativePath(form.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var formType = form.FormType ?? "main";
+                var entityDir = Path.Combine(outputPath, "Entities", form.EntityLogicalName ?? "Unknown", "FormXml", formType);
+                Directory.CreateDirectory(entityDir);
+                var fileName = form.FormId.StartsWith("{") ? $"{form.FormId}.xml" : $"{{{form.FormId}}}.xml";
+                filePath = Path.Combine(entityDir, fileName);
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
@@ -712,6 +846,16 @@ public sealed class XmlWorkspaceWriter
         var descriptions = systemForm.Element("Descriptions");
         if (descriptions != null)
             PatchLocalizedNames(descriptions, "Description", form.Description);
+
+        if (form.Body != null)
+        {
+            var existingBody = systemForm.Element("form");
+            var replacementBody = MergeableNodeXmlConverter.ToXElement(form.Body);
+            if (existingBody != null)
+                existingBody.ReplaceWith(replacementBody);
+            else
+                systemForm.Add(replacementBody);
+        }
     }
 
     private void SaveViews(Workspace workspace, string outputPath)
@@ -1247,15 +1391,30 @@ public sealed class XmlWorkspaceWriter
             var doc = new XDocument(origDoc);
             PatchAppModule(doc, appModule);
 
-            var appModuleDir = Path.Combine(outputPath, "AppModules", appModule.UniqueName);
-            Directory.CreateDirectory(appModuleDir);
-            var filePath = Path.Combine(appModuleDir, "AppModule.xml");
+            var filePath = TryGetOriginalRelativePath(appModule.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var appModuleDir = Path.Combine(outputPath, "AppModules", appModule.UniqueName);
+                Directory.CreateDirectory(appModuleDir);
+                filePath = Path.Combine(appModuleDir, "AppModule.xml");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
     private static void PatchAppModule(XDocument doc, AppModuleMetadata appModule)
     {
+        if (appModule.Body != null)
+        {
+            var replacementRoot = MergeableNodeXmlConverter.ToXElement(appModule.Body);
+            if (doc.Root != null)
+                doc.Root.ReplaceWith(replacementRoot);
+            else
+                doc.Add(replacementRoot);
+        }
+
         var root = doc.Root;
         if (root == null) return;
 
@@ -1275,9 +1434,7 @@ public sealed class XmlWorkspaceWriter
         if (locNames != null)
             PatchLocalizedNames(locNames, "LocalizedName", appModule.DisplayName);
 
-        // Patch components
-        var componentsEl = root.Element("AppModuleComponents");
-        if (componentsEl != null)
+        if (appModule.Body == null && root.Element("AppModuleComponents") is { } componentsEl)
         {
             ReplaceChildElementsPreservingWhitespace(componentsEl, appModule.Components.Select(comp =>
             {
@@ -1291,9 +1448,7 @@ public sealed class XmlWorkspaceWriter
             }));
         }
 
-        // Patch role maps
-        var roleMapsEl = root.Element("AppModuleRoleMaps");
-        if (roleMapsEl != null)
+        if (appModule.Body == null && root.Element("AppModuleRoleMaps") is { } roleMapsEl)
         {
             ReplaceChildElementsPreservingWhitespace(roleMapsEl, appModule.RoleIds.Select(roleId =>
                 new XElement("Role",
@@ -1312,15 +1467,30 @@ public sealed class XmlWorkspaceWriter
             var doc = new XDocument(origDoc);
             PatchSiteMap(doc, siteMap);
 
-            var siteMapDir = Path.Combine(outputPath, "AppModuleSiteMaps", siteMap.UniqueName);
-            Directory.CreateDirectory(siteMapDir);
-            var filePath = Path.Combine(siteMapDir, $"{siteMap.UniqueName}.xml");
+            var filePath = TryGetOriginalRelativePath(siteMap.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var siteMapDir = Path.Combine(outputPath, "AppModuleSiteMaps", siteMap.UniqueName);
+                Directory.CreateDirectory(siteMapDir);
+                filePath = Path.Combine(siteMapDir, $"{siteMap.UniqueName}.xml");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
     private static void PatchSiteMap(XDocument doc, SiteMapMetadata siteMap)
     {
+        if (siteMap.Body != null)
+        {
+            var replacementRoot = MergeableNodeXmlConverter.ToXElement(siteMap.Body);
+            if (doc.Root != null)
+                doc.Root.ReplaceWith(replacementRoot);
+            else
+                doc.Add(replacementRoot);
+        }
+
         var root = doc.Root;
         if (root == null) return;
 
@@ -1333,6 +1503,49 @@ public sealed class XmlWorkspaceWriter
         var locNames = root.Element("LocalizedNames");
         if (locNames != null)
             PatchLocalizedNames(locNames, "LocalizedName", siteMap.DisplayName);
+    }
+
+    private void SaveRibbons(Workspace workspace, string outputPath)
+    {
+        foreach (var ribbon in workspace.Ribbons)
+        {
+            var key = $"Ribbon:{ribbon.EntityLogicalName}";
+            var doc = workspace.OriginalDocuments.TryGetValue(key, out var original)
+                ? new XDocument(original)
+                : BuildRibbonFromScratch(ribbon);
+
+            PatchRibbon(doc, ribbon);
+
+            var filePath = TryGetOriginalRelativePath(ribbon.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var entityDir = Path.Combine(outputPath, "Entities", ribbon.EntityLogicalName ?? "Unknown", "RibbonDiffXml");
+                Directory.CreateDirectory(entityDir);
+                filePath = Path.Combine(entityDir, "RibbonDiff.xml");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchRibbon(XDocument doc, RibbonMetadata ribbon)
+    {
+        if (ribbon.Body == null) return;
+
+        var replacementRoot = MergeableNodeXmlConverter.ToXElement(ribbon.Body);
+        if (doc.Root != null)
+            doc.Root.ReplaceWith(replacementRoot);
+        else
+            doc.Add(replacementRoot);
+    }
+
+    private static XDocument BuildRibbonFromScratch(RibbonMetadata ribbon)
+    {
+        var root = ribbon.Body != null
+            ? MergeableNodeXmlConverter.ToXElement(ribbon.Body)
+            : new XElement("RibbonDiffXml");
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
     // --- Helpers ---
