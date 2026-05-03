@@ -263,7 +263,7 @@ public sealed class XmlWorkspaceWriter
         // Patch description
         var descriptions = attrEl.Element("Descriptions");
         if (descriptions != null)
-            PatchDescriptions(descriptions, attr.Description);
+            PatchLocalizedNames(descriptions, "Description", attr.Description);
 
         SetElementValueIfExists(attrEl, "IsAuditEnabled", attr.IsAuditEnabled ? "1" : "0");
         SetElementValueIfExists(attrEl, "IsSecured", attr.IsSecured ? "1" : "0");
@@ -288,7 +288,7 @@ public sealed class XmlWorkspaceWriter
 
         entityInfoEl.Add(BuildLocalizedNames("LocalizedNames", "LocalizedName", entity.DisplayName));
         entityInfoEl.Add(BuildLocalizedNames("LocalizedCollectionNames", "LocalizedCollectionName", entity.PluralName));
-        entityInfoEl.Add(BuildDescriptions(entity.Description));
+        entityInfoEl.Add(BuildLocalizedNames("Descriptions", "Description", entity.Description));
 
         // Attributes
         var attributesEl = new XElement("attributes");
@@ -358,7 +358,7 @@ public sealed class XmlWorkspaceWriter
         AddTypeSpecificElements(attrEl, attr);
 
         attrEl.Add(BuildLocalizedNames("displaynames", "displayname", attr.DisplayName));
-        attrEl.Add(BuildDescriptions(attr.Description));
+        attrEl.Add(BuildLocalizedNames("Descriptions", "Description", attr.Description));
 
         return attrEl;
     }
@@ -491,7 +491,7 @@ public sealed class XmlWorkspaceWriter
 
         var descriptions = root.Element("Descriptions");
         if (descriptions != null)
-            PatchDescriptions(descriptions, optionSet.Description);
+            PatchLocalizedNames(descriptions, "Description", optionSet.Description);
 
         // Patch options — rebuild to match model
         var optionsEl = root.Element("options");
@@ -516,7 +516,7 @@ public sealed class XmlWorkspaceWriter
                         PatchLocalizedNames(labels, "label", opt.Label);
                     var descs = existingEl.Element("Descriptions");
                     if (descs != null)
-                        PatchDescriptions(descs, opt.Description);
+                        PatchLocalizedNames(descs, "Description", opt.Description);
                     optionsEl.Add(existingEl);
                 }
                 else
@@ -540,7 +540,7 @@ public sealed class XmlWorkspaceWriter
         root.Add(new XElement("IsCustomizable", "1"));
         root.Add(new XElement("ExternalTypeName", ""));
         root.Add(BuildLocalizedNames("displaynames", "displayname", optionSet.DisplayName));
-        root.Add(BuildDescriptions(optionSet.Description));
+        root.Add(BuildLocalizedNames("Descriptions", "Description", optionSet.Description));
 
         var optionsEl = new XElement("options");
         foreach (var opt in optionSet.Options)
@@ -560,7 +560,7 @@ public sealed class XmlWorkspaceWriter
             new XAttribute("IsHidden", "0"));
 
         optEl.Add(BuildLocalizedNames("labels", "label", opt.Label));
-        optEl.Add(BuildDescriptions(opt.Description));
+        optEl.Add(BuildLocalizedNames("Descriptions", "Description", opt.Description));
 
         return optEl;
     }
@@ -727,7 +727,7 @@ public sealed class XmlWorkspaceWriter
 
         var descriptions = systemForm.Element("Descriptions");
         if (descriptions != null)
-            PatchDescriptions(descriptions, form.Description);
+            PatchLocalizedNames(descriptions, "Description", form.Description);
     }
 
     private void SaveViews(Workspace workspace, string outputPath)
@@ -771,7 +771,7 @@ public sealed class XmlWorkspaceWriter
 
         var descriptions = savedQuery.Element("Descriptions");
         if (descriptions != null)
-            PatchDescriptions(descriptions, view.Description);
+            PatchLocalizedNames(descriptions, "Description", view.Description);
     }
 
     private void SaveWebResources(Workspace workspace, string outputPath)
@@ -902,7 +902,7 @@ public sealed class XmlWorkspaceWriter
 
         var descriptions = root.Element("Descriptions");
         if (descriptions != null)
-            PatchDescriptions(descriptions, workflow.Description);
+            PatchLocalizedNames(descriptions, "Description", workflow.Description);
     }
 
     private void SavePluginAssemblies(Workspace workspace, string outputPath)
@@ -1416,45 +1416,12 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void PatchDescriptions(XElement container, Label label)
-    {
-        foreach (var kvp in label.LocalizedLabels)
-        {
-            var existing = container.Elements("Description")
-                .FirstOrDefault(e => e.Attribute("languagecode")?.Value == kvp.Key.ToString());
-            if (existing != null)
-            {
-                var descAttr = existing.Attribute("description");
-                if (descAttr != null)
-                    descAttr.Value = kvp.Value;
-            }
-            else
-            {
-                container.Add(new XElement("Description",
-                    new XAttribute("description", kvp.Value),
-                    new XAttribute("languagecode", kvp.Key)));
-            }
-        }
-    }
-
     private static XElement BuildLocalizedNames(string containerName, string childName, Label label)
     {
         var container = new XElement(containerName);
         foreach (var kvp in label.LocalizedLabels)
         {
             container.Add(new XElement(childName,
-                new XAttribute("description", kvp.Value),
-                new XAttribute("languagecode", kvp.Key)));
-        }
-        return container;
-    }
-
-    private static XElement BuildDescriptions(Label label)
-    {
-        var container = new XElement("Descriptions");
-        foreach (var kvp in label.LocalizedLabels)
-        {
-            container.Add(new XElement("Description",
                 new XAttribute("description", kvp.Value),
                 new XAttribute("languagecode", kvp.Key)));
         }
