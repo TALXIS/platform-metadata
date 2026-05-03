@@ -335,13 +335,6 @@
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
-                <xs:element name="customapi" minOccurs="0" maxOccurs="1">
-                    <xs:complexType>
-                        <xs:sequence>
-                            <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
-                        </xs:sequence>
-                    </xs:complexType>
-                </xs:element>
                 <xs:element name="RibbonDiffXml" minOccurs="0" maxOccurs="1">
                     <xs:complexType>
                         <xs:sequence>
