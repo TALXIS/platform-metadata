@@ -14,4 +14,11 @@ public abstract class AttributeMetadata : MetadataBase
     public bool IsSecured { get; set; }
 }
 
-public enum RequiredLevel { None, Recommended, Required }
+public enum RequiredLevel
+{
+    None,
+    Recommended,
+    Required,
+    ApplicationRequired,
+    SystemRequired
+}

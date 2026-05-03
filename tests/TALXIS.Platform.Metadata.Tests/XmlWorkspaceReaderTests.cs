@@ -59,6 +59,76 @@ public class XmlWorkspaceReaderTests
     }
 
     [Fact]
+    public void Load_PreservesDistinctDataverseRequiredLevels()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-requiredlevel-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Other"));
+            Directory.CreateDirectory(Path.Combine(dir, "Entities", "required_entity"));
+
+            File.WriteAllText(Path.Combine(dir, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>T</UniqueName>
+                    <Version>1.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>t</UniqueName>
+                      <CustomizationPrefix>t</CustomizationPrefix>
+                    </Publisher>
+                    <RootComponents />
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+
+            File.WriteAllText(Path.Combine(dir, "Entities", "required_entity", "Entity.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Entity>
+                  <EntityInfo>
+                    <entity Name="required_entity">
+                      <EntitySetName>required_entities</EntitySetName>
+                      <LocalizedNames><LocalizedName description="Required Entity" languagecode="1033" /></LocalizedNames>
+                      <LocalizedCollectionNames><LocalizedCollectionName description="Required Entities" languagecode="1033" /></LocalizedCollectionNames>
+                      <attributes>
+                        <attribute PhysicalName="app_required">
+                          <Type>nvarchar</Type>
+                          <LogicalName>app_required</LogicalName>
+                          <RequiredLevel>applicationrequired</RequiredLevel>
+                        </attribute>
+                        <attribute PhysicalName="sys_required">
+                          <Type>nvarchar</Type>
+                          <LogicalName>sys_required</LogicalName>
+                          <RequiredLevel>systemrequired</RequiredLevel>
+                        </attribute>
+                        <attribute PhysicalName="required">
+                          <Type>nvarchar</Type>
+                          <LogicalName>required</LogicalName>
+                          <RequiredLevel>required</RequiredLevel>
+                        </attribute>
+                      </attributes>
+                    </entity>
+                  </EntityInfo>
+                </Entity>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+            var entity = workspace.FindEntity("required_entity")!;
+
+            Assert.Equal(RequiredLevel.ApplicationRequired, entity.FindAttribute("app_required")!.RequiredLevel);
+            Assert.Equal(RequiredLevel.SystemRequired, entity.FindAttribute("sys_required")!.RequiredLevel);
+            Assert.Equal(RequiredLevel.Required, entity.FindAttribute("required")!.RequiredLevel);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void Load_ParsesGlobalOptionSets()
     {
         var reader = new XmlWorkspaceReader();

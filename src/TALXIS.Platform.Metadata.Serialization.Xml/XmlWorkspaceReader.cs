@@ -226,13 +226,7 @@ public sealed class XmlWorkspaceReader
         attr.Source = new SourceLocation(filePath, 1, 1);
 
         // Required level
-        var reqLevel = attrEl.Element("RequiredLevel")?.Value?.ToLowerInvariant();
-        attr.RequiredLevel = reqLevel switch
-        {
-            "required" or "systemrequired" or "applicationrequired" => RequiredLevel.Required,
-            "recommended" => RequiredLevel.Recommended,
-            _ => RequiredLevel.None
-        };
+        attr.RequiredLevel = RequiredLevelXml.Parse(attrEl.Element("RequiredLevel")?.Value);
 
         // Display name
         var attrDisplayLabel = ReadLabel(attrEl.Element("displaynames"), "displayname");

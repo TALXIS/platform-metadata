@@ -270,13 +270,7 @@ public sealed class XmlWorkspaceWriter
         SetElementValueIfExists(attrEl, "IsSearchable", attr.IsSearchable ? "1" : "0");
         SetElementValueIfExists(attrEl, "IsCustomField", attr.IsCustomAttribute ? "1" : "0");
 
-        var reqLevel = attr.RequiredLevel switch
-        {
-            RequiredLevel.Required => "required",
-            RequiredLevel.Recommended => "recommended",
-            _ => "none"
-        };
-        SetElementValueIfExists(attrEl, "RequiredLevel", reqLevel);
+        SetElementValueIfExists(attrEl, "RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel));
     }
 
     private static XDocument BuildEntityFromScratch(EntityMetadata entity)
@@ -330,13 +324,7 @@ public sealed class XmlWorkspaceWriter
         attrEl.Add(new XElement("Name", attr.LogicalName));
         attrEl.Add(new XElement("LogicalName", attr.LogicalName));
 
-        var reqLevel = attr.RequiredLevel switch
-        {
-            RequiredLevel.Required => "required",
-            RequiredLevel.Recommended => "recommended",
-            _ => "none"
-        };
-        attrEl.Add(new XElement("RequiredLevel", reqLevel));
+        attrEl.Add(new XElement("RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel)));
         attrEl.Add(new XElement("DisplayMask", "ValidForAdvancedFind|ValidForForm|ValidForGrid"));
         attrEl.Add(new XElement("ImeMode", "auto"));
         attrEl.Add(new XElement("ValidForUpdateApi", "1"));
@@ -1486,6 +1474,14 @@ public sealed class XmlWorkspaceWriter
 
     private static void SaveDocument(XDocument doc, string filePath)
     {
+        if (HasPreservedWhitespace(doc))
+        {
+            using var stream = File.Create(filePath);
+            using var textWriter = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
+            doc.Save(textWriter, SaveOptions.DisableFormatting);
+            return;
+        }
+
         var settings = new XmlWriterSettings
         {
             Indent = true,
@@ -1496,5 +1492,12 @@ public sealed class XmlWorkspaceWriter
 
         using var writer = XmlWriter.Create(filePath, settings);
         doc.Save(writer);
+    }
+
+    private static bool HasPreservedWhitespace(XDocument doc)
+    {
+        return (doc.Root?.DescendantNodesAndSelf() ?? Enumerable.Empty<XNode>())
+            .OfType<XText>()
+            .Any(static text => string.IsNullOrWhiteSpace(text.Value));
     }
 }
