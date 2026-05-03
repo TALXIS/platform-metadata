@@ -34,6 +34,16 @@ public sealed class XmlWorkspaceWriter
         WriteEntities(workspace, outputPath);
         WriteGlobalOptionSets(workspace, outputPath);
         WriteRelationships(workspace, outputPath);
+        SaveForms(workspace, outputPath);
+        SaveViews(workspace, outputPath);
+        SaveWebResources(workspace, outputPath);
+        SaveWorkflows(workspace, outputPath);
+        SavePluginAssemblies(workspace, outputPath);
+        SaveSdkMessageProcessingSteps(workspace, outputPath);
+        SaveSecurityRoles(workspace, outputPath);
+        SaveAppModules(workspace, outputPath);
+        SaveSiteMaps(workspace, outputPath);
+        SaveGenericComponents(workspace, outputPath);
     }
 
     private void WriteSolution(Solution solution, string outputPath, Workspace workspace)
@@ -67,7 +77,7 @@ public sealed class XmlWorkspaceWriter
 
         SetElementValue(manifest, "UniqueName", solution.UniqueName);
         SetElementValue(manifest, "Version", solution.Version);
-        SetElementValue(manifest, "Managed", solution.IsManaged ? "2" : "2");
+        SetElementValue(manifest, "Managed", solution.IsManaged ? "1" : "0");
 
         // Patch display name
         var localizedNames = manifest.Element("LocalizedNames");
@@ -586,14 +596,68 @@ public sealed class XmlWorkspaceWriter
         var root = doc.Root;
         if (root == null) return;
 
-        // Rebuild — keep order from model
-        root.RemoveAll();
+        // Update existing elements by Name, preserve unknown child elements
+        var existingByName = root.Elements("EntityRelationship")
+            .ToDictionary(e => e.Attribute("Name")?.Value ?? "", e => e);
+
         foreach (var rel in relationships)
         {
-            var relEl = new XElement("EntityRelationship",
-                new XAttribute("Name", rel.SchemaName));
-            root.Add(relEl);
+            if (existingByName.TryGetValue(rel.SchemaName, out var existing))
+            {
+                // Patch known child elements, preserve the rest
+                PatchRelationshipChildren(existing, rel);
+            }
+            else
+            {
+                root.Add(BuildRelationshipElement(rel));
+            }
         }
+    }
+
+    private static void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
+    {
+        if (rel is OneToManyRelationshipMetadata oneToMany)
+        {
+            SetElementValueIfExists(relEl, "ReferencedEntityName", oneToMany.ReferencedEntity);
+            SetElementValueIfExists(relEl, "ReferencedAttributeName", oneToMany.ReferencedAttribute);
+            SetElementValueIfExists(relEl, "ReferencingEntityName", oneToMany.ReferencingEntity);
+            SetElementValueIfExists(relEl, "ReferencingAttributeName", oneToMany.ReferencingAttribute);
+        }
+        else if (rel is ManyToManyRelationshipMetadata manyToMany)
+        {
+            SetElementValueIfExists(relEl, "Entity1LogicalName", manyToMany.Entity1LogicalName);
+            SetElementValueIfExists(relEl, "Entity2LogicalName", manyToMany.Entity2LogicalName);
+            SetElementValueIfExists(relEl, "IntersectEntityName", manyToMany.IntersectEntityName);
+        }
+    }
+
+    private static XElement BuildRelationshipElement(RelationshipMetadata rel)
+    {
+        var relEl = new XElement("EntityRelationship",
+            new XAttribute("Name", rel.SchemaName));
+
+        if (rel is OneToManyRelationshipMetadata oneToMany)
+        {
+            if (!string.IsNullOrEmpty(oneToMany.ReferencedEntity))
+                relEl.Add(new XElement("ReferencedEntityName", oneToMany.ReferencedEntity));
+            if (!string.IsNullOrEmpty(oneToMany.ReferencedAttribute))
+                relEl.Add(new XElement("ReferencedAttributeName", oneToMany.ReferencedAttribute));
+            if (!string.IsNullOrEmpty(oneToMany.ReferencingEntity))
+                relEl.Add(new XElement("ReferencingEntityName", oneToMany.ReferencingEntity));
+            if (!string.IsNullOrEmpty(oneToMany.ReferencingAttribute))
+                relEl.Add(new XElement("ReferencingAttributeName", oneToMany.ReferencingAttribute));
+        }
+        else if (rel is ManyToManyRelationshipMetadata manyToMany)
+        {
+            if (!string.IsNullOrEmpty(manyToMany.Entity1LogicalName))
+                relEl.Add(new XElement("Entity1LogicalName", manyToMany.Entity1LogicalName));
+            if (!string.IsNullOrEmpty(manyToMany.Entity2LogicalName))
+                relEl.Add(new XElement("Entity2LogicalName", manyToMany.Entity2LogicalName));
+            if (!string.IsNullOrEmpty(manyToMany.IntersectEntityName))
+                relEl.Add(new XElement("IntersectEntityName", manyToMany.IntersectEntityName));
+        }
+
+        return relEl;
     }
 
     private static XDocument BuildRelationshipsFromScratch(IReadOnlyList<RelationshipMetadata> relationships)
@@ -603,12 +667,660 @@ public sealed class XmlWorkspaceWriter
 
         foreach (var rel in relationships)
         {
-            var relEl = new XElement("EntityRelationship",
-                new XAttribute("Name", rel.SchemaName));
-            root.Add(relEl);
+            root.Add(BuildRelationshipElement(rel));
         }
 
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
+    }
+
+    // --- New component types ---
+
+    private void SaveForms(Workspace workspace, string outputPath)
+    {
+        foreach (var form in workspace.Forms)
+        {
+            var key = $"Form:{form.EntityLogicalName}:{form.FormId}";
+            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+                continue; // Forms have complex XML bodies — skip if no original
+
+            var doc = new XDocument(origDoc);
+            PatchForm(doc, form);
+
+            var formType = form.FormType ?? "main";
+            var entityDir = Path.Combine(outputPath, "Entities", form.EntityLogicalName ?? "Unknown", "FormXml", formType);
+            Directory.CreateDirectory(entityDir);
+            var filePath = Path.Combine(entityDir, $"{{{form.FormId}}}.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchForm(XDocument doc, FormMetadata form)
+    {
+        var systemForm = doc.Root?.Element("systemform");
+        if (systemForm == null) return;
+
+        SetElementValueIfExists(systemForm, "formid", form.FormId);
+        if (form.IntroducedVersion != null)
+            SetElementValueIfExists(systemForm, "IntroducedVersion", form.IntroducedVersion);
+        if (form.FormPresentation.HasValue)
+            SetElementValueIfExists(systemForm, "FormPresentation", form.FormPresentation.Value.ToString());
+        if (form.FormActivationState.HasValue)
+            SetElementValueIfExists(systemForm, "FormActivationState", form.FormActivationState.Value.ToString());
+
+        var locNames = systemForm.Element("LocalizedNames");
+        if (locNames != null)
+            PatchLocalizedNames(locNames, "LocalizedName", form.DisplayName);
+
+        var descriptions = systemForm.Element("Descriptions");
+        if (descriptions != null)
+            PatchDescriptions(descriptions, form.Description);
+    }
+
+    private void SaveViews(Workspace workspace, string outputPath)
+    {
+        foreach (var view in workspace.Views)
+        {
+            var key = $"View:{view.EntityLogicalName}:{view.SavedQueryId}";
+            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+                continue; // Views have complex XML bodies — skip if no original
+
+            var doc = new XDocument(origDoc);
+            PatchView(doc, view);
+
+            var entityDir = Path.Combine(outputPath, "Entities", view.EntityLogicalName ?? "Unknown", "SavedQueries");
+            Directory.CreateDirectory(entityDir);
+            var filePath = Path.Combine(entityDir, $"{{{view.SavedQueryId}}}.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchView(XDocument doc, SavedQueryMetadata view)
+    {
+        var savedQuery = doc.Root?.Element("savedquery");
+        if (savedQuery == null) return;
+
+        SetElementValueIfExists(savedQuery, "savedqueryid", view.SavedQueryId);
+        if (view.IntroducedVersion != null)
+            SetElementValueIfExists(savedQuery, "IntroducedVersion", view.IntroducedVersion);
+        SetElementValueIfExists(savedQuery, "isdefault", view.IsDefault ? "1" : "0");
+        if (view.QueryType.HasValue)
+            SetElementValueIfExists(savedQuery, "querytype", view.QueryType.Value.ToString());
+        if (view.FetchXml != null)
+            SetElementValueIfExists(savedQuery, "fetchxml", view.FetchXml);
+        if (view.LayoutXml != null)
+            SetElementValueIfExists(savedQuery, "layoutxml", view.LayoutXml);
+
+        var locNames = savedQuery.Element("LocalizedNames");
+        if (locNames != null)
+            PatchLocalizedNames(locNames, "LocalizedName", view.Name);
+
+        var descriptions = savedQuery.Element("Descriptions");
+        if (descriptions != null)
+            PatchDescriptions(descriptions, view.Description);
+    }
+
+    private void SaveWebResources(Workspace workspace, string outputPath)
+    {
+        foreach (var webResource in workspace.WebResources)
+        {
+            var key = $"WebResource:{webResource.Name}";
+            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+
+            XDocument doc;
+            if (original != null)
+            {
+                doc = new XDocument(original);
+                PatchWebResource(doc, webResource);
+            }
+            else
+            {
+                doc = BuildWebResourceFromScratch(webResource);
+            }
+
+            var webResourcesDir = Path.Combine(outputPath, "WebResources");
+            Directory.CreateDirectory(webResourcesDir);
+            // Use the Name with slashes replaced for file path, keeping .data.xml extension
+            var safeName = webResource.Name.Replace('/', Path.DirectorySeparatorChar);
+            var filePath = Path.Combine(webResourcesDir, safeName + ".data.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchWebResource(XDocument doc, WebResourceMetadata webResource)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        SetElementValueIfExists(root, "WebResourceId", webResource.WebResourceId);
+        SetElementValueIfExists(root, "Name", webResource.Name);
+        if (webResource.DisplayName != null)
+            SetElementValueIfExists(root, "DisplayName", webResource.DisplayName);
+        SetElementValueIfExists(root, "WebResourceType", webResource.WebResourceType.ToString());
+        if (webResource.FileName != null)
+            SetElementValueIfExists(root, "FileName", webResource.FileName);
+        SetElementValueIfExists(root, "IsCustomizable", webResource.IsCustomizable ? "1" : "0");
+        SetElementValueIfExists(root, "CanBeDeleted", webResource.CanBeDeleted ? "1" : "0");
+        SetElementValueIfExists(root, "IsHidden", webResource.IsHidden ? "1" : "0");
+        SetElementValueIfExists(root, "IsEnabledForMobileClient", webResource.IsEnabledForMobileClient ? "1" : "0");
+        SetElementValueIfExists(root, "IsAvailableForMobileOffline", webResource.IsAvailableForMobileOffline ? "1" : "0");
+    }
+
+    private static XDocument BuildWebResourceFromScratch(WebResourceMetadata webResource)
+    {
+        var root = new XElement("WebResource",
+            new XElement("WebResourceId", webResource.WebResourceId),
+            new XElement("Name", webResource.Name),
+            new XElement("WebResourceType", webResource.WebResourceType));
+
+        if (webResource.DisplayName != null)
+            root.Add(new XElement("DisplayName", webResource.DisplayName));
+        if (webResource.FileName != null)
+            root.Add(new XElement("FileName", webResource.FileName));
+        if (webResource.IntroducedVersion != null)
+            root.Add(new XElement("IntroducedVersion", webResource.IntroducedVersion));
+        root.Add(new XElement("IsCustomizable", webResource.IsCustomizable ? "1" : "0"));
+        root.Add(new XElement("CanBeDeleted", webResource.CanBeDeleted ? "1" : "0"));
+        root.Add(new XElement("IsHidden", webResource.IsHidden ? "1" : "0"));
+        root.Add(new XElement("IsEnabledForMobileClient", webResource.IsEnabledForMobileClient ? "1" : "0"));
+        root.Add(new XElement("IsAvailableForMobileOffline", webResource.IsAvailableForMobileOffline ? "1" : "0"));
+
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
+    }
+
+    private void SaveWorkflows(Workspace workspace, string outputPath)
+    {
+        foreach (var workflow in workspace.Workflows)
+        {
+            var key = $"Workflow:{workflow.WorkflowId}";
+            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+                continue; // Workflows have complex XAML bodies — skip if no original
+
+            var doc = new XDocument(origDoc);
+            PatchWorkflow(doc, workflow);
+
+            var workflowsDir = Path.Combine(outputPath, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+            var fileName = workflow.UniqueName ?? workflow.WorkflowId;
+            var filePath = Path.Combine(workflowsDir, $"{fileName}.data.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchWorkflow(XDocument doc, WorkflowMetadata workflow)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        // Patch root attributes
+        var workflowIdAttr = root.Attribute("WorkflowId");
+        if (workflowIdAttr != null) workflowIdAttr.Value = workflow.WorkflowId;
+
+        // Patch child elements
+        if (workflow.UniqueName != null)
+            SetElementValueIfExists(root, "UniqueName", workflow.UniqueName);
+        if (workflow.Category.HasValue)
+            SetElementValueIfExists(root, "Category", workflow.Category.Value.ToString());
+        if (workflow.Type.HasValue)
+            SetElementValueIfExists(root, "Type", workflow.Type.Value.ToString());
+        if (workflow.Mode.HasValue)
+            SetElementValueIfExists(root, "Mode", workflow.Mode.Value.ToString());
+        if (workflow.Scope.HasValue)
+            SetElementValueIfExists(root, "Scope", workflow.Scope.Value.ToString());
+        if (workflow.PrimaryEntity != null)
+            SetElementValueIfExists(root, "PrimaryEntity", workflow.PrimaryEntity);
+        SetElementValueIfExists(root, "IsCustomizable", workflow.IsCustomizable ? "1" : "0");
+        SetElementValueIfExists(root, "TriggerOnCreate", workflow.TriggerOnCreate ? "1" : "0");
+        SetElementValueIfExists(root, "TriggerOnDelete", workflow.TriggerOnDelete ? "1" : "0");
+        SetElementValueIfExists(root, "OnDemand", workflow.OnDemand ? "1" : "0");
+
+        var locNames = root.Element("LocalizedNames");
+        if (locNames != null)
+            PatchLocalizedNames(locNames, "LocalizedName", workflow.Name);
+
+        var descriptions = root.Element("Descriptions");
+        if (descriptions != null)
+            PatchDescriptions(descriptions, workflow.Description);
+    }
+
+    private void SavePluginAssemblies(Workspace workspace, string outputPath)
+    {
+        foreach (var assembly in workspace.PluginAssemblies)
+        {
+            var key = $"PluginAssembly:{assembly.Name}";
+            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+
+            XDocument doc;
+            if (original != null)
+            {
+                doc = new XDocument(original);
+                PatchPluginAssembly(doc, assembly);
+            }
+            else
+            {
+                doc = BuildPluginAssemblyFromScratch(assembly);
+            }
+
+            var assemblyName = assembly.Name ?? assembly.PluginAssemblyId;
+            var assemblyDir = Path.Combine(outputPath, "PluginAssemblies", assemblyName);
+            Directory.CreateDirectory(assemblyDir);
+            var filePath = Path.Combine(assemblyDir, $"{assemblyName}.data.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchPluginAssembly(XDocument doc, PluginAssemblyMetadata assembly)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        var idAttr = root.Attribute("PluginAssemblyId");
+        if (idAttr != null) idAttr.Value = assembly.PluginAssemblyId;
+
+        var fullNameAttr = root.Attribute("FullName");
+        if (fullNameAttr != null && assembly.FullName != null)
+            fullNameAttr.Value = assembly.FullName;
+
+        if (assembly.IsolationMode.HasValue)
+            SetElementValueIfExists(root, "IsolationMode", assembly.IsolationMode.Value.ToString());
+        if (assembly.SourceType.HasValue)
+            SetElementValueIfExists(root, "SourceType", assembly.SourceType.Value.ToString());
+        if (assembly.FileName != null)
+            SetElementValueIfExists(root, "FileName", assembly.FileName);
+        if (assembly.CustomizationLevel.HasValue)
+            SetElementValueIfExists(root, "CustomizationLevel", assembly.CustomizationLevel.Value.ToString());
+
+        // Patch plugin types
+        var pluginTypesEl = root.Element("PluginTypes");
+        if (pluginTypesEl != null)
+        {
+            foreach (var ptEl in pluginTypesEl.Elements("PluginType").ToList())
+            {
+                var ptId = ptEl.Attribute("PluginTypeId")?.Value;
+                if (ptId == null) continue;
+
+                var modelPt = assembly.PluginTypes.FirstOrDefault(pt => pt.PluginTypeId == ptId);
+                if (modelPt == null) continue;
+
+                if (modelPt.Name != null)
+                {
+                    var nameAttr = ptEl.Attribute("Name");
+                    if (nameAttr != null) nameAttr.Value = modelPt.Name;
+                }
+                if (modelPt.FriendlyName != null)
+                    SetElementValueIfExists(ptEl, "FriendlyName", modelPt.FriendlyName);
+                if (modelPt.TypeName != null)
+                    SetElementValueIfExists(ptEl, "TypeName", modelPt.TypeName);
+            }
+        }
+    }
+
+    private static XDocument BuildPluginAssemblyFromScratch(PluginAssemblyMetadata assembly)
+    {
+        var root = new XElement("PluginAssembly",
+            new XAttribute("PluginAssemblyId", assembly.PluginAssemblyId));
+
+        if (assembly.FullName != null)
+            root.Add(new XAttribute("FullName", assembly.FullName));
+
+        if (assembly.IsolationMode.HasValue)
+            root.Add(new XElement("IsolationMode", assembly.IsolationMode.Value));
+        if (assembly.SourceType.HasValue)
+            root.Add(new XElement("SourceType", assembly.SourceType.Value));
+        if (assembly.FileName != null)
+            root.Add(new XElement("FileName", assembly.FileName));
+        if (assembly.IntroducedVersion != null)
+            root.Add(new XElement("IntroducedVersion", assembly.IntroducedVersion));
+        if (assembly.CustomizationLevel.HasValue)
+            root.Add(new XElement("CustomizationLevel", assembly.CustomizationLevel.Value));
+
+        if (assembly.PluginTypes.Count > 0)
+        {
+            var pluginTypesEl = new XElement("PluginTypes");
+            foreach (var pt in assembly.PluginTypes)
+            {
+                var ptEl = new XElement("PluginType",
+                    new XAttribute("PluginTypeId", pt.PluginTypeId));
+                if (pt.Name != null)
+                    ptEl.Add(new XAttribute("Name", pt.Name));
+                if (pt.AssemblyQualifiedName != null)
+                    ptEl.Add(new XAttribute("AssemblyQualifiedName", pt.AssemblyQualifiedName));
+                if (pt.FriendlyName != null)
+                    ptEl.Add(new XElement("FriendlyName", pt.FriendlyName));
+                if (pt.TypeName != null)
+                    ptEl.Add(new XElement("TypeName", pt.TypeName));
+                if (pt.WorkflowActivityGroupName != null)
+                    ptEl.Add(new XElement("WorkflowActivityGroupName", pt.WorkflowActivityGroupName));
+                pluginTypesEl.Add(ptEl);
+            }
+            root.Add(pluginTypesEl);
+        }
+
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
+    }
+
+    private void SaveSdkMessageProcessingSteps(Workspace workspace, string outputPath)
+    {
+        foreach (var step in workspace.SdkMessageProcessingSteps)
+        {
+            var key = $"Step:{step.SdkMessageProcessingStepId}";
+            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+
+            XDocument doc;
+            if (original != null)
+            {
+                doc = new XDocument(original);
+                PatchSdkMessageProcessingStep(doc, step);
+            }
+            else
+            {
+                doc = BuildSdkMessageProcessingStepFromScratch(step);
+            }
+
+            var stepsDir = Path.Combine(outputPath, "SdkMessageProcessingSteps");
+            Directory.CreateDirectory(stepsDir);
+            var fileName = step.Name ?? step.SdkMessageProcessingStepId;
+            var filePath = Path.Combine(stepsDir, $"{fileName}.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchSdkMessageProcessingStep(XDocument doc, SdkMessageProcessingStepMetadata step)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        var idAttr = root.Attribute("SdkMessageProcessingStepId");
+        if (idAttr != null) idAttr.Value = step.SdkMessageProcessingStepId;
+
+        if (step.Name != null)
+        {
+            var nameAttr = root.Attribute("Name");
+            if (nameAttr != null) nameAttr.Value = step.Name;
+        }
+
+        if (step.SdkMessageId != null)
+            SetElementValueIfExists(root, "SdkMessageId", step.SdkMessageId);
+        if (step.PluginTypeName != null)
+            SetElementValueIfExists(root, "PluginTypeName", step.PluginTypeName);
+        if (step.PluginTypeId != null)
+            SetElementValueIfExists(root, "PluginTypeId", step.PluginTypeId);
+        if (step.Stage.HasValue)
+            SetElementValueIfExists(root, "Stage", step.Stage.Value.ToString());
+        if (step.Mode.HasValue)
+            SetElementValueIfExists(root, "Mode", step.Mode.Value.ToString());
+        if (step.Rank.HasValue)
+            SetElementValueIfExists(root, "Rank", step.Rank.Value.ToString());
+        if (step.FilteringAttributes != null)
+            SetElementValueIfExists(root, "FilteringAttributes", step.FilteringAttributes);
+        SetElementValueIfExists(root, "AsyncAutoDelete", step.AsyncAutoDelete ? "1" : "0");
+        if (step.Description != null)
+            SetElementValueIfExists(root, "Description", step.Description);
+        SetElementValueIfExists(root, "IsCustomizable", step.IsCustomizable ? "1" : "0");
+        SetElementValueIfExists(root, "IsHidden", step.IsHidden ? "1" : "0");
+
+        // Patch images
+        var imagesEl = root.Element("SdkMessageProcessingStepImages");
+        if (imagesEl != null)
+        {
+            foreach (var imgEl in imagesEl.Elements("SdkMessageProcessingStepImage").ToList())
+            {
+                var imgId = imgEl.Attribute("SdkMessageProcessingStepImageId")?.Value;
+                if (imgId == null) continue;
+
+                var modelImg = step.Images.FirstOrDefault(i => i.SdkMessageProcessingStepImageId == imgId);
+                if (modelImg == null) continue;
+
+                if (modelImg.ImageType.HasValue)
+                    SetElementValueIfExists(imgEl, "ImageType", modelImg.ImageType.Value.ToString());
+                if (modelImg.MessagePropertyName != null)
+                    SetElementValueIfExists(imgEl, "MessagePropertyName", modelImg.MessagePropertyName);
+                if (modelImg.EntityAlias != null)
+                    SetElementValueIfExists(imgEl, "EntityAlias", modelImg.EntityAlias);
+                if (modelImg.Attributes != null)
+                    SetElementValueIfExists(imgEl, "Attributes", modelImg.Attributes);
+            }
+        }
+    }
+
+    private static XDocument BuildSdkMessageProcessingStepFromScratch(SdkMessageProcessingStepMetadata step)
+    {
+        var root = new XElement("SdkMessageProcessingStep",
+            new XAttribute("SdkMessageProcessingStepId", step.SdkMessageProcessingStepId));
+
+        if (step.Name != null)
+            root.Add(new XAttribute("Name", step.Name));
+
+        if (step.SdkMessageId != null)
+            root.Add(new XElement("SdkMessageId", step.SdkMessageId));
+        if (step.PluginTypeName != null)
+            root.Add(new XElement("PluginTypeName", step.PluginTypeName));
+        if (step.PluginTypeId != null)
+            root.Add(new XElement("PluginTypeId", step.PluginTypeId));
+        if (step.Stage.HasValue)
+            root.Add(new XElement("Stage", step.Stage.Value));
+        if (step.Mode.HasValue)
+            root.Add(new XElement("Mode", step.Mode.Value));
+        if (step.Rank.HasValue)
+            root.Add(new XElement("Rank", step.Rank.Value));
+        if (step.FilteringAttributes != null)
+            root.Add(new XElement("FilteringAttributes", step.FilteringAttributes));
+        root.Add(new XElement("AsyncAutoDelete", step.AsyncAutoDelete ? "1" : "0"));
+        if (step.Description != null)
+            root.Add(new XElement("Description", step.Description));
+        if (step.SupportedDeployment.HasValue)
+            root.Add(new XElement("SupportedDeployment", step.SupportedDeployment.Value));
+        if (step.InvocationSource.HasValue)
+            root.Add(new XElement("InvocationSource", step.InvocationSource.Value));
+        if (step.EventHandlerTypeCode.HasValue)
+            root.Add(new XElement("EventHandlerTypeCode", step.EventHandlerTypeCode.Value));
+        if (step.IntroducedVersion != null)
+            root.Add(new XElement("IntroducedVersion", step.IntroducedVersion));
+        root.Add(new XElement("IsCustomizable", step.IsCustomizable ? "1" : "0"));
+        root.Add(new XElement("IsHidden", step.IsHidden ? "1" : "0"));
+
+        if (step.Images.Count > 0)
+        {
+            var imagesEl = new XElement("SdkMessageProcessingStepImages");
+            foreach (var img in step.Images)
+            {
+                var imgEl = new XElement("SdkMessageProcessingStepImage",
+                    new XAttribute("SdkMessageProcessingStepImageId", img.SdkMessageProcessingStepImageId));
+                if (img.ImageType.HasValue)
+                    imgEl.Add(new XElement("ImageType", img.ImageType.Value));
+                if (img.MessagePropertyName != null)
+                    imgEl.Add(new XElement("MessagePropertyName", img.MessagePropertyName));
+                if (img.EntityAlias != null)
+                    imgEl.Add(new XElement("EntityAlias", img.EntityAlias));
+                if (img.Attributes != null)
+                    imgEl.Add(new XElement("Attributes", img.Attributes));
+                imagesEl.Add(imgEl);
+            }
+            root.Add(imagesEl);
+        }
+
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
+    }
+
+    private void SaveSecurityRoles(Workspace workspace, string outputPath)
+    {
+        foreach (var role in workspace.SecurityRoles)
+        {
+            var key = $"Role:{role.RoleId}";
+            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+
+            XDocument doc;
+            if (original != null)
+            {
+                doc = new XDocument(original);
+                PatchSecurityRole(doc, role);
+            }
+            else
+            {
+                doc = BuildSecurityRoleFromScratch(role);
+            }
+
+            var rolesDir = Path.Combine(outputPath, "Roles");
+            Directory.CreateDirectory(rolesDir);
+            var filePath = Path.Combine(rolesDir, $"{role.Name}.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchSecurityRole(XDocument doc, SecurityRoleMetadata role)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        var idAttr = root.Attribute("id");
+        if (idAttr != null) idAttr.Value = role.RoleId;
+
+        var nameAttr = root.Attribute("name");
+        if (nameAttr != null) nameAttr.Value = role.Name;
+
+        var inheritedAttr = root.Attribute("isinherited");
+        if (inheritedAttr != null) inheritedAttr.Value = role.IsInherited ? "1" : "0";
+
+        if (role.IntroducedVersion != null)
+            SetElementValueIfExists(root, "IntroducedVersion", role.IntroducedVersion);
+
+        // Rebuild privileges from model
+        var privilegesEl = root.Element("RolePrivileges");
+        if (privilegesEl != null)
+        {
+            privilegesEl.RemoveAll();
+            foreach (var priv in role.Privileges)
+            {
+                privilegesEl.Add(new XElement("RolePrivilege",
+                    new XAttribute("name", priv.Name),
+                    new XAttribute("level", priv.Level)));
+            }
+        }
+    }
+
+    private static XDocument BuildSecurityRoleFromScratch(SecurityRoleMetadata role)
+    {
+        var root = new XElement("Role",
+            new XAttribute("id", role.RoleId),
+            new XAttribute("name", role.Name),
+            new XAttribute("isinherited", role.IsInherited ? "1" : "0"));
+
+        if (role.IntroducedVersion != null)
+            root.Add(new XElement("IntroducedVersion", role.IntroducedVersion));
+
+        var privilegesEl = new XElement("RolePrivileges");
+        foreach (var priv in role.Privileges)
+        {
+            privilegesEl.Add(new XElement("RolePrivilege",
+                new XAttribute("name", priv.Name),
+                new XAttribute("level", priv.Level)));
+        }
+        root.Add(privilegesEl);
+
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
+    }
+
+    private void SaveAppModules(Workspace workspace, string outputPath)
+    {
+        foreach (var appModule in workspace.AppModules)
+        {
+            var key = $"AppModule:{appModule.UniqueName}";
+            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+                continue; // AppModules have complex XML bodies — skip if no original
+
+            var doc = new XDocument(origDoc);
+            PatchAppModule(doc, appModule);
+
+            var appModuleDir = Path.Combine(outputPath, "AppModules", appModule.UniqueName);
+            Directory.CreateDirectory(appModuleDir);
+            var filePath = Path.Combine(appModuleDir, "AppModule.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchAppModule(XDocument doc, AppModuleMetadata appModule)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        SetElementValueIfExists(root, "UniqueName", appModule.UniqueName);
+        if (appModule.IntroducedVersion != null)
+            SetElementValueIfExists(root, "IntroducedVersion", appModule.IntroducedVersion);
+        if (appModule.WebResourceId != null)
+            SetElementValueIfExists(root, "WebResourceId", appModule.WebResourceId);
+        if (appModule.FormFactor.HasValue)
+            SetElementValueIfExists(root, "FormFactor", appModule.FormFactor.Value.ToString());
+        if (appModule.ClientType.HasValue)
+            SetElementValueIfExists(root, "ClientType", appModule.ClientType.Value.ToString());
+        if (appModule.NavigationType.HasValue)
+            SetElementValueIfExists(root, "NavigationType", appModule.NavigationType.Value.ToString());
+
+        var locNames = root.Element("LocalizedNames");
+        if (locNames != null)
+            PatchLocalizedNames(locNames, "LocalizedName", appModule.DisplayName);
+
+        // Patch components
+        var componentsEl = root.Element("AppModuleComponents");
+        if (componentsEl != null)
+        {
+            componentsEl.RemoveAll();
+            foreach (var comp in appModule.Components)
+            {
+                var compEl = new XElement("AppModuleComponent",
+                    new XAttribute("type", comp.Type.ToString()));
+                if (comp.SchemaName != null)
+                    compEl.Add(new XAttribute("schemaName", comp.SchemaName));
+                if (comp.Id != null)
+                    compEl.Add(new XAttribute("id", comp.Id));
+                componentsEl.Add(compEl);
+            }
+        }
+
+        // Patch role maps
+        var roleMapsEl = root.Element("AppModuleRoleMaps");
+        if (roleMapsEl != null)
+        {
+            roleMapsEl.RemoveAll();
+            foreach (var roleId in appModule.RoleIds)
+            {
+                roleMapsEl.Add(new XElement("Role",
+                    new XAttribute("id", roleId)));
+            }
+        }
+    }
+
+    private void SaveSiteMaps(Workspace workspace, string outputPath)
+    {
+        foreach (var siteMap in workspace.SiteMaps)
+        {
+            var key = $"SiteMap:{siteMap.UniqueName}";
+            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+                continue; // SiteMaps have complex XML bodies — skip if no original
+
+            var doc = new XDocument(origDoc);
+            PatchSiteMap(doc, siteMap);
+
+            var siteMapDir = Path.Combine(outputPath, "AppModuleSiteMaps", siteMap.UniqueName);
+            Directory.CreateDirectory(siteMapDir);
+            var filePath = Path.Combine(siteMapDir, $"{siteMap.UniqueName}.xml");
+            SaveDocument(doc, filePath);
+        }
+    }
+
+    private static void PatchSiteMap(XDocument doc, SiteMapMetadata siteMap)
+    {
+        var root = doc.Root;
+        if (root == null) return;
+
+        SetElementValueIfExists(root, "SiteMapUniqueName", siteMap.UniqueName);
+        SetElementValueIfExists(root, "EnableCollapsibleGroups", siteMap.EnableCollapsibleGroups ? "True" : "False");
+        SetElementValueIfExists(root, "ShowHome", siteMap.ShowHome ? "True" : "False");
+        SetElementValueIfExists(root, "ShowPinned", siteMap.ShowPinned ? "True" : "False");
+        SetElementValueIfExists(root, "ShowRecents", siteMap.ShowRecents ? "True" : "False");
+
+        var locNames = root.Element("LocalizedNames");
+        if (locNames != null)
+            PatchLocalizedNames(locNames, "LocalizedName", siteMap.DisplayName);
     }
 
     // --- Helpers ---
@@ -642,6 +1354,12 @@ public sealed class XmlWorkspaceWriter
                 if (descAttr != null)
                     descAttr.Value = kvp.Value;
             }
+            else
+            {
+                container.Add(new XElement(childName,
+                    new XAttribute("description", kvp.Value),
+                    new XAttribute("languagecode", kvp.Key)));
+            }
         }
     }
 
@@ -656,6 +1374,12 @@ public sealed class XmlWorkspaceWriter
                 var descAttr = existing.Attribute("description");
                 if (descAttr != null)
                     descAttr.Value = kvp.Value;
+            }
+            else
+            {
+                container.Add(new XElement("Description",
+                    new XAttribute("description", kvp.Value),
+                    new XAttribute("languagecode", kvp.Key)));
             }
         }
     }
@@ -682,6 +1406,42 @@ public sealed class XmlWorkspaceWriter
                 new XAttribute("languagecode", kvp.Key)));
         }
         return container;
+    }
+
+    private void SaveGenericComponents(Workspace workspace, string outputPath)
+    {
+        foreach (var component in workspace.GenericComponents)
+        {
+            if (component.FilePath == null) continue;
+
+            var key = $"Generic:{component.FilePath}";
+            XDocument doc;
+
+            if (workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            {
+                doc = new XDocument(origDoc);
+            }
+            else if (component.RawXml != null)
+            {
+                try
+                {
+                    doc = XDocument.Parse(component.RawXml);
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                continue;
+            }
+
+            var filePath = Path.Combine(outputPath, component.FilePath);
+            var dir = Path.GetDirectoryName(filePath);
+            if (dir != null) Directory.CreateDirectory(dir);
+            SaveDocument(doc, filePath);
+        }
     }
 
     private static void SaveDocument(XDocument doc, string filePath)

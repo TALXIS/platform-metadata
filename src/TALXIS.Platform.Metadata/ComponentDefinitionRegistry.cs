@@ -13,22 +13,52 @@ public static class ComponentDefinitionRegistry
     static ComponentDefinitionRegistry()
     {
         // Entity — Name-only identity, merge support, subfolders for forms/views/etc.
-        Register(new ComponentDefinition(ComponentType.Entity, "Entity", "Entities", "Entities", "$(PrimaryName)/Entity.xml", IdentityStrategy.Name, SupportsMerge: true, HasSubfolders: true));
+        Register(new ComponentDefinition(ComponentType.Entity, "Entity", "Entities", "Entities", "$(PrimaryName)/Entity.xml", IdentityStrategy.Name,
+            SupportsMerge: true, HasSubfolders: true,
+            IsMergeable: false, HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "entityid", ComponentXPath: "/ImportExportXml/Entities/Entity"));
+
+        // Attribute — child of Entity
+        Register(new ComponentDefinition(ComponentType.Attribute, "Attribute", "Attributes", "Entities", "$(PrimaryName)/Attributes.xml", IdentityStrategy.Name,
+            HasParent: true, RootComponent: 1,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "attributeid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "entityid"));
 
         // OptionSet — Name-only identity
-        Register(new ComponentDefinition(ComponentType.OptionSet, "OptionSet", "optionsets", "OptionSets", "$(PrimaryName)", IdentityStrategy.Name));
+        Register(new ComponentDefinition(ComponentType.OptionSet, "OptionSet", "optionsets", "OptionSets", "$(PrimaryName)", IdentityStrategy.Name,
+            IsMergeable: false, HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "optionsetid"));
 
         // EntityRelationship — Name-only identity, single shared file
         Register(new ComponentDefinition(ComponentType.EntityRelationship, "EntityRelationship", "EntityRelationships", "Other", "Relationships.xml", IdentityStrategy.Name));
 
-        // SiteMap — Singleton identity, managed variant support
-        Register(new ComponentDefinition(ComponentType.SiteMap, "SiteMap", "SiteMap", "Other", "$(type)$(managed).xml", IdentityStrategy.Singleton));
+        // Form (legacy type 24) — child of Entity, mergeable
+        Register(new ComponentDefinition(ComponentType.Form, "Form", "Forms", "Entities", "$(PrimaryName)/Forms.xml", IdentityStrategy.Guid,
+            IsMergeable: true, HasParent: true, RootComponent: 1,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "formid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "objecttypecode"));
+
+        // SavedQuery — child of Entity
+        Register(new ComponentDefinition(ComponentType.SavedQuery, "SavedQuery", "SavedQueries", "Entities", "$(PrimaryName)/SavedQueries.xml", IdentityStrategy.Guid,
+            HasParent: true, RootComponent: 1,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "savedqueryid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "returnedtypecode"));
+
+        // SiteMap — Singleton identity, managed variant support, mergeable
+        Register(new ComponentDefinition(ComponentType.SiteMap, "SiteMap", "SiteMap", "Other", "$(type)$(managed).xml", IdentityStrategy.Singleton,
+            IsMergeable: true, HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true));
 
         // RibbonCustomization — Singleton identity
         Register(new ComponentDefinition(ComponentType.RibbonCustomization, "RibbonCustomization", "RibbonDiffXml", "Other", "$(type).xml", IdentityStrategy.Singleton));
 
         // Role — GUID + Name identity
-        Register(new ComponentDefinition(ComponentType.Role, "Role", "Roles", "Roles", "$(PrimaryName)", IdentityStrategy.Guid));
+        Register(new ComponentDefinition(ComponentType.Role, "Role", "Roles", "Roles", "$(PrimaryName)", IdentityStrategy.Guid,
+            IsMergeable: false, HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "roleid"));
 
         // ConnectionRole — GUID-only identity
         Register(new ComponentDefinition(ComponentType.ConnectionRole, "ConnectionRole", "ConnectionRoles", "Other", "$(type)s.xml", IdentityStrategy.Guid));
@@ -39,17 +69,37 @@ public static class ComponentDefinitionRegistry
         // FieldSecurityProfile — GUID + Name identity
         Register(new ComponentDefinition(ComponentType.FieldSecurityProfile, "FieldSecurityProfile", "FieldSecurityProfiles", "Other", "$(type)s.xml", IdentityStrategy.Guid));
 
+        // SystemForm (type 60) — child of Entity, mergeable
+        Register(new ComponentDefinition(ComponentType.SystemForm, "SystemForm", "SystemForms", "Entities", "$(PrimaryName)/FormXml", IdentityStrategy.Guid,
+            SupportsMerge: true,
+            IsMergeable: true, HasParent: true, RootComponent: 1,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "formid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "objecttypecode"));
+
         // WebResource — GUID + Name identity, file-backed
-        Register(new ComponentDefinition(ComponentType.WebResource, "WebResource", "WebResources", "WebResources", "$(PrimaryName)", IdentityStrategy.Guid, IsFileBacked: true));
+        Register(new ComponentDefinition(ComponentType.WebResource, "WebResource", "WebResources", "WebResources", "$(PrimaryName)", IdentityStrategy.Guid,
+            IsFileBacked: true,
+            HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "webresourceid"));
 
         // Workflow — GUID + Name identity, single collection file
-        Register(new ComponentDefinition(ComponentType.Workflow, "Workflow", "Workflows", "Workflows", "Workflows.xml", IdentityStrategy.Guid));
+        Register(new ComponentDefinition(ComponentType.Workflow, "Workflow", "Workflows", "Workflows", "Workflows.xml", IdentityStrategy.Guid,
+            HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "workflowid"));
 
         // PluginAssembly — GUID + FullName identity
-        Register(new ComponentDefinition(ComponentType.PluginAssembly, "PluginAssembly", "SolutionPluginAssemblies", "PluginAssemblies", "PluginAssemblies.xml", IdentityStrategy.Guid));
+        Register(new ComponentDefinition(ComponentType.PluginAssembly, "PluginAssembly", "SolutionPluginAssemblies", "PluginAssemblies", "PluginAssemblies.xml", IdentityStrategy.Guid,
+            HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, CanBeDeleted: true,
+            PrimaryKeyName: "pluginassemblyid"));
 
-        // SdkMessageProcessingStep — GUID-only identity
-        Register(new ComponentDefinition(ComponentType.SdkMessageProcessingStep, "SdkMessageProcessingStep", "SdkMessageProcessingSteps", "SdkMessageProcessingSteps", "$(PrimaryName)", IdentityStrategy.Guid));
+        // SdkMessageProcessingStep — GUID-only identity, child of PluginAssembly
+        Register(new ComponentDefinition(ComponentType.SdkMessageProcessingStep, "SdkMessageProcessingStep", "SdkMessageProcessingSteps", "SdkMessageProcessingSteps", "$(PrimaryName)", IdentityStrategy.Guid,
+            HasParent: true, RootComponent: 91,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "sdkmessageprocessingstepid"));
 
         // ServiceEndpoint — GUID-based
         Register(new ComponentDefinition(ComponentType.ServiceEndpoint, "ServiceEndpoint", "ServiceEndpoints", "PluginAssemblies", "$(type)s.xml", IdentityStrategy.Guid));
@@ -82,7 +132,11 @@ public static class ComponentDefinitionRegistry
         Register(new ComponentDefinition(ComponentType.StoredProcedure, "StoredProcedure", "StoredProcedures", "StoredProcedures", "$(type)", IdentityStrategy.Name));
 
         // AppModule — GUID + Name, managed variant, subfolders
-        Register(new ComponentDefinition(ComponentType.AppModule, "AppModule", "AppModules", "AppModules", "$(PrimaryName)/AppModule$(managed).xml", IdentityStrategy.Guid, SupportsMerge: true, HasSubfolders: true));
+        Register(new ComponentDefinition(ComponentType.AppModule, "AppModule", "AppModules", "AppModules", "$(PrimaryName)/AppModule$(managed).xml", IdentityStrategy.Guid,
+            SupportsMerge: true, HasSubfolders: true,
+            IsMergeable: false, HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
+            PrimaryKeyName: "appmoduleid"));
 
         // AppModuleSiteMap — managed variant, subfolders
         Register(new ComponentDefinition(ComponentType.AppModuleSiteMap, "AppModuleSiteMap", "AppModuleSiteMaps", "AppModuleSiteMaps", "$(PrimaryName)/AppModuleSiteMap$(managed).xml", IdentityStrategy.Guid, HasSubfolders: true));
@@ -115,13 +169,19 @@ public static class ComponentDefinitionRegistry
         Register(new ComponentDefinition(ComponentType.MobileOfflineProfile, "MobileOfflineProfile", "MobileOfflineProfiles", "MobileOfflineProfiles", "$(PrimaryName)", IdentityStrategy.Name));
 
         // CustomControl — Qualified name identity ({namespace}.{constructor})
-        Register(new ComponentDefinition(ComponentType.CustomControl, "CustomControl", "CustomControls", "Controls", "$(PrimaryName)", IdentityStrategy.Name));
+        Register(new ComponentDefinition(ComponentType.CustomControl, "CustomControl", "CustomControls", "Controls", "$(PrimaryName)", IdentityStrategy.Name,
+            HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, CanBeDeleted: true,
+            PrimaryKeyName: "customcontrolid"));
 
         // EnvironmentVariableDefinition — Singleton wrapper
         Register(new ComponentDefinition(ComponentType.EnvironmentVariableDefinition, "EnvironmentVariableDefinition", "EnvironmentVariables", "EnvironmentVariables", "$(PrimaryName).xml", IdentityStrategy.Singleton));
 
         // Connector — dynamic root directory
-        Register(new ComponentDefinition(ComponentType.Connector, "Connector", "Connectors", "$(ComponentsRootName)", "$(PrimaryName).xml", IdentityStrategy.Name));
+        Register(new ComponentDefinition(ComponentType.Connector, "Connector", "Connectors", "$(ComponentsRootName)", "$(PrimaryName).xml", IdentityStrategy.Name,
+            HasParent: false, RootComponent: 0,
+            AllowOverwriteCustomizations: true, CanBeDeleted: true,
+            PrimaryKeyName: "connectorid"));
 
         // OrganizationSettings
         Register(new ComponentDefinition(ComponentType.OrganizationSettings, "OrganizationSettings", "OrganizationSettings", "OrganizationSettings", "_legacy/$(PrimaryName).meta.xml", IdentityStrategy.Name));
