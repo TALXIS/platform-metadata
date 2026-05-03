@@ -54,7 +54,7 @@ public sealed class XmlWorkspaceReader
         {
             UniqueName = manifest.Element("UniqueName")?.Value ?? "Unknown",
             Version = manifest.Element("Version")?.Value ?? "1.0.0.0",
-            IsManaged = manifest.Element("Managed")?.Value == "1",
+            ManagedValue = manifest.Element("Managed")?.Value ?? "0",
             Source = new SourceLocation(solutionFile, 1, 1)
         };
 
@@ -226,13 +226,7 @@ public sealed class XmlWorkspaceReader
         attr.Source = new SourceLocation(filePath, 1, 1);
 
         // Required level
-        var reqLevel = attrEl.Element("RequiredLevel")?.Value?.ToLowerInvariant();
-        attr.RequiredLevel = reqLevel switch
-        {
-            "required" or "systemrequired" or "applicationrequired" => RequiredLevel.Required,
-            "recommended" => RequiredLevel.Recommended,
-            _ => RequiredLevel.None
-        };
+        attr.RequiredLevel = RequiredLevelXml.Parse(attrEl.Element("RequiredLevel")?.Value);
 
         // Display name
         var attrDisplayLabel = ReadLabel(attrEl.Element("displaynames"), "displayname");

@@ -13,10 +13,32 @@ public class SolutionTests
         Assert.Equal("MySolution", solution.UniqueName);
         Assert.Equal("1.0.0.0", solution.Version);
         Assert.False(solution.IsManaged);
+        Assert.Equal("0", solution.ManagedValue);
         Assert.Null(solution.Publisher);
         Assert.NotNull(solution.DisplayName);
         Assert.NotNull(solution.Description);
         Assert.Empty(solution.RootComponents);
+    }
+
+    [Fact]
+    public void ManagedValue_NonZeroValue_IsManagedAndPreserved()
+    {
+        var solution = new Solution { UniqueName = "MySolution", ManagedValue = "2" };
+
+        Assert.True(solution.IsManaged);
+        Assert.Equal("2", solution.ManagedValue);
+    }
+
+    [Fact]
+    public void IsManaged_Setter_UpdatesManagedValue()
+    {
+        var solution = new Solution { UniqueName = "MySolution" };
+
+        solution.IsManaged = true;
+        Assert.Equal("1", solution.ManagedValue);
+
+        solution.IsManaged = false;
+        Assert.Equal("0", solution.ManagedValue);
     }
 
     [Fact]

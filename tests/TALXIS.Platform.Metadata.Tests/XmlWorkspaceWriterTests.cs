@@ -173,6 +173,40 @@ public class XmlWorkspaceWriterTests
     }
 
     [Fact]
+    public void RoundtripSampleRepo_PreservesOptionLabelIndentation()
+    {
+        var reader = new XmlWorkspaceReader();
+        var workspace = reader.Load(SamplePath);
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-indent-{Guid.NewGuid():N}");
+        try
+        {
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenXml = File.ReadAllText(Path.Combine(outputPath, "OptionSets", "tp_teststatus.xml"));
+            Assert.Contains(
+                """
+                  <options>
+                    <option value="100000000" ExternalValue="" IsHidden="0">
+                """.ReplaceLineEndings(),
+                writtenXml.ReplaceLineEndings());
+            Assert.Contains(
+                """
+                      <labels>
+                        <label description="Active" languagecode="1033" />
+                      </labels>
+                """.ReplaceLineEndings(),
+                writtenXml.ReplaceLineEndings());
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
     public void RoundtripSampleRepo_LoadWrittenOutput()
     {
         var reader = new XmlWorkspaceReader();
@@ -463,6 +497,116 @@ public class XmlWorkspaceWriterTests
         finally
         {
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_PreservesDistinctRequiredLevelValues()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-requiredlevel-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-requiredlevel-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            CopyDirectory(SamplePath, inputPath);
+
+            var entityFile = Path.Combine(inputPath, "Entities", "test_entity", "Entity.xml");
+            var entityDoc = XDocument.Load(entityFile);
+            var attributesByLogicalName = entityDoc.Root!
+                .Element("EntityInfo")!
+                .Element("entity")!
+                .Element("attributes")!
+                .Elements("attribute")
+                .ToDictionary(
+                    attribute => attribute.Element("LogicalName")!.Value,
+                    attribute => attribute);
+            attributesByLogicalName["tp_name"].Element("RequiredLevel")!.Value = "systemrequired";
+            attributesByLogicalName["tp_count"].Element("RequiredLevel")!.Value = "applicationrequired";
+            entityDoc.Save(entityFile);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "Entities", "test_entity", "Entity.xml"));
+            var writtenRequiredLevels = writtenDoc.Root!
+                .Element("EntityInfo")!
+                .Element("entity")!
+                .Element("attributes")!
+                .Elements("attribute")
+                .Select(attribute => attribute.Element("RequiredLevel")!.Value)
+                .ToList();
+
+            Assert.Contains("systemrequired", writtenRequiredLevels);
+            Assert.Contains("applicationrequired", writtenRequiredLevels);
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_PreservesNonBooleanManagedValue()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            CopyDirectory(SamplePath, inputPath);
+
+            var solutionFile = Path.Combine(inputPath, "Other", "Solution.xml");
+            var solutionDoc = XDocument.Load(solutionFile);
+            solutionDoc.Root!
+                .Element("SolutionManifest")!
+                .Element("Managed")!
+                .Value = "2";
+            solutionDoc.Save(solutionFile);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenManagedValue = XDocument.Load(Path.Combine(outputPath, "Other", "Solution.xml"))
+                .Root!
+                .Element("SolutionManifest")!
+                .Element("Managed")!
+                .Value;
+
+            Assert.Equal("2", writtenManagedValue);
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    private static void CopyDirectory(string sourcePath, string destinationPath)
+    {
+        Directory.CreateDirectory(destinationPath);
+
+        foreach (var directory in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(directory.Replace(sourcePath, destinationPath, StringComparison.Ordinal));
+        }
+
+        foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            var destinationFile = file.Replace(sourcePath, destinationPath, StringComparison.Ordinal);
+            var destinationDirectory = Path.GetDirectoryName(destinationFile);
+            if (destinationDirectory != null)
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            File.Copy(file, destinationFile);
         }
     }
 }
