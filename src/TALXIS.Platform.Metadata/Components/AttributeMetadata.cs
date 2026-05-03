@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public abstract class AttributeMetadata : MetadataBase
+public abstract class AttributeMetadata : MetadataBase, ILocalizedMetadata
 {
     public required string LogicalName { get; set; }
     public string? SchemaName { get; set; }

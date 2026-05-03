@@ -1,10 +1,10 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class WebResourceMetadata : MetadataBase
+public sealed class WebResourceMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
 {
     public required string WebResourceId { get; set; }
     public required string Name { get; set; }
-    public string? DisplayName { get; set; }
+    public Label DisplayName { get; set; } = new();
     public int WebResourceType { get; set; }
     public string? FileName { get; set; }
     public string? IntroducedVersion { get; set; }

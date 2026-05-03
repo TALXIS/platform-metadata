@@ -588,6 +588,101 @@ public class XmlWorkspaceWriterTests
         }
     }
 
+    [Fact]
+    public void Roundtrip_WebResourceWithBlankDisplayName_RemovesDisplayNameElement()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-webresource-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-webresource-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(inputPath, "Other"));
+            Directory.CreateDirectory(Path.Combine(inputPath, "WebResources"));
+
+            File.WriteAllText(Path.Combine(inputPath, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+
+            File.WriteAllText(Path.Combine(inputPath, "WebResources", "test_resource.js.data.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <WebResource>
+                  <WebResourceId>{c1b2c3d4-0000-0000-0000-000000000003}</WebResourceId>
+                  <Name>test_resource.js</Name>
+                  <DisplayName>Test Resource</DisplayName>
+                  <WebResourceType>3</WebResourceType>
+                  <IsCustomizable>1</IsCustomizable>
+                  <CanBeDeleted>1</CanBeDeleted>
+                  <IsHidden>0</IsHidden>
+                  <IsEnabledForMobileClient>0</IsEnabledForMobileClient>
+                  <IsAvailableForMobileOffline>0</IsAvailableForMobileOffline>
+                </WebResource>
+                """);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+            workspace.WebResources[0].DisplayName = new Label("");
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "WebResources", "test_resource.js.data.xml"));
+            Assert.Null(writtenDoc.Root!.Element("DisplayName"));
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Write_InMemoryWebResourceWithBlankDisplayName_DoesNotWriteDisplayNameElement()
+    {
+        var workspace = new Workspace("in-memory");
+        workspace.Solution = new Solution
+        {
+            UniqueName = "InMemorySolution",
+            Version = "1.0",
+            Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
+        };
+        workspace.AddWebResource(new WebResourceMetadata
+        {
+            WebResourceId = "{c1b2c3d4-0000-0000-0000-000000000003}",
+            Name = "test_resource.js",
+            DisplayName = new Label(""),
+            WebResourceType = 3,
+            IsCustomizable = true,
+            CanBeDeleted = true
+        });
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"writer-webresource-{Guid.NewGuid():N}");
+        try
+        {
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenDoc = XDocument.Load(Path.Combine(outputPath, "WebResources", "test_resource.js.data.xml"));
+            Assert.Null(writtenDoc.Root!.Element("DisplayName"));
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
     private static void CopyDirectory(string sourcePath, string destinationPath)
     {
         Directory.CreateDirectory(destinationPath);

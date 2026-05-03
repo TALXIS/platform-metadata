@@ -1,9 +1,9 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SavedQueryMetadata : MetadataBase
+public sealed class SavedQueryMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
 {
     public required string SavedQueryId { get; set; }
-    public Label Name { get; set; } = new();
+    public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();
     public string? EntityLogicalName { get; set; }
     public int? QueryType { get; set; }

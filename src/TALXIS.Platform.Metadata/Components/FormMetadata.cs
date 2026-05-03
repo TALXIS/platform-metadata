@@ -2,11 +2,10 @@ using TALXIS.Platform.Metadata.Merging;
 
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class FormMetadata : MetadataBase
+public sealed class FormMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
 {
     public required string FormId { get; set; }
     public string? FormType { get; set; }
-    public string? Name { get; set; }
     public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();
     public string? IntroducedVersion { get; set; }

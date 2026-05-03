@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SecurityRoleMetadata : MetadataBase
+public sealed class SecurityRoleMetadata : MetadataBase, IVersionedMetadata
 {
     public required string RoleId { get; set; }
     public required string Name { get; set; }

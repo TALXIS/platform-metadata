@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Solutions;
 
-public sealed class Publisher : MetadataBase
+public sealed class Publisher : MetadataBase, ILocalizedMetadata
 {
     public required string UniqueName { get; set; }
     public required string Prefix { get; set; }
