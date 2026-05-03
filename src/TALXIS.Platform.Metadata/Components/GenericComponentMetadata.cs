@@ -27,7 +27,7 @@ public sealed class GenericComponentMetadata : MetadataBase
     public string? FilePath { get; set; }
 
     /// <summary>
-    /// Complete XML content as string for roundtrip preservation.
+    /// Complete serialized content for roundtrip preservation.
     /// </summary>
-    public string? RawXml { get; set; }
+    public string? SerializedContent { get; set; }
 }

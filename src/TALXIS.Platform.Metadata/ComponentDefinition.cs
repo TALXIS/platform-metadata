@@ -10,7 +10,7 @@ namespace TALXIS.Platform.Metadata;
 public sealed record ComponentDefinition(
     ComponentType TypeCode,
     string Name,
-    string XmlElementName,
+    string SerializedName,
     string Directory,
     string FilePattern,
     IdentityStrategy Identity,
@@ -37,8 +37,8 @@ public sealed record ComponentDefinition(
 
     // ── Identity / serialization (from IComponentDefinition) ──
 
-    /// <summary>XPath to locate this component in customizations.xml.</summary>
-    string? ComponentXPath = null,
+    /// <summary>Format-specific selector path used to locate this component in serialized manifests.</summary>
+    string? SerializedPath = null,
     /// <summary>Comma-separated attribute names that form the export identity key.</summary>
     string? ExportKeyAttributes = null,
     /// <summary>Whether the component has a composite export key.</summary>
