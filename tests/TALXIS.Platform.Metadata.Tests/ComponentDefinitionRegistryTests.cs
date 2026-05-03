@@ -1,9 +1,12 @@
+using System.Threading;
 using TALXIS.Platform.Metadata;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
 public class ComponentDefinitionRegistryTests
 {
+    private static int _customTypeSeed = 100000;
+
     [Theory]
     [InlineData(ComponentType.Entity, 1)]
     [InlineData(ComponentType.Attribute, 2)]
@@ -47,9 +50,9 @@ public class ComponentDefinitionRegistryTests
     [InlineData("SiteMap", ComponentType.SiteMap)]
     [InlineData("SolutionPluginAssemblies", ComponentType.PluginAssembly)]
     [InlineData("Roles", ComponentType.Role)]
-    public void GetByXmlElement_ReturnsCorrectDefinition(string xmlElement, ComponentType expectedType)
+    public void GetBySerializedName_ReturnsCorrectDefinition(string serializedName, ComponentType expectedType)
     {
-        var def = ComponentDefinitionRegistry.GetByXmlElement(xmlElement);
+        var def = ComponentDefinitionRegistry.GetBySerializedName(serializedName);
 
         Assert.NotNull(def);
         Assert.Equal(expectedType, def.TypeCode);
@@ -59,9 +62,9 @@ public class ComponentDefinitionRegistryTests
     [InlineData("entities")]
     [InlineData("ENTITIES")]
     [InlineData("Entities")]
-    public void GetByXmlElement_IsCaseInsensitive(string xmlElement)
+    public void GetBySerializedName_IsCaseInsensitive(string serializedName)
     {
-        var def = ComponentDefinitionRegistry.GetByXmlElement(xmlElement);
+        var def = ComponentDefinitionRegistry.GetBySerializedName(serializedName);
 
         Assert.NotNull(def);
         Assert.Equal(ComponentType.Entity, def.TypeCode);
@@ -76,9 +79,9 @@ public class ComponentDefinitionRegistryTests
     }
 
     [Fact]
-    public void GetByXmlElement_UnknownElement_ReturnsNull()
+    public void GetBySerializedName_UnknownElement_ReturnsNull()
     {
-        var def = ComponentDefinitionRegistry.GetByXmlElement("NonExistentElement");
+        var def = ComponentDefinitionRegistry.GetBySerializedName("NonExistentElement");
 
         Assert.Null(def);
     }
@@ -156,4 +159,96 @@ public class ComponentDefinitionRegistryTests
         Assert.NotNull(def);
         Assert.Equal(IdentityStrategy.Probed, def.Identity);
     }
+
+    [Fact]
+    public void Register_AllowsExternalDefinitions()
+    {
+        var typeCode = NextCustomTypeCode();
+        var serializedName = $"ExternalDefinition_{Guid.NewGuid():N}";
+        var definition = new ComponentDefinition(
+            typeCode,
+            "ExternalDefinition",
+            serializedName,
+            "External",
+            "External.xml",
+            IdentityStrategy.Name);
+
+        ComponentDefinitionRegistry.Register(definition);
+
+        Assert.Same(definition, ComponentDefinitionRegistry.GetByType(typeCode));
+        Assert.Same(definition, ComponentDefinitionRegistry.GetBySerializedName(serializedName));
+    }
+
+    [Fact]
+    public void Register_DuplicateTypeWithoutReplace_Throws()
+    {
+        var existing = ComponentDefinitionRegistry.GetByType(ComponentType.Entity)!;
+        var duplicate = existing with { SerializedName = $"Entity_{Guid.NewGuid():N}" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ComponentDefinitionRegistry.Register(duplicate));
+        Assert.Contains("already registered", ex.Message);
+    }
+
+    [Fact]
+    public void Register_WithReplaceExisting_UpdatesLookups()
+    {
+        var typeCode = NextCustomTypeCode();
+        var original = new ComponentDefinition(
+            typeCode,
+            "OriginalDefinition",
+            $"Original_{Guid.NewGuid():N}",
+            "External",
+            "Original.xml",
+            IdentityStrategy.Name);
+        var replacement = original with
+        {
+            Name = "ReplacementDefinition",
+            SerializedName = $"Replacement_{Guid.NewGuid():N}",
+            FilePattern = "Replacement.xml"
+        };
+
+        ComponentDefinitionRegistry.Register(original);
+        ComponentDefinitionRegistry.Register(replacement, replaceExisting: true);
+
+        Assert.Same(replacement, ComponentDefinitionRegistry.GetByType(typeCode));
+        Assert.Null(ComponentDefinitionRegistry.GetBySerializedName(original.SerializedName));
+        Assert.Same(replacement, ComponentDefinitionRegistry.GetBySerializedName(replacement.SerializedName));
+    }
+
+    [Theory]
+    [InlineData("", "SerializedName")]
+    [InlineData("   ", "SerializedName")]
+    public void Register_InvalidSerializedName_ThrowsArgumentException(string serializedName, string _)
+    {
+        var definition = new ComponentDefinition(
+            NextCustomTypeCode(),
+            "ExternalDefinition",
+            serializedName,
+            "External",
+            "External.xml",
+            IdentityStrategy.Name);
+
+        var ex = Assert.Throws<ArgumentException>(() => ComponentDefinitionRegistry.Register(definition));
+        Assert.Equal("def", ex.ParamName);
+    }
+
+    [Fact]
+    public void GetAll_ReturnsSnapshot()
+    {
+        var before = ComponentDefinitionRegistry.GetAll().ToArray();
+        var definition = new ComponentDefinition(
+            NextCustomTypeCode(),
+            "SnapshotDefinition",
+            $"Snapshot_{Guid.NewGuid():N}",
+            "External",
+            "Snapshot.xml",
+            IdentityStrategy.Name);
+
+        ComponentDefinitionRegistry.Register(definition);
+
+        Assert.DoesNotContain(before, item => item.TypeCode == definition.TypeCode);
+        Assert.Contains(ComponentDefinitionRegistry.GetAll(), item => item.TypeCode == definition.TypeCode);
+    }
+
+    private static ComponentType NextCustomTypeCode() => (ComponentType)Interlocked.Increment(ref _customTypeSeed);
 }

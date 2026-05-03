@@ -19,8 +19,8 @@ public class GenericComponentTests
             c => c.FilePath == Path.Combine("Other", "ConnectionRoles.xml"));
         Assert.NotNull(connRoles);
         Assert.Equal("ConnectionRoles", connRoles.ComponentTypeName);
-        Assert.NotNull(connRoles.RawXml);
-        Assert.Contains("Stakeholder", connRoles.RawXml);
+        Assert.NotNull(connRoles.SerializedContent);
+        Assert.Contains("Stakeholder", connRoles.SerializedContent);
     }
 
     [Fact]

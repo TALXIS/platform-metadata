@@ -1418,16 +1418,16 @@ public sealed class XmlWorkspaceWriter
             {
                 doc = new XDocument(origDoc);
             }
-            else if (component.RawXml != null)
+            else if (component.SerializedContent != null)
             {
                 try
                 {
-                    doc = XDocument.Parse(component.RawXml);
+                    doc = XDocument.Parse(component.SerializedContent);
                 }
                 catch (System.Xml.XmlException ex)
                 {
                     throw new InvalidOperationException(
-                        $"Generic component '{component.ComponentTypeName}' at '{component.FilePath}' has malformed RawXml: {ex.Message}", ex);
+                        $"Generic component '{component.ComponentTypeName}' at '{component.FilePath}' has malformed serialized content: {ex.Message}", ex);
                 }
             }
             else

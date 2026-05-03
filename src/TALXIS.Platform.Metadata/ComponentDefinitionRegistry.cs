@@ -2,13 +2,14 @@ namespace TALXIS.Platform.Metadata;
 
 /// <summary>
 /// Static registry of all known component definitions, pre-populated from SolutionPackager internals.
-/// Cross-references Section 1.2 (Processor → XML Element), Section 2.1 (file layout),
+/// Cross-references Section 1.2 (Processor → serialized name), Section 2.1 (file layout),
 /// and Section 6.1 (identity strategies).
 /// </summary>
 public static class ComponentDefinitionRegistry
 {
+    private static readonly object SyncRoot = new();
     private static readonly Dictionary<ComponentType, ComponentDefinition> _byType = new();
-    private static readonly Dictionary<string, ComponentDefinition> _byXmlElement = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, ComponentDefinition> _bySerializedName = new(StringComparer.OrdinalIgnoreCase);
 
     static ComponentDefinitionRegistry()
     {
@@ -17,7 +18,7 @@ public static class ComponentDefinitionRegistry
             SupportsMerge: true, HasSubfolders: true,
             IsMergeable: false, HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
-            PrimaryKeyName: "entityid", ComponentXPath: "/ImportExportXml/Entities/Entity"));
+            PrimaryKeyName: "entityid", SerializedPath: "/ImportExportXml/Entities/Entity"));
 
         // Attribute — child of Entity
         Register(new ComponentDefinition(ComponentType.Attribute, "Attribute", "Attributes", "Entities", "$(PrimaryName)/Attributes.xml", IdentityStrategy.Name,
@@ -211,23 +212,72 @@ public static class ComponentDefinitionRegistry
     /// <summary>
     /// Looks up a component definition by its <see cref="ComponentType"/> code.
     /// </summary>
-    public static ComponentDefinition? GetByType(ComponentType type) =>
-        _byType.TryGetValue(type, out var def) ? def : null;
+    public static ComponentDefinition? GetByType(ComponentType type)
+    {
+        lock (SyncRoot)
+        {
+            return _byType.TryGetValue(type, out var def) ? def : null;
+        }
+    }
 
     /// <summary>
-    /// Looks up a component definition by its XML element name (case-insensitive).
+    /// Looks up a component definition by its serialized name (case-insensitive).
     /// </summary>
-    public static ComponentDefinition? GetByXmlElement(string elementName) =>
-        _byXmlElement.TryGetValue(elementName, out var def) ? def : null;
+    public static ComponentDefinition? GetBySerializedName(string serializedName)
+    {
+        lock (SyncRoot)
+        {
+            return _bySerializedName.TryGetValue(serializedName, out var def) ? def : null;
+        }
+    }
 
     /// <summary>
     /// Returns all registered component definitions.
     /// </summary>
-    public static IEnumerable<ComponentDefinition> GetAll() => _byType.Values;
-
-    private static void Register(ComponentDefinition def)
+    public static IEnumerable<ComponentDefinition> GetAll()
     {
-        _byType[def.TypeCode] = def;
-        _byXmlElement[def.XmlElementName] = def;
+        lock (SyncRoot)
+        {
+            return _byType.Values.ToArray();
+        }
+    }
+
+    public static void Register(ComponentDefinition def, bool replaceExisting = false)
+    {
+        if (string.IsNullOrWhiteSpace(def.Name))
+            throw new ArgumentException("Component definition name cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.SerializedName))
+            throw new ArgumentException("Component definition serialized name cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.Directory))
+            throw new ArgumentException("Component definition directory cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.FilePattern))
+            throw new ArgumentException("Component definition file pattern cannot be null or whitespace.", nameof(def));
+
+        lock (SyncRoot)
+        {
+            if (!replaceExisting)
+            {
+                if (_byType.ContainsKey(def.TypeCode))
+                    throw new InvalidOperationException($"A component definition for type '{def.TypeCode}' is already registered.");
+
+                if (_bySerializedName.TryGetValue(def.SerializedName, out var existing))
+                    throw new InvalidOperationException(
+                        $"A component definition with serialized name '{def.SerializedName}' is already registered for type '{existing.TypeCode}'.");
+            }
+            else
+            {
+                if (_byType.TryGetValue(def.TypeCode, out var existingByType))
+                    _bySerializedName.Remove(existingByType.SerializedName);
+
+                if (_bySerializedName.TryGetValue(def.SerializedName, out var existingByName))
+                    _byType.Remove(existingByName.TypeCode);
+            }
+
+            _byType[def.TypeCode] = def;
+            _bySerializedName[def.SerializedName] = def;
+        }
     }
 }

@@ -94,7 +94,7 @@ public class ComponentDefinitionTests
         Assert.False(def.IsMergeable);
         Assert.False(def.HasParent);
         Assert.Equal(0, def.RootComponent);
-        Assert.Null(def.ComponentXPath);
+        Assert.Null(def.SerializedPath);
         Assert.Null(def.PrimaryKeyName);
     }
 }

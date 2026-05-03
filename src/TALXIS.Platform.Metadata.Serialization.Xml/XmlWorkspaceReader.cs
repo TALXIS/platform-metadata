@@ -1053,7 +1053,7 @@ public sealed class XmlWorkspaceReader
             Id = id,
             Name = name,
             FilePath = relativePath,
-            RawXml = doc.ToString(),
+            SerializedContent = doc.ToString(),
             Source = new SourceLocation(file, 1, 1)
         };
 
