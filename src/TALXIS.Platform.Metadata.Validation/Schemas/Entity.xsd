@@ -45,7 +45,6 @@
 						<xs:element name="AutoRouteToOwnerQueue" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 						<xs:element name="AutoCreateAccessTeams" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 						<xs:element name="OwnershipTypeMask" type="xs:string" minOccurs="0" maxOccurs="1" />
-						<xs:element name="IsAuditEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 						<xs:element name="isAuditEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 						<xs:element name="IsActivity" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 						<xs:element name="ActivityTypeMask" type="xs:string" minOccurs="0" maxOccurs="1" />
