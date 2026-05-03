@@ -7,6 +7,7 @@ namespace TALXIS.Platform.Metadata;
 /// </summary>
 public static class ComponentDefinitionRegistry
 {
+    private static readonly object SyncRoot = new();
     private static readonly Dictionary<ComponentType, ComponentDefinition> _byType = new();
     private static readonly Dictionary<string, ComponentDefinition> _bySerializedName = new(StringComparer.OrdinalIgnoreCase);
 
@@ -211,41 +212,72 @@ public static class ComponentDefinitionRegistry
     /// <summary>
     /// Looks up a component definition by its <see cref="ComponentType"/> code.
     /// </summary>
-    public static ComponentDefinition? GetByType(ComponentType type) =>
-        _byType.TryGetValue(type, out var def) ? def : null;
+    public static ComponentDefinition? GetByType(ComponentType type)
+    {
+        lock (SyncRoot)
+        {
+            return _byType.TryGetValue(type, out var def) ? def : null;
+        }
+    }
 
     /// <summary>
     /// Looks up a component definition by its serialized name (case-insensitive).
     /// </summary>
-    public static ComponentDefinition? GetBySerializedName(string elementName) =>
-        _bySerializedName.TryGetValue(elementName, out var def) ? def : null;
+    public static ComponentDefinition? GetBySerializedName(string serializedName)
+    {
+        lock (SyncRoot)
+        {
+            return _bySerializedName.TryGetValue(serializedName, out var def) ? def : null;
+        }
+    }
 
     /// <summary>
     /// Returns all registered component definitions.
     /// </summary>
-    public static IEnumerable<ComponentDefinition> GetAll() => _byType.Values;
+    public static IEnumerable<ComponentDefinition> GetAll()
+    {
+        lock (SyncRoot)
+        {
+            return _byType.Values.ToArray();
+        }
+    }
 
     public static void Register(ComponentDefinition def, bool replaceExisting = false)
     {
-        if (!replaceExisting)
+        if (string.IsNullOrWhiteSpace(def.Name))
+            throw new ArgumentException("Component definition name cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.SerializedName))
+            throw new ArgumentException("Component definition serialized name cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.Directory))
+            throw new ArgumentException("Component definition directory cannot be null or whitespace.", nameof(def));
+
+        if (string.IsNullOrWhiteSpace(def.FilePattern))
+            throw new ArgumentException("Component definition file pattern cannot be null or whitespace.", nameof(def));
+
+        lock (SyncRoot)
         {
-            if (_byType.ContainsKey(def.TypeCode))
-                throw new InvalidOperationException($"A component definition for type '{def.TypeCode}' is already registered.");
+            if (!replaceExisting)
+            {
+                if (_byType.ContainsKey(def.TypeCode))
+                    throw new InvalidOperationException($"A component definition for type '{def.TypeCode}' is already registered.");
 
-            if (_bySerializedName.TryGetValue(def.SerializedName, out var existing))
-                throw new InvalidOperationException(
-                    $"A component definition with serialized name '{def.SerializedName}' is already registered for type '{existing.TypeCode}'.");
+                if (_bySerializedName.TryGetValue(def.SerializedName, out var existing))
+                    throw new InvalidOperationException(
+                        $"A component definition with serialized name '{def.SerializedName}' is already registered for type '{existing.TypeCode}'.");
+            }
+            else
+            {
+                if (_byType.TryGetValue(def.TypeCode, out var existingByType))
+                    _bySerializedName.Remove(existingByType.SerializedName);
+
+                if (_bySerializedName.TryGetValue(def.SerializedName, out var existingByName))
+                    _byType.Remove(existingByName.TypeCode);
+            }
+
+            _byType[def.TypeCode] = def;
+            _bySerializedName[def.SerializedName] = def;
         }
-        else
-        {
-            if (_byType.TryGetValue(def.TypeCode, out var existingByType))
-                _bySerializedName.Remove(existingByType.SerializedName);
-
-            if (_bySerializedName.TryGetValue(def.SerializedName, out var existingByName))
-                _byType.Remove(existingByName.TypeCode);
-        }
-
-        _byType[def.TypeCode] = def;
-        _bySerializedName[def.SerializedName] = def;
     }
 }

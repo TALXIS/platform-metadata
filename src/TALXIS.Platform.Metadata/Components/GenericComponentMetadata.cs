@@ -2,7 +2,7 @@ namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
 /// Represents a component type that doesn't have a dedicated loader.
-/// Preserves raw XML for roundtrip fidelity.
+/// Preserves serialized content for roundtrip fidelity.
 /// </summary>
 public sealed class GenericComponentMetadata : MetadataBase
 {
