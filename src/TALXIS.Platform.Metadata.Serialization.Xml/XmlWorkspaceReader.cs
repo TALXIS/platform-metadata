@@ -601,7 +601,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadWebResources(Workspace workspace, string rootPath)
     {
-        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "WebResources"), "*.data.xml", SearchOption.AllDirectories))
+        foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "WebResources"), "*.data.xml", SearchOption.AllDirectories))
         {
             var webResourceId = root.Element("WebResourceId")?.Value ?? "";
             var name = root.Element("Name")?.Value ?? "";
@@ -630,7 +630,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadWorkflows(Workspace workspace, string rootPath)
     {
-        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "Workflows"), "*.data.xml"))
+        foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "Workflows"), "*.data.xml"))
         {
             var workflowId = root.Attribute("WorkflowId")?.Value ?? "";
             if (string.IsNullOrEmpty(workflowId)) continue;
@@ -666,7 +666,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadPluginAssemblies(Workspace workspace, string rootPath)
     {
-        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "PluginAssemblies"), "*.data.xml", SearchOption.AllDirectories))
+        foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "PluginAssemblies"), "*.data.xml", SearchOption.AllDirectories))
         {
             var assemblyId = root.Attribute("PluginAssemblyId")?.Value ?? "";
             if (string.IsNullOrEmpty(assemblyId)) continue;
@@ -715,7 +715,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadSdkMessageProcessingSteps(Workspace workspace, string rootPath)
     {
-        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "SdkMessageProcessingSteps")))
+        foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "SdkMessageProcessingSteps")))
         {
             var stepId = root.Attribute("SdkMessageProcessingStepId")?.Value ?? "";
             if (string.IsNullOrEmpty(stepId)) continue;
@@ -770,7 +770,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadSecurityRoles(Workspace workspace, string rootPath)
     {
-        foreach (var (file, doc, root) in LoadXmlFiles(Path.Combine(rootPath, "Roles")))
+        foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "Roles")))
         {
             var roleId = root.Attribute("id")?.Value ?? "";
             var roleName = root.Attribute("name")?.Value ?? "";
@@ -1060,14 +1060,19 @@ public sealed class XmlWorkspaceReader
     /// Skips files that are malformed XML or have no root element.
     /// </summary>
     private static IEnumerable<(string filePath, XDocument doc, XElement root)> LoadXmlFiles(
-        string directory, string pattern = "*.xml", SearchOption searchOption = SearchOption.TopDirectoryOnly)
+        Workspace workspace, string directory, string pattern = "*.xml",
+        SearchOption searchOption = SearchOption.TopDirectoryOnly)
     {
         if (!Directory.Exists(directory)) yield break;
         foreach (var file in Directory.EnumerateFiles(directory, pattern, searchOption))
         {
             XDocument doc;
             try { doc = XDocument.Load(file, LoadOptions.PreserveWhitespace); }
-            catch (System.Xml.XmlException) { continue; }
+            catch (System.Xml.XmlException ex)
+            {
+                workspace.AddLoadError(file, $"Malformed XML: {ex.Message}");
+                continue;
+            }
             var root = doc.Root;
             if (root == null) continue;
             yield return (file, doc, root);
