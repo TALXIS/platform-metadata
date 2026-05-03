@@ -642,6 +642,47 @@ public class ExpandedReaderTests
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
 
+    [Fact]
+    public void LoadSiteMaps_PrefersLegacyManagedVariantWhenBothExist()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var otherDir = Path.Combine(dir, "Other");
+
+            File.WriteAllText(Path.Combine(otherDir, "SiteMap.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>SiteMap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Base Legacy SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+            File.WriteAllText(Path.Combine(otherDir, "SiteMap_managed.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <AppModuleSiteMap>
+                  <SiteMapUniqueName>SiteMap</SiteMapUniqueName>
+                  <LocalizedNames>
+                    <LocalizedName description="Managed Legacy SiteMap" languagecode="1033" />
+                  </LocalizedNames>
+                  <SiteMap />
+                </AppModuleSiteMap>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Single(workspace.SiteMaps);
+            Assert.Equal("Managed Legacy SiteMap", workspace.SiteMaps[0].DisplayName.Default);
+            Assert.EndsWith("_managed.xml", workspace.SiteMaps[0].Source!.FilePath, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
     private static List<MergeableNode> FindAll(MergeableNode root, string name)
     {
         var result = new List<MergeableNode>();

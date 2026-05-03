@@ -1113,17 +1113,14 @@ public sealed class XmlWorkspaceReader
             }
         }
 
-        // Also check Other/SiteMap.xml (legacy location)
-        var legacySiteMap = Path.Combine(rootPath, "Other", "SiteMap.xml");
-        if (File.Exists(legacySiteMap))
+        var legacySiteMaps = new[]
         {
-            LoadSiteMapFile(workspace, legacySiteMap, loadedUniqueNames);
-        }
-
-        var legacyManagedSiteMap = Path.Combine(rootPath, "Other", "SiteMap_managed.xml");
-        if (File.Exists(legacyManagedSiteMap))
+            Path.Combine(rootPath, "Other", "SiteMap.xml"),
+            Path.Combine(rootPath, "Other", "SiteMap_managed.xml")
+        }.Where(File.Exists);
+        foreach (var file in OrderManagedVariantFiles(legacySiteMaps))
         {
-            LoadSiteMapFile(workspace, legacyManagedSiteMap, loadedUniqueNames);
+            LoadSiteMapFile(workspace, file, loadedUniqueNames);
         }
     }
 
@@ -1164,15 +1161,6 @@ public sealed class XmlWorkspaceReader
             LoadGenericComponentFile(workspace, customizationsFile, GetRelativePath(rootPath, customizationsFile));
         }
 
-        var entitiesDir = Path.Combine(rootPath, "Entities");
-        if (!Directory.Exists(entitiesDir)) return;
-
-        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
-        {
-            var formXmlDir = Path.Combine(entityDir, "FormXml");
-            if (!Directory.Exists(formXmlDir)) continue;
-
-        }
     }
 
     private static void LoadRibbons(Workspace workspace, string rootPath)
