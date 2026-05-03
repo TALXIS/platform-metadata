@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SdkMessageProcessingStepMetadata : MetadataBase
+public sealed class SdkMessageProcessingStepMetadata : MetadataBase, IVersionedMetadata, ICustomizableMetadata
 {
     public required string SdkMessageProcessingStepId { get; set; }
     public string? Name { get; set; }

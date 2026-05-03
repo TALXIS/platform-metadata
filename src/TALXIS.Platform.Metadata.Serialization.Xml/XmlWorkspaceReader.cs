@@ -586,8 +586,8 @@ public sealed class XmlWorkspaceReader
                     Source = new SourceLocation(viewFile, 1, 1)
                 };
 
-                var nameLabel = ReadLabel(savedQuery.Element("LocalizedNames"), "LocalizedName");
-                if (nameLabel != null) view.Name = nameLabel;
+                var displayLabel = ReadLabel(savedQuery.Element("LocalizedNames"), "LocalizedName");
+                if (displayLabel != null) view.DisplayName = displayLabel;
 
                 var descLabel = ReadLabel(savedQuery.Element("Descriptions"), "Description");
                 if (descLabel != null) view.Description = descLabel;
@@ -610,7 +610,9 @@ public sealed class XmlWorkspaceReader
             {
                 WebResourceId = webResourceId,
                 Name = name,
-                DisplayName = root.Element("DisplayName")?.Value,
+                DisplayName = root.Element("DisplayName")?.Value is { Length: > 0 } displayName
+                    ? new Label(displayName)
+                    : new Label(),
                 WebResourceType = ParseInt(root.Element("WebResourceType")?.Value, 0),
                 FileName = root.Element("FileName")?.Value,
                 IntroducedVersion = root.Element("IntroducedVersion")?.Value,
@@ -659,8 +661,8 @@ public sealed class XmlWorkspaceReader
                 Source = new SourceLocation(file, 1, 1)
             };
 
-            var nameLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
-            if (nameLabel != null) workflow.Name = nameLabel;
+            var displayLabel = ReadLabel(root.Element("LocalizedNames"), "LocalizedName");
+            if (displayLabel != null) workflow.DisplayName = displayLabel;
 
             var descLabel = ReadLabel(root.Element("Descriptions"), "Description");
             if (descLabel != null) workflow.Description = descLabel;

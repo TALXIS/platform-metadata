@@ -39,8 +39,8 @@ public class SolutionLayeringTests
     [Fact]
     public void LayerStack_ResolveTopWins_ReturnsTopComponent()
     {
-        var baseForm = new FormMetadata { FormId = "form-1", Name = "Base Form" };
-        var customForm = new FormMetadata { FormId = "form-1", Name = "Custom Form" };
+        var baseForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Base Form") };
+        var customForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Custom Form") };
 
         var stack = new LayerStack { ComponentType = ComponentType.SystemForm, ComponentId = "form-1" };
         stack.PushLayer(new ComponentLayer { SolutionName = "Base", Order = 0, IsManaged = true, Component = baseForm });
@@ -48,7 +48,7 @@ public class SolutionLayeringTests
 
         var resolved = stack.ResolveTopWins<FormMetadata>();
         Assert.NotNull(resolved);
-        Assert.Equal("Custom Form", resolved!.Name);
+        Assert.Equal("Custom Form", resolved!.DisplayName.Default);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class SolutionLayeringTests
     {
         var mgr = new SolutionLayerManager();
         var accountEntity = new EntityMetadata { LogicalName = "account" };
-        var mainForm = new FormMetadata { FormId = "form-1", Name = "Main" };
+        var mainForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Main") };
 
         var components = new (ComponentType, string, MetadataBase?)[]
         {
@@ -94,7 +94,7 @@ public class SolutionLayeringTests
         Assert.NotNull(formStack);
         var resolvedForm = formStack!.Layers[0].Component as FormMetadata;
         Assert.NotNull(resolvedForm);
-        Assert.Equal("Main", resolvedForm!.Name);
+        Assert.Equal("Main", resolvedForm!.DisplayName.Default);
 
         Assert.Null(mgr.FindStack(ComponentType.Entity, "nonexistent"));
     }
@@ -171,8 +171,8 @@ public class SolutionLayeringTests
         var mgr = new SolutionLayerManager();
         mgr.RegisterMerger(new StubFormMerger());
 
-        var baseForm = new FormMetadata { FormId = "form-1", Name = "Base" };
-        var activeForm = new FormMetadata { FormId = "form-1", Name = "Active" };
+        var baseForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Base") };
+        var activeForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Active") };
 
         mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
         {
@@ -188,7 +188,7 @@ public class SolutionLayeringTests
 
         var resolved = mgr.Resolve(stack) as FormMetadata;
         Assert.NotNull(resolved);
-        Assert.Equal("Merged(2)", resolved!.Name);
+        Assert.Equal("Merged(2)", resolved!.DisplayName.Default);
     }
 
     /// <summary>Stub merger that returns a FormMetadata indicating how many layers were merged.</summary>
@@ -201,7 +201,7 @@ public class SolutionLayeringTests
             return new FormMetadata
             {
                 FormId = "merged",
-                Name = $"Merged({layers.Count})"
+                DisplayName = new Label($"Merged({layers.Count})")
             };
         }
     }

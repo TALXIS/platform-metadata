@@ -111,7 +111,7 @@ public class ExpandedReaderTests
             Assert.Equal(0, view.QueryType);
             Assert.True(view.IsDefault);
             Assert.Equal("test_entity", view.EntityLogicalName);
-            Assert.Equal("Active Records", view.Name.Default);
+            Assert.Equal("Active Records", view.DisplayName.Default);
             Assert.Contains("test_entity", view.FetchXml);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
@@ -148,7 +148,7 @@ public class ExpandedReaderTests
             var wr = workspace.WebResources[0];
             Assert.Equal("{c1b2c3d4-0000-0000-0000-000000000003}", wr.WebResourceId);
             Assert.Equal("test_resource.js", wr.Name);
-            Assert.Equal("Test Resource", wr.DisplayName);
+            Assert.Equal("Test Resource", wr.DisplayName.Default);
             Assert.Equal(3, wr.WebResourceType);
             Assert.True(wr.IsCustomizable);
         }
@@ -192,7 +192,7 @@ public class ExpandedReaderTests
             Assert.Equal("{d1b2c3d4-0000-0000-0000-000000000004}", wf.WorkflowId);
             Assert.Equal(0, wf.Category);
             Assert.Equal("test_entity", wf.PrimaryEntity);
-            Assert.Equal("Test Workflow", wf.Name.Default);
+            Assert.Equal("Test Workflow", wf.DisplayName.Default);
             Assert.True(wf.TriggerOnCreate);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }

@@ -751,7 +751,7 @@ public sealed class XmlWorkspaceWriter
 
         var locNames = savedQuery.Element("LocalizedNames");
         if (locNames != null)
-            PatchLocalizedNames(locNames, "LocalizedName", view.Name);
+            PatchLocalizedNames(locNames, "LocalizedName", view.DisplayName);
 
         var descriptions = savedQuery.Element("Descriptions");
         if (descriptions != null)
@@ -793,8 +793,8 @@ public sealed class XmlWorkspaceWriter
 
         SetElementValueIfExists(root, "WebResourceId", webResource.WebResourceId);
         SetElementValueIfExists(root, "Name", webResource.Name);
-        if (webResource.DisplayName != null)
-            SetElementValueIfExists(root, "DisplayName", webResource.DisplayName);
+        if (webResource.DisplayName.Default != null)
+            SetElementValueIfExists(root, "DisplayName", webResource.DisplayName.Default);
         SetElementValueIfExists(root, "WebResourceType", webResource.WebResourceType.ToString());
         if (webResource.FileName != null)
             SetElementValueIfExists(root, "FileName", webResource.FileName);
@@ -812,8 +812,8 @@ public sealed class XmlWorkspaceWriter
             new XElement("Name", webResource.Name),
             new XElement("WebResourceType", webResource.WebResourceType));
 
-        if (webResource.DisplayName != null)
-            root.Add(new XElement("DisplayName", webResource.DisplayName));
+        if (webResource.DisplayName.Default != null)
+            root.Add(new XElement("DisplayName", webResource.DisplayName.Default));
         if (webResource.FileName != null)
             root.Add(new XElement("FileName", webResource.FileName));
         if (webResource.IntroducedVersion != null)
@@ -882,7 +882,7 @@ public sealed class XmlWorkspaceWriter
 
         var locNames = root.Element("LocalizedNames");
         if (locNames != null)
-            PatchLocalizedNames(locNames, "LocalizedName", workflow.Name);
+            PatchLocalizedNames(locNames, "LocalizedName", workflow.DisplayName);
 
         var descriptions = root.Element("Descriptions");
         if (descriptions != null)

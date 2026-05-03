@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class EntityMetadata : MetadataBase
+public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata
 {
     public required string LogicalName { get; set; }
     public string? SchemaName { get; set; }

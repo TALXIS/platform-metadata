@@ -49,7 +49,6 @@ public sealed class FormMerger : IComponentMerger
         {
             FormId = baseForm.FormId,
             FormType = baseForm.FormType,
-            Name = baseForm.Name,
             IntroducedVersion = baseForm.IntroducedVersion,
             FormPresentation = baseForm.FormPresentation,
             FormActivationState = baseForm.FormActivationState,
@@ -70,7 +69,6 @@ public sealed class FormMerger : IComponentMerger
         if (topForm != null && activeLayers.Count > 1)
         {
             result.FormType = topForm.FormType ?? result.FormType;
-            result.Name = topForm.Name ?? result.Name;
             result.IsCustomizable = topForm.IsCustomizable;
             result.CanBeDeleted = topForm.CanBeDeleted;
             result.FormPresentation = topForm.FormPresentation ?? result.FormPresentation;

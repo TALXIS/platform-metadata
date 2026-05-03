@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class PluginAssemblyMetadata : MetadataBase
+public sealed class PluginAssemblyMetadata : MetadataBase, IVersionedMetadata
 {
     public required string PluginAssemblyId { get; set; }
     public string? FullName { get; set; }

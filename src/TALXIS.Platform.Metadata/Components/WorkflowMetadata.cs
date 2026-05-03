@@ -1,9 +1,9 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class WorkflowMetadata : MetadataBase
+public sealed class WorkflowMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata
 {
     public required string WorkflowId { get; set; }
-    public Label Name { get; set; } = new();
+    public Label DisplayName { get; set; } = new();
     public string? UniqueName { get; set; }
     public Label Description { get; set; } = new();
     public int? Category { get; set; }

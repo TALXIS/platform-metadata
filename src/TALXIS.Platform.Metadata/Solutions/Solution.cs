@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Solutions;
 
-public sealed class Solution : MetadataBase
+public sealed class Solution : MetadataBase, ILocalizedMetadata
 {
     private string _managedValue = "0";
 

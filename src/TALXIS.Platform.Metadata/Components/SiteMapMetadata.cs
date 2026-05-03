@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SiteMapMetadata : MetadataBase
+public sealed class SiteMapMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata
 {
     public required string UniqueName { get; set; }
     public Label DisplayName { get; set; } = new();

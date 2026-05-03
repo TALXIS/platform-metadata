@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class OptionSetMetadata : MetadataBase
+public sealed class OptionSetMetadata : MetadataBase, ILocalizedMetadata
 {
     public required string Name { get; set; }
     public string? OptionSetId { get; set; }

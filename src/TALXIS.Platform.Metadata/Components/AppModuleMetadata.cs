@@ -1,6 +1,6 @@
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class AppModuleMetadata : MetadataBase
+public sealed class AppModuleMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata
 {
     public required string UniqueName { get; set; }
     public Label DisplayName { get; set; } = new();
