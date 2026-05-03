@@ -356,6 +356,296 @@ public class ExpandedReaderTests
     }
 
     [Fact]
+    public void LoadFlowDefinitions_ParsesNestedActionsAndDerivedReferences()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            var flowFile = Path.Combine(workflowsDir, "nested_flow.json");
+            File.WriteAllText(flowFile, """
+                {
+                  "properties": {
+                    "connectionReferences": {
+                      "shared_commondataserviceforapps": {
+                        "api": {
+                          "id": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                        },
+                        "connection": {
+                          "connectionReferenceLogicalName": "tp_sharedcommondataserviceforapps"
+                        }
+                      }
+                    },
+                    "definition": {
+                      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                      "contentVersion": "1.0.0.0",
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {
+                        "Scope": {
+                          "type": "Scope",
+                          "actions": {
+                            "Get_row": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "operationId": "GetItem",
+                                  "connectionReferenceName": "shared_commondataserviceforapps"
+                                }
+                              }
+                            },
+                            "Compose": {
+                              "type": "Compose",
+                              "inputs": "@outputs('Get_row')",
+                              "runAfter": {
+                                "Get_row": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "Condition": {
+                          "type": "If",
+                          "expression": "@equals(parameters('enabled'), true)",
+                          "actions": {
+                            "When_true": {
+                              "type": "Compose",
+                              "inputs": "@triggerBody()"
+                            }
+                          },
+                          "else": {
+                            "actions": {
+                              "When_false": {
+                                "type": "Terminate"
+                              }
+                            }
+                          }
+                        },
+                        "Switch": {
+                          "type": "Switch",
+                          "expression": "@variables('status')",
+                          "runAfter": {
+                            "Condition": [
+                              "Succeeded"
+                            ]
+                          },
+                          "cases": {
+                            "CaseA": {
+                              "actions": {
+                                "Case_action": {
+                                  "type": "Compose",
+                                  "inputs": "@items('Apply_to_each')"
+                                }
+                              }
+                            }
+                          },
+                          "default": {
+                            "actions": {
+                              "Default_action": {
+                                "type": "Compose",
+                                "inputs": "@triggerOutputs()"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Empty(flow.Diagnostics);
+            Assert.Equal(10, flow.EnumerateNodes().Count());
+
+            var scope = Assert.Single(flow.Actions, a => a.Name == "Scope");
+            Assert.Equal("properties.definition.actions.Scope", scope.JsonPath);
+            Assert.Equal(2, scope.Children.Count);
+            Assert.Empty(scope.ExpressionReferences);
+
+            var getRow = Assert.Single(scope.Children, a => a.Name == "Get_row");
+            Assert.Equal("GetItem", getRow.OperationId);
+            Assert.Equal("shared_commondataserviceforapps", Assert.Single(getRow.ConnectionReferenceNames));
+
+            var compose = Assert.Single(scope.Children, a => a.Name == "Compose");
+            Assert.Equal("Get_row", Assert.Single(compose.RunAfter).TargetName);
+            Assert.Contains(compose.ExpressionReferences, r => r.Kind == "outputs" && r.Name == "Get_row");
+
+            var condition = Assert.Single(flow.Actions, a => a.Name == "Condition");
+            Assert.Contains(condition.ExpressionReferences, r => r.Kind == "parameters" && r.Name == "enabled");
+            Assert.DoesNotContain(condition.ExpressionReferences, r => r.Kind == "triggerBody");
+            Assert.Contains(condition.Children, c => c.Name == "When_true" && c.ContainerPath == "actions");
+            Assert.Contains(condition.Children, c => c.Name == "When_false" && c.BranchName == "else");
+
+            var @switch = Assert.Single(flow.Actions, a => a.Name == "Switch");
+            Assert.Equal("Condition", Assert.Single(@switch.RunAfter).TargetName);
+            Assert.Contains(@switch.ExpressionReferences, r => r.Kind == "variables" && r.Name == "status");
+            Assert.DoesNotContain(@switch.ExpressionReferences, r => r.Kind == "items" || r.Kind == "triggerOutputs");
+            Assert.Contains(@switch.Children, c => c.Name == "Case_action" && c.BranchName == "CaseA");
+            Assert.Contains(@switch.Children, c => c.Name == "Default_action" && c.BranchName == "default");
+            Assert.Contains(@switch.Children.SelectMany(c => c.ExpressionReferences), r => r.Kind == "triggerOutputs");
+            Assert.NotNull(flow.FindNodeByPath("properties.definition.actions.Switch.default.actions.Default_action"));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadFlowDefinitions_ReportsFlowDiagnosticsForBrokenReferences()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            var flowFile = Path.Combine(workflowsDir, "broken_references.json");
+            File.WriteAllText(flowFile, """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {
+                        "Get_row": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "connectionReferenceName": "missing_connection"
+                            }
+                          }
+                        },
+                        "Compose": {
+                          "type": "Compose",
+                          "runAfter": {
+                            "Missing_action": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW010" && d.RelatedName == "missing_connection" && d.Line > 0 && d.Column > 0);
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW009" && d.RelatedName == "Missing_action" && d.Line > 0 && d.Column > 0);
+            Assert.All(flow.Diagnostics, d => Assert.Equal(flowFile, d.FilePath));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadFlowDefinitions_AttachesWorkflowByJsonFileName()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            File.WriteAllText(Path.Combine(workflowsDir, "logical_flow.data.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Workflow WorkflowId="{d1b2c3d4-0000-0000-0000-000000000004}">
+                  <Category>5</Category>
+                  <Type>1</Type>
+                  <UniqueName>logical_flow</UniqueName>
+                  <JsonFileName>exported-file-name.json</JsonFileName>
+                </Workflow>
+                """);
+
+            File.WriteAllText(Path.Combine(workflowsDir, "exported-file-name.json"),
+                """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {}
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Same(flow, Assert.Single(workspace.Workflows).FlowDefinition);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadFlowDefinitions_RunAfterToMalformedSiblingReportsUnresolvedDependency()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            var flowFile = Path.Combine(workflowsDir, "malformed_sibling.json");
+            File.WriteAllText(flowFile, """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {
+                        "Malformed": true,
+                        "Compose": {
+                          "type": "Compose",
+                          "runAfter": {
+                            "Malformed": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW006" && d.RelatedName == "Malformed");
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW009" && d.RelatedName == "Malformed");
+            Assert.All(flow.Diagnostics, d => Assert.Equal(flowFile, d.FilePath));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void LoadPluginAssemblies_ParsesWithPluginTypes()
     {
         var dir = CreateTempDir();

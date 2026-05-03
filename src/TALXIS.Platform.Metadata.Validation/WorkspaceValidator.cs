@@ -1,4 +1,5 @@
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Components;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
@@ -108,6 +109,16 @@ public sealed class WorkspaceValidator
                     loadError.Line,
                     loadError.Column));
             }
+
+            foreach (var diagnostic in workspace.FlowDefinitions.SelectMany(f => f.Diagnostics))
+            {
+                results.Add(new ValidationResult(
+                    MapFlowSeverity(diagnostic.Severity),
+                    $"Flow {diagnostic.Code}: {diagnostic.Message}",
+                    diagnostic.FilePath,
+                    diagnostic.Line,
+                    diagnostic.Column));
+            }
         }
         catch (Exception ex)
         {
@@ -119,6 +130,9 @@ public sealed class WorkspaceValidator
 
         return new WorkspaceValidationReport(results, workspace);
     }
+
+    private static ValidationSeverity MapFlowSeverity(FlowDiagnosticSeverity severity) =>
+        severity == FlowDiagnosticSeverity.Error ? ValidationSeverity.Error : ValidationSeverity.Warning;
 }
 
 /// <summary>

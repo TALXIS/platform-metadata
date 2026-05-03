@@ -1,5 +1,3 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata;
@@ -837,109 +835,7 @@ public sealed class XmlWorkspaceReader
 
     private static void LoadFlowDefinitions(Workspace workspace, string rootPath)
     {
-        var workflowsDir = Path.Combine(rootPath, "Workflows");
-        if (!Directory.Exists(workflowsDir)) return;
-
-        foreach (var file in Directory.EnumerateFiles(workflowsDir, "*.json", SearchOption.AllDirectories))
-        {
-            JObject root;
-            try
-            {
-                root = LoadJsonDocument(file);
-            }
-            catch (JsonReaderException ex)
-            {
-                workspace.AddLoadError(
-                    file,
-                    $"Invalid JSON: {ex.Message}",
-                    ex.LineNumber > 0 ? ex.LineNumber : null,
-                    ex.LineNumber > 0 ? System.Math.Max(ex.LinePosition, 1) : null);
-                continue;
-            }
-
-            var flow = ParseFlowDefinition(rootPath, file, root);
-            workspace.AddFlowDefinition(flow);
-            AttachFlowDefinition(workspace, flow, file);
-        }
-    }
-
-    private static FlowDefinitionMetadata ParseFlowDefinition(string rootPath, string filePath, JObject root)
-    {
-        var flow = new FlowDefinitionMetadata
-        {
-            Name = Path.GetFileNameWithoutExtension(filePath),
-            FilePath = GetRelativePath(rootPath, filePath),
-            SchemaVersion = root["schemaVersion"]?.Value<string>(),
-            RawJson = root.ToString(Newtonsoft.Json.Formatting.None),
-            Source = CreateSourceLocation(filePath, root)
-        };
-
-        var properties = root["properties"] as JObject;
-        var connectionReferences = properties?["connectionReferences"] as JObject;
-        if (connectionReferences != null)
-        {
-            foreach (var property in connectionReferences.Properties())
-            {
-                var reference = property.Value as JObject;
-                flow.AddConnectionReference(new FlowConnectionReferenceMetadata
-                {
-                    Name = property.Name,
-                    ApiId = reference?.SelectToken("api.id")?.Value<string>(),
-                    ConnectionName = reference?.SelectToken("connectionName")?.Value<string>()
-                        ?? reference?.SelectToken("connection.name")?.Value<string>(),
-                    ConnectionReferenceLogicalName = reference?.SelectToken("connection.connectionReferenceLogicalName")?.Value<string>()
-                        ?? reference?.SelectToken("connectionReferenceLogicalName")?.Value<string>(),
-                    Source = CreateSourceLocation(filePath, property)
-                });
-            }
-        }
-
-        var definition = properties?["definition"] as JObject;
-        if (definition != null)
-        {
-            flow.FlowSchema = definition["$schema"]?.Value<string>();
-            flow.ContentVersion = definition["contentVersion"]?.Value<string>();
-            AddFlowNodes(flow, filePath, definition["triggers"] as JObject, "trigger");
-            AddFlowNodes(flow, filePath, definition["actions"] as JObject, "action");
-        }
-
-        return flow;
-    }
-
-    private static void AddFlowNodes(FlowDefinitionMetadata flow, string filePath, JObject? container, string kind)
-    {
-        if (container == null) return;
-
-        foreach (var property in container.Properties())
-        {
-            var node = property.Value as JObject;
-            var metadata = new FlowNodeMetadata
-            {
-                Name = property.Name,
-                Kind = kind,
-                Type = node?["type"]?.Value<string>(),
-                OperationId = node?.SelectToken("inputs.host.operationId")?.Value<string>() ?? node?["operationId"]?.Value<string>(),
-                RawJson = property.Value.ToString(Newtonsoft.Json.Formatting.None),
-                Source = CreateSourceLocation(filePath, property)
-            };
-
-            if (string.Equals(kind, "trigger", StringComparison.Ordinal))
-                flow.AddTrigger(metadata);
-            else
-                flow.AddAction(metadata);
-        }
-    }
-
-    private static void AttachFlowDefinition(Workspace workspace, FlowDefinitionMetadata flow, string filePath)
-    {
-        var fileName = Path.GetFileNameWithoutExtension(filePath);
-        var workflow = workspace.Workflows.FirstOrDefault(w =>
-            string.Equals(w.UniqueName, fileName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(Path.GetFileNameWithoutExtension(w.XamlFileName), fileName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(Path.GetFileName(w.XamlFileName), Path.GetFileName(filePath), StringComparison.OrdinalIgnoreCase));
-
-        if (workflow != null)
-            workflow.FlowDefinition = flow;
+        FlowDefinitionReader.Load(workspace, rootPath);
     }
 
     private static void LoadPluginAssemblies(Workspace workspace, string rootPath)
@@ -1436,32 +1332,9 @@ public sealed class XmlWorkspaceReader
 
     private static XDocument LoadDocument(string filePath) => XDocument.Load(filePath, XmlLoadOptions);
 
-    private static JObject LoadJsonDocument(string filePath)
-    {
-        using var textReader = File.OpenText(filePath);
-        using var jsonReader = new JsonTextReader(textReader)
-        {
-            DateParseHandling = DateParseHandling.None
-        };
-
-        return JObject.Load(jsonReader, new JsonLoadSettings
-        {
-            CommentHandling = CommentHandling.Ignore,
-            LineInfoHandling = LineInfoHandling.Load
-        });
-    }
-
     private static SourceLocation CreateSourceLocation(string filePath, XObject? source)
     {
         if (source is IXmlLineInfo lineInfo && lineInfo.HasLineInfo())
-            return new SourceLocation(filePath, lineInfo.LineNumber, lineInfo.LinePosition);
-
-        return new SourceLocation(filePath, 1, 1);
-    }
-
-    private static SourceLocation CreateSourceLocation(string filePath, JToken? source)
-    {
-        if (source is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
             return new SourceLocation(filePath, lineInfo.LineNumber, lineInfo.LinePosition);
 
         return new SourceLocation(filePath, 1, 1);

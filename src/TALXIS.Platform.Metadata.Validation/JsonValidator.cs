@@ -27,6 +27,14 @@ public sealed class JsonValidator
         }
     }
 
+    internal JsonValidator(IEnumerable<JSchema> schemas)
+    {
+        if (schemas is null)
+            throw new ArgumentNullException(nameof(schemas));
+
+        _schemas.AddRange(schemas);
+    }
+
     /// <summary>
     /// Validates a JSON file against all loaded schemas.
     /// A file passes if it is valid against at least one schema.

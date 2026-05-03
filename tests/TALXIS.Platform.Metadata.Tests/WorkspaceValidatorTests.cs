@@ -129,4 +129,54 @@ public class WorkspaceValidatorTests
             if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
         }
     }
+
+    [Fact]
+    public void FlowDiagnostics_SurfacedInReport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-flow-diagnostics-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempDir, "Workflows"));
+            File.WriteAllText(Path.Combine(tempDir, "Workflows", "broken-flow.json"), """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {
+                        "Compose": {
+                          "type": "Compose",
+                          "runAfter": {
+                            "Missing_action": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+
+            Assert.Contains(report.Results, r =>
+                r.Severity == ValidationSeverity.Error &&
+                r.Message.Contains("FLOW009", StringComparison.Ordinal) &&
+                r.FilePath != null &&
+                r.FilePath.EndsWith("broken-flow.json", StringComparison.Ordinal) &&
+                r.Line > 0 &&
+                r.Column > 0);
+            Assert.NotNull(report.Workspace);
+            Assert.Single(report.Workspace.FlowDefinitions);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
 }
