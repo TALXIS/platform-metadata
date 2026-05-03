@@ -27,9 +27,9 @@ public sealed class FlowDefinitionMetadata : MetadataBase
     public IReadOnlyList<FlowNodeMetadata> Actions => _actions;
     public IReadOnlyList<FlowDiagnostic> Diagnostics => _diagnostics;
 
-    public void AddConnectionReference(FlowConnectionReferenceMetadata connectionReference) => _connectionReferences.Add(connectionReference);
-    public void AddTrigger(FlowNodeMetadata trigger) => _triggers.Add(trigger);
-    public void AddAction(FlowNodeMetadata action) => _actions.Add(action);
+    internal void AddConnectionReference(FlowConnectionReferenceMetadata connectionReference) => _connectionReferences.Add(connectionReference);
+    internal void AddTrigger(FlowNodeMetadata trigger) => _triggers.Add(trigger);
+    internal void AddAction(FlowNodeMetadata action) => _actions.Add(action);
     internal void AddDiagnostic(FlowDiagnostic diagnostic) => _diagnostics.Add(diagnostic);
 
     public IEnumerable<FlowNodeMetadata> EnumerateNodes()

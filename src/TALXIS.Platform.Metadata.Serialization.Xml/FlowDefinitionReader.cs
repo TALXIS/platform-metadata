@@ -144,7 +144,9 @@ internal static class FlowDefinitionReader
         string containerPath,
         string? branchName)
     {
-        var siblingNames = new HashSet<string>(container.Properties().Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+        var siblingNames = new HashSet<string>(
+            container.Properties().Where(p => p.Value is JObject).Select(p => p.Name),
+            StringComparer.OrdinalIgnoreCase);
 
         foreach (var property in container.Properties())
         {
@@ -367,6 +369,8 @@ internal static class FlowDefinitionReader
         var fileName = Path.GetFileNameWithoutExtension(filePath);
         var workflow = workspace.Workflows.FirstOrDefault(w =>
             string.Equals(w.UniqueName, fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileNameWithoutExtension(w.JsonFileName), fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetFileName(w.JsonFileName), Path.GetFileName(filePath), StringComparison.OrdinalIgnoreCase) ||
             string.Equals(Path.GetFileNameWithoutExtension(w.XamlFileName), fileName, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(Path.GetFileName(w.XamlFileName), Path.GetFileName(filePath), StringComparison.OrdinalIgnoreCase));
 

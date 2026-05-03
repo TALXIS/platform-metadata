@@ -550,6 +550,99 @@ public class ExpandedReaderTests
     }
 
     [Fact]
+    public void LoadFlowDefinitions_AttachesWorkflowByJsonFileName()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            File.WriteAllText(Path.Combine(workflowsDir, "logical_flow.data.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Workflow WorkflowId="{d1b2c3d4-0000-0000-0000-000000000004}">
+                  <Category>5</Category>
+                  <Type>1</Type>
+                  <UniqueName>logical_flow</UniqueName>
+                  <JsonFileName>exported-file-name.json</JsonFileName>
+                </Workflow>
+                """);
+
+            File.WriteAllText(Path.Combine(workflowsDir, "exported-file-name.json"),
+                """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {}
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Same(flow, Assert.Single(workspace.Workflows).FlowDefinition);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LoadFlowDefinitions_RunAfterToMalformedSiblingReportsUnresolvedDependency()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            var flowFile = Path.Combine(workflowsDir, "malformed_sibling.json");
+            File.WriteAllText(flowFile, """
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request"
+                        }
+                      },
+                      "actions": {
+                        "Malformed": true,
+                        "Compose": {
+                          "type": "Compose",
+                          "runAfter": {
+                            "Malformed": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW006" && d.RelatedName == "Malformed");
+            Assert.Contains(flow.Diagnostics, d => d.Code == "FLOW009" && d.RelatedName == "Malformed");
+            Assert.All(flow.Diagnostics, d => Assert.Equal(flowFile, d.FilePath));
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void LoadPluginAssemblies_ParsesWithPluginTypes()
     {
         var dir = CreateTempDir();
