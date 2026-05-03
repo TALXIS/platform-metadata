@@ -10,12 +10,12 @@ public sealed class AppModuleMerger : IComponentMerger
     public MetadataBase? Merge(IReadOnlyList<ComponentLayer> layers)
     {
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Deleted && l.State != ComponentState.DeletedUnpublished && l.Component is AppModuleMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Component is AppModuleMetadata)
             .ToList();
         if (activeLayers.Count == 0) return null;
 
         var topLayer = layers[layers.Count - 1];
-        if (topLayer.State == ComponentState.Deleted || topLayer.State == ComponentState.DeletedUnpublished)
+        if (topLayer.State == ComponentState.Delete || topLayer.State == ComponentState.UnpublishedDelete)
             return null;
 
         var baseApp = (AppModuleMetadata)activeLayers[0].Component!;

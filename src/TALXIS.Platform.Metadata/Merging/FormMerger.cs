@@ -19,12 +19,12 @@ public sealed class FormMerger : IComponentMerger
 
         // If the topmost layer marks the component as deleted, return null
         var topLayer = layers[layers.Count - 1];
-        if (topLayer.State == ComponentState.Deleted || topLayer.State == ComponentState.DeletedUnpublished)
+        if (topLayer.State == ComponentState.Delete || topLayer.State == ComponentState.UnpublishedDelete)
             return null;
 
         // Filter out deleted layers, keep Published and Unpublished
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Deleted && l.State != ComponentState.DeletedUnpublished && l.Component is FormMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Component is FormMetadata)
             .ToList();
 
         if (activeLayers.Count == 0)

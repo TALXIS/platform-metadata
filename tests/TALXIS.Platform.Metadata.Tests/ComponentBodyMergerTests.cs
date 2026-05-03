@@ -80,8 +80,8 @@ public class ComponentBodyMergerTests
 
     private static IReadOnlyList<ComponentLayer> Layers(MetadataBase baseComponent, MetadataBase topComponent) =>
     [
-        new ComponentLayer { SolutionName = "base", Order = 1, IsManaged = true, Component = baseComponent },
-        new ComponentLayer { SolutionName = "top", Order = 2, IsManaged = false, Component = topComponent }
+        new ComponentLayer { SolutionUniqueName = "base", Order = 1, IsManaged = true, Component = baseComponent },
+        new ComponentLayer { SolutionUniqueName = "top", Order = 2, IsManaged = false, Component = topComponent }
     ];
 
     private static MergeableNode Node(string name, params MergeableNode[] children) => Node(name, null, children);

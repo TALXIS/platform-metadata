@@ -23,10 +23,29 @@ public sealed class Workspace
         RootPath = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
     }
 
+    private readonly List<Solution> _solutions = new();
+    private readonly List<SolutionComponentMembership> _solutionComponents = new();
+    private readonly List<ComponentSourceSnapshot> _componentSources = new();
+
     /// <summary>
-    /// Gets or sets the loaded solution metadata from <c>Solution.xml</c>.
+    /// Gets the loaded solution manifests.
     /// </summary>
-    public Solution? Solution { get; set; }
+    public IReadOnlyList<Solution> Solutions => _solutions;
+
+    /// <summary>
+    /// Gets solution/component membership rows, separate from component layers.
+    /// </summary>
+    public IReadOnlyList<SolutionComponentMembership> SolutionComponents => _solutionComponents;
+
+    /// <summary>
+    /// Gets source-owned component snapshots loaded from solution projects.
+    /// </summary>
+    public IReadOnlyList<ComponentSourceSnapshot> ComponentSources => _componentSources;
+
+    /// <summary>
+    /// Gets the Dataverse-style component layer manager for this workspace.
+    /// </summary>
+    public SolutionLayerManager Layers { get; } = new();
 
     // Entities, option sets, relationships
     private readonly List<EntityMetadata> _entities = new();
@@ -151,9 +170,103 @@ public sealed class Workspace
 
     /// <summary>
     /// Original XML documents stored by the reader for roundtrip-safe writing.
-    /// Keys: "Solution.xml", "Entity:{logicalName}", "OptionSet:{name}", "Relationships.xml"
+    /// Keys include "Solution:{uniqueName}:Solution.xml", "Entity:{logicalName}", "OptionSet:{name}", "Relationships.xml"
     /// </summary>
     internal Dictionary<string, XDocument> OriginalDocuments { get; } = new();
+
+    /// <summary>
+    /// Adds a solution manifest to the workspace and rejects duplicate unique names.
+    /// </summary>
+    public void AddSolution(Solution solution) =>
+        AddUnique(_solutions, solution, s => s.UniqueName, "solution");
+
+    /// <summary>
+    /// Finds a solution by unique name using case-insensitive comparison.
+    /// </summary>
+    public Solution? FindSolution(string uniqueName) =>
+        _solutions.FirstOrDefault(s => string.Equals(s.UniqueName, uniqueName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Removes a solution and its membership/source/layer records.
+    /// </summary>
+    public bool RemoveSolution(string uniqueName)
+    {
+        var solution = FindSolution(uniqueName);
+        if (solution == null)
+            return false;
+
+        _solutions.Remove(solution);
+        _solutionComponents.RemoveAll(m => string.Equals(m.SolutionUniqueName, uniqueName, StringComparison.OrdinalIgnoreCase));
+        _componentSources.RemoveAll(s => string.Equals(s.SourceSolutionUniqueName, uniqueName, StringComparison.OrdinalIgnoreCase));
+        Layers.RemoveSolutionLayers(uniqueName);
+        return true;
+    }
+
+    /// <summary>
+    /// Adds a solution membership row.
+    /// </summary>
+    public void AddSolutionComponent(SolutionComponentMembership membership)
+    {
+        if (membership == null) throw new ArgumentNullException(nameof(membership));
+        _solutionComponents.Add(membership);
+    }
+
+    /// <summary>
+    /// Adds a source-owned component snapshot.
+    /// </summary>
+    public void AddComponentSource(ComponentSourceSnapshot snapshot)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        _componentSources.Add(snapshot);
+    }
+
+    /// <summary>
+    /// Registers a solution project's memberships, source snapshots, and Dataverse-like layer state.
+    /// </summary>
+    public void RegisterSolutionSource(Solution solution, int order, string? sourceRootPath, IEnumerable<LayerComponentDescriptor> components)
+    {
+        if (solution == null) throw new ArgumentNullException(nameof(solution));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+
+        var componentList = components.ToArray();
+
+        foreach (var rootComponent in solution.RootComponents)
+        {
+            var objectId = GetRootComponentObjectId(rootComponent);
+            if (string.IsNullOrWhiteSpace(objectId))
+                continue;
+
+            AddSolutionComponent(new SolutionComponentMembership
+            {
+                SolutionUniqueName = solution.UniqueName,
+                Component = new ComponentIdentity(rootComponent.Type, objectId!),
+                RootComponentBehavior = rootComponent.BehaviorOption,
+                SourceRootPath = sourceRootPath,
+                SourceDocumentKey = GetSolutionDocumentKey(solution.UniqueName)
+            });
+        }
+
+        foreach (var component in componentList)
+        {
+            AddComponentSource(new ComponentSourceSnapshot
+            {
+                SourceSolutionUniqueName = solution.UniqueName,
+                Component = new ComponentIdentity(component.Type, component.Id),
+                Metadata = component.Component,
+                SourceRootPath = sourceRootPath,
+                SourceDocumentKey = component.SourceDocumentKey,
+                SourceOrder = order,
+                IsManaged = solution.IsManaged
+            });
+        }
+
+        if (solution.IsManaged)
+            Layers.ImportManagedLayer(solution, order, componentList, sourceRootPath);
+        else
+            Layers.ImportActiveLayerSnapshot(solution, order, componentList, sourceRootPath);
+    }
+
+    internal static string GetSolutionDocumentKey(string uniqueName) => $"Solution:{uniqueName}:Solution.xml";
 
     /// <summary>
     /// Adds an entity to the workspace and rejects duplicate logical names.
@@ -269,35 +382,67 @@ public sealed class Workspace
     public IEnumerable<LayerComponentDescriptor> EnumerateLayerComponents()
     {
         foreach (var entity in _entities)
-            yield return new LayerComponentDescriptor(ComponentType.Entity, entity.LogicalName, entity);
+            yield return new LayerComponentDescriptor(ComponentType.Entity, entity.LogicalName, entity, $"Entity:{entity.LogicalName}");
         foreach (var optionSet in _globalOptionSets)
-            yield return new LayerComponentDescriptor(ComponentType.OptionSet, optionSet.Name, optionSet);
+            yield return new LayerComponentDescriptor(ComponentType.OptionSet, optionSet.Name, optionSet, $"OptionSet:{optionSet.Name}");
         foreach (var relationship in _relationships)
-            yield return new LayerComponentDescriptor(ComponentType.EntityRelationship, relationship.SchemaName, relationship);
+            yield return new LayerComponentDescriptor(ComponentType.EntityRelationship, relationship.SchemaName, relationship, $"Relationship:{relationship.SchemaName}");
         foreach (var form in _forms)
-            yield return new LayerComponentDescriptor(ComponentType.SystemForm, form.FormId, form);
+            yield return new LayerComponentDescriptor(ComponentType.SystemForm, form.FormId, form, $"Form:{form.EntityLogicalName}:{form.FormId}");
         foreach (var view in _views)
-            yield return new LayerComponentDescriptor(ComponentType.SavedQuery, view.SavedQueryId, view);
+            yield return new LayerComponentDescriptor(ComponentType.SavedQuery, view.SavedQueryId, view, $"View:{view.EntityLogicalName}:{view.SavedQueryId}");
         foreach (var pluginAssembly in _pluginAssemblies)
-            yield return new LayerComponentDescriptor(ComponentType.PluginAssembly, pluginAssembly.PluginAssemblyId, pluginAssembly);
+            yield return new LayerComponentDescriptor(ComponentType.PluginAssembly, pluginAssembly.PluginAssemblyId, pluginAssembly, $"PluginAssembly:{pluginAssembly.Name}");
         foreach (var step in _sdkMessageProcessingSteps)
-            yield return new LayerComponentDescriptor(ComponentType.SdkMessageProcessingStep, step.SdkMessageProcessingStepId, step);
+            yield return new LayerComponentDescriptor(ComponentType.SdkMessageProcessingStep, step.SdkMessageProcessingStepId, step, $"Step:{step.SdkMessageProcessingStepId}");
         foreach (var role in _securityRoles)
-            yield return new LayerComponentDescriptor(ComponentType.Role, role.RoleId, role);
+            yield return new LayerComponentDescriptor(ComponentType.Role, role.RoleId, role, $"Role:{role.RoleId}");
         foreach (var appModule in _appModules)
-            yield return new LayerComponentDescriptor(ComponentType.AppModule, appModule.UniqueName, appModule);
+            yield return new LayerComponentDescriptor(ComponentType.AppModule, appModule.UniqueName, appModule, $"AppModule:{appModule.UniqueName}");
         foreach (var siteMap in _siteMaps)
-            yield return new LayerComponentDescriptor(ComponentType.SiteMap, siteMap.UniqueName, siteMap);
+            yield return new LayerComponentDescriptor(ComponentType.SiteMap, siteMap.UniqueName, siteMap, $"SiteMap:{siteMap.UniqueName}");
         foreach (var webResource in _webResources)
-            yield return new LayerComponentDescriptor(ComponentType.WebResource, webResource.WebResourceId, webResource);
+            yield return new LayerComponentDescriptor(ComponentType.WebResource, webResource.WebResourceId, webResource, $"WebResource:{webResource.Name}");
         foreach (var workflow in _workflows)
-            yield return new LayerComponentDescriptor(ComponentType.Workflow, workflow.WorkflowId, workflow);
+            yield return new LayerComponentDescriptor(ComponentType.Workflow, workflow.WorkflowId, workflow, $"Workflow:{workflow.WorkflowId}");
         foreach (var ribbon in _ribbons)
-            yield return new LayerComponentDescriptor(ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon);
+            yield return new LayerComponentDescriptor(ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon, $"Ribbon:{ribbon.EntityLogicalName ?? "global"}");
         foreach (var flowDefinition in _flowDefinitions)
-            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, flowDefinition.FilePath ?? flowDefinition.Name ?? "flow", flowDefinition);
+            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, flowDefinition.FilePath ?? flowDefinition.Name ?? "flow", flowDefinition, $"FlowDefinition:{flowDefinition.FilePath ?? flowDefinition.Name ?? "flow"}");
         foreach (var component in _genericComponents)
-            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, component.FilePath ?? component.Id ?? component.ComponentTypeName, component);
+            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, component.FilePath ?? component.Id ?? component.ComponentTypeName ?? "generic", component, $"Generic:{component.FilePath ?? component.Id ?? component.ComponentTypeName ?? "generic"}");
+    }
+
+    internal void MergeComponentsFrom(Workspace source, bool preferSource)
+    {
+        MergeUnique(_entities, source.Entities, e => e.LogicalName, preferSource);
+        MergeUnique(_globalOptionSets, source.GlobalOptionSets, o => o.Name, preferSource);
+        MergeUnique(_relationships, source.Relationships, r => r.SchemaName, preferSource);
+        MergeUnique(_forms, source.Forms, f => f.FormId, preferSource);
+        MergeUnique(_views, source.Views, v => v.SavedQueryId, preferSource);
+        MergeUnique(_pluginAssemblies, source.PluginAssemblies, p => p.PluginAssemblyId, preferSource);
+        MergeUnique(_sdkMessageProcessingSteps, source.SdkMessageProcessingSteps, s => s.SdkMessageProcessingStepId, preferSource);
+        MergeUnique(_securityRoles, source.SecurityRoles, r => r.RoleId, preferSource);
+        MergeUnique(_appModules, source.AppModules, a => a.UniqueName, preferSource);
+        MergeUnique(_siteMaps, source.SiteMaps, s => s.UniqueName, preferSource);
+        MergeUnique(_webResources, source.WebResources, w => w.WebResourceId, preferSource);
+        MergeUnique(_workflows, source.Workflows, w => w.WorkflowId, preferSource);
+        MergeUnique(_ribbons, source.Ribbons, r => r.EntityLogicalName, preferSource);
+        MergeUnique(_flowDefinitions, source.FlowDefinitions, f => f.FilePath, preferSource);
+        MergeUnique(_genericComponents, source.GenericComponents, c => c.FilePath, preferSource);
+    }
+
+    internal void CopyOriginalDocumentsFrom(Workspace source)
+    {
+        foreach (var document in source.OriginalDocuments)
+        {
+            OriginalDocuments[document.Key] = document.Value;
+        }
+    }
+
+    internal void CopyLoadErrorsFrom(Workspace source)
+    {
+        _loadErrors.AddRange(source.LoadErrors);
     }
 
     private static bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
@@ -315,6 +460,34 @@ public sealed class Workspace
         }
 
         return false;
+    }
+
+    private static string? GetRootComponentObjectId(RootComponent component)
+    {
+        if (component.Id.HasValue)
+            return component.Id.Value.ToString("D");
+
+        return component.SchemaName;
+    }
+
+    private static void MergeUnique<T>(List<T> target, IReadOnlyList<T> source, Func<T, string?> getKey, bool preferSource)
+    {
+        foreach (var item in source)
+        {
+            var key = getKey(item);
+            if (string.IsNullOrWhiteSpace(key))
+                continue;
+
+            var existingIndex = target.FindIndex(existing => string.Equals(getKey(existing), key, StringComparison.OrdinalIgnoreCase));
+            if (existingIndex < 0)
+            {
+                target.Add(item);
+            }
+            else if (preferSource)
+            {
+                target[existingIndex] = item;
+            }
+        }
     }
 
     private static void AddUnique<T>(

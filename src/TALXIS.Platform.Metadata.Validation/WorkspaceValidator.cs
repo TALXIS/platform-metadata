@@ -173,6 +173,21 @@ public sealed class WorkspaceValidationReport
 public sealed class ComponentSummary
 {
     /// <summary>
+    /// Gets the number of solution manifests loaded into the workspace.
+    /// </summary>
+    public int Solutions { get; }
+
+    /// <summary>
+    /// Gets the number of solution/component membership rows loaded into the workspace.
+    /// </summary>
+    public int SolutionComponents { get; }
+
+    /// <summary>
+    /// Gets the number of source-owned component snapshots loaded into the workspace.
+    /// </summary>
+    public int ComponentSources { get; }
+
+    /// <summary>
     /// Gets the number of entities loaded into the workspace.
     /// </summary>
     public int Entities { get; }
@@ -261,6 +276,9 @@ public sealed class ComponentSummary
     public ComponentSummary(Workspace workspace)
     {
         Entities = workspace.Entities.Count;
+        Solutions = workspace.Solutions.Count;
+        SolutionComponents = workspace.SolutionComponents.Count;
+        ComponentSources = workspace.ComponentSources.Count;
         Attributes = workspace.Entities.Sum(e => e.Attributes.Count);
         Forms = workspace.Forms.Count;
         Views = workspace.Views.Count;
@@ -283,6 +301,9 @@ public sealed class ComponentSummary
     public override string ToString()
     {
         var parts = new List<string>();
+        if (Solutions > 0) parts.Add($"{Solutions} solutions");
+        if (SolutionComponents > 0) parts.Add($"{SolutionComponents} solution components");
+        if (ComponentSources > 0) parts.Add($"{ComponentSources} component sources");
         if (Entities > 0) parts.Add($"{Entities} entities ({Attributes} attributes)");
         if (Forms > 0) parts.Add($"{Forms} forms");
         if (Views > 0) parts.Add($"{Views} views");

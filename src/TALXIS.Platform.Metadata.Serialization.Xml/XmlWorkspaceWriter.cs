@@ -26,11 +26,19 @@ public sealed class XmlWorkspaceWriter
         if (workspace == null) throw new ArgumentNullException(nameof(workspace));
         if (outputPath == null) throw new ArgumentNullException(nameof(outputPath));
 
+        if (workspace.Solutions.Count > 1)
+            throw new InvalidOperationException("The workspace contains multiple solutions. Use WriteSolution(workspace, solutionUniqueName, outputPath) to choose the solution project to export.");
+
         Directory.CreateDirectory(outputPath);
 
-        if (workspace.Solution != null)
-            WriteSolution(workspace.Solution, outputPath, workspace);
+        if (workspace.Solutions.Count == 1)
+            WriteSolutionManifest(workspace.Solutions[0], outputPath, workspace);
 
+        WriteComponents(workspace, outputPath);
+    }
+
+    private void WriteComponents(Workspace workspace, string outputPath)
+    {
         WriteEntities(workspace, outputPath);
         WriteGlobalOptionSets(workspace, outputPath);
         WriteRelationships(workspace, outputPath);
@@ -48,13 +56,48 @@ public sealed class XmlWorkspaceWriter
         SaveGenericComponents(workspace, outputPath);
     }
 
-    private void WriteSolution(Solution solution, string outputPath, Workspace workspace)
+    /// <summary>
+    /// Writes one solution project from a multi-solution workspace.
+    /// </summary>
+    /// <param name="workspace">Workspace to export from.</param>
+    /// <param name="solutionUniqueName">Unique name of the solution to export.</param>
+    /// <param name="outputPath">Output SolutionPackager project path.</param>
+    public void WriteSolution(Workspace workspace, string solutionUniqueName, string outputPath)
+    {
+        if (workspace == null) throw new ArgumentNullException(nameof(workspace));
+        if (string.IsNullOrWhiteSpace(solutionUniqueName)) throw new ArgumentException("Solution unique name is required.", nameof(solutionUniqueName));
+        if (outputPath == null) throw new ArgumentNullException(nameof(outputPath));
+
+        var solution = workspace.FindSolution(solutionUniqueName)
+            ?? throw new InvalidOperationException($"Solution '{solutionUniqueName}' is not loaded in the workspace.");
+
+        var sourceRoot = FindSourceRoot(workspace, solution.UniqueName);
+        if (sourceRoot != null && Directory.Exists(sourceRoot) && !PathsEqual(sourceRoot, outputPath))
+        {
+            CopyDirectory(sourceRoot, outputPath);
+        }
+        else if (sourceRoot == null && workspace.Solutions.Count > 1)
+        {
+            throw new InvalidOperationException($"Solution '{solutionUniqueName}' does not have source ownership metadata. Multi-solution exports require source-owned component documents.");
+        }
+        else
+        {
+            Directory.CreateDirectory(outputPath);
+            if (sourceRoot == null)
+                WriteComponents(workspace, outputPath);
+        }
+
+        WriteSolutionManifest(solution, outputPath, workspace);
+    }
+
+    private void WriteSolutionManifest(Solution solution, string outputPath, Workspace workspace)
     {
         var otherDir = Path.Combine(outputPath, "Other");
         Directory.CreateDirectory(otherDir);
         var filePath = Path.Combine(otherDir, "Solution.xml");
 
-        var original = workspace.OriginalDocuments.TryGetValue("Solution.xml", out var origDoc)
+        var originalKey = Workspace.GetSolutionDocumentKey(solution.UniqueName);
+        var original = workspace.OriginalDocuments.TryGetValue(originalKey, out var origDoc)
             ? origDoc
             : null;
 
@@ -1676,6 +1719,65 @@ public sealed class XmlWorkspaceWriter
 
         var relativePath = normalizedFile.Substring(normalizedRoot.Length);
         return Path.Combine(outputRoot, relativePath);
+    }
+
+    private static string? FindSourceRoot(Workspace workspace, string solutionUniqueName)
+    {
+        var sourceRoot = workspace.ComponentSources
+            .Where(source => string.Equals(source.SourceSolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase))
+            .Select(source => source.SourceRootPath)
+            .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+
+        if (!string.IsNullOrWhiteSpace(sourceRoot))
+            return sourceRoot;
+
+        return workspace.SolutionComponents
+            .Where(membership => string.Equals(membership.SolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase))
+            .Select(membership => membership.SourceRootPath)
+            .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+    }
+
+    private static void CopyDirectory(string sourcePath, string outputPath)
+    {
+        Directory.CreateDirectory(outputPath);
+
+        foreach (var directory in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            var relativeDirectory = GetRelativePath(sourcePath, directory);
+            Directory.CreateDirectory(Path.Combine(outputPath, relativeDirectory));
+        }
+
+        foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            var relativeFile = GetRelativePath(sourcePath, file);
+            var targetFile = Path.Combine(outputPath, relativeFile);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+            File.Copy(file, targetFile, overwrite: true);
+        }
+    }
+
+    private static string GetRelativePath(string basePath, string path)
+    {
+        var baseUri = new Uri(AppendDirectorySeparator(Path.GetFullPath(basePath)));
+        var pathUri = new Uri(Path.GetFullPath(path));
+        return Uri.UnescapeDataString(baseUri.MakeRelativeUri(pathUri).ToString())
+            .Replace('/', Path.DirectorySeparatorChar);
+    }
+
+    private static string AppendDirectorySeparator(string path)
+    {
+        if (path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+            || path.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+            return path;
+
+        return path + Path.DirectorySeparatorChar;
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        var leftFull = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void SaveDocument(XDocument doc, string filePath)

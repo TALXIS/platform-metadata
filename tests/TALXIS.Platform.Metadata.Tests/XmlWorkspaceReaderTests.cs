@@ -3,6 +3,7 @@ using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
@@ -15,15 +16,15 @@ public class XmlWorkspaceReaderTests
     {
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
+        var solution = Assert.Single(workspace.Solutions);
 
-        Assert.NotNull(workspace.Solution);
-        Assert.Equal("TestSolution", workspace.Solution.UniqueName);
-        Assert.Equal("1.0.0.0", workspace.Solution.Version);
-        Assert.NotNull(workspace.Solution.Publisher);
-        Assert.Equal("TestPub", workspace.Solution.Publisher.UniqueName);
-        Assert.Equal("tp", workspace.Solution.Publisher.Prefix);
-        Assert.Equal(10000, workspace.Solution.Publisher.OptionValuePrefix);
-        Assert.Single(workspace.Solution.RootComponents);
+        Assert.Equal("TestSolution", solution.UniqueName);
+        Assert.Equal("1.0.0.0", solution.Version);
+        Assert.NotNull(solution.Publisher);
+        Assert.Equal("TestPub", solution.Publisher.UniqueName);
+        Assert.Equal("tp", solution.Publisher.Prefix);
+        Assert.Equal(10000, solution.Publisher.OptionValuePrefix);
+        Assert.Single(solution.RootComponents);
     }
 
     [Fact]
@@ -155,9 +156,10 @@ public class XmlWorkspaceReaderTests
                 """);
 
             var workspace = new XmlWorkspaceReader().Load(dir);
+            var solution = Assert.Single(workspace.Solutions);
 
-            Assert.Equal("2", workspace.Solution!.ManagedValue);
-            Assert.True(workspace.Solution.IsManaged);
+            Assert.Equal("2", solution.ManagedValue);
+            Assert.True(solution.IsManaged);
         }
         finally
         {
@@ -185,9 +187,10 @@ public class XmlWorkspaceReaderTests
     {
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
+        var solution = Assert.Single(workspace.Solutions);
 
-        Assert.NotNull(workspace.Solution?.Source);
-        Assert.Contains("Solution.xml", workspace.Solution.Source.FilePath);
+        Assert.NotNull(solution.Source);
+        Assert.Contains("Solution.xml", solution.Source.FilePath);
 
         var entity = workspace.FindEntity("test_entity");
         Assert.NotNull(entity?.Source);
@@ -200,9 +203,10 @@ public class XmlWorkspaceReaderTests
     public void Load_SourceLocations_UseElementLineInfo()
     {
         var workspace = new XmlWorkspaceReader().Load(SamplePath);
+        var solution = Assert.Single(workspace.Solutions);
 
-        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 3, 4), workspace.Solution!.Source);
-        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 11, 6), workspace.Solution.Publisher!.Source);
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 3, 4), solution.Source);
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 11, 6), solution.Publisher!.Source);
 
         var entity = workspace.FindEntity("test_entity")!;
         Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Entities", "test_entity", "Entity.xml"), 4, 6), entity.Source);
@@ -251,7 +255,7 @@ public class XmlWorkspaceReaderTests
 
         var reader = new XmlWorkspaceReader();
         var workspace = reader.Load(SamplePath);
-        Assert.Equal(expectedCount, workspace.Solution!.RootComponents.Count);
+        Assert.Equal(expectedCount, Assert.Single(workspace.Solutions).RootComponents.Count);
     }
 
     [Fact]
@@ -424,6 +428,44 @@ public class XmlWorkspaceReaderTests
         Assert.Contains("/nonexistent/path", ex.Message);
     }
 
+    [Fact]
+    public void LoadMany_LoadsManagedAndUnmanagedState_WithActiveOverManaged()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"reader-loadmany-{Guid.NewGuid():N}");
+        var unmanagedPath = Path.Combine(root, "unmanaged");
+        var managedPath = Path.Combine(root, "managed");
+
+        try
+        {
+            WriteMinimalEntityWorkspace(unmanagedPath, "UnmanagedUi", managed: false, "Active Account");
+            WriteMinimalEntityWorkspace(managedPath, "ManagedBase", managed: true, "Managed Account");
+
+            var workspace = new XmlWorkspaceReader().LoadMany(new[]
+            {
+                new SolutionWorkspaceSource(unmanagedPath, 0),
+                new SolutionWorkspaceSource(managedPath, 10)
+            });
+
+            Assert.Equal(2, workspace.Solutions.Count);
+            Assert.Equal(2, workspace.SolutionComponents.Count);
+            Assert.Equal(2, workspace.ComponentSources.Count);
+
+            var stack = workspace.Layers.FindStack(ComponentType.Entity, "account");
+            Assert.NotNull(stack);
+            Assert.Equal(2, stack!.Layers.Count);
+            Assert.Equal("ManagedBase", stack.BaseLayer!.SolutionUniqueName);
+            Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.ActiveLayer!.SolutionUniqueName);
+            Assert.Equal("UnmanagedUi", stack.ActiveLayer.SourceSolutionUniqueName);
+
+            var resolved = Assert.IsType<EntityMetadata>(workspace.Layers.Resolve(stack));
+            Assert.Equal("Active Account", resolved.DisplayName.Default);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     private static List<MergeableNode> FindAll(MergeableNode root, string name)
     {
         var result = new List<MergeableNode>();
@@ -435,5 +477,44 @@ public class XmlWorkspaceReaderTests
             if (node.Name == name) result.Add(node);
             foreach (var child in node.Children) Visit(child);
         }
+    }
+
+    private static void WriteMinimalEntityWorkspace(string path, string solutionName, bool managed, string entityDisplayName)
+    {
+        Directory.CreateDirectory(Path.Combine(path, "Other"));
+        Directory.CreateDirectory(Path.Combine(path, "Entities", "account"));
+        File.WriteAllText(Path.Combine(path, "Other", "Solution.xml"),
+            $$"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml>
+              <SolutionManifest>
+                <UniqueName>{{solutionName}}</UniqueName>
+                <Version>1.0</Version>
+                <Managed>{{(managed ? "1" : "0")}}</Managed>
+                <Publisher>
+                  <UniqueName>test</UniqueName>
+                  <CustomizationPrefix>test</CustomizationPrefix>
+                </Publisher>
+                <RootComponents>
+                  <RootComponent type="1" schemaName="account" behavior="2" />
+                </RootComponents>
+              </SolutionManifest>
+            </ImportExportXml>
+            """);
+        File.WriteAllText(Path.Combine(path, "Entities", "account", "Entity.xml"),
+            $$"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity>
+              <Name LocalizedName="{{entityDisplayName}}" OriginalName="{{entityDisplayName}}">account</Name>
+              <EntityInfo>
+                <entity Name="account">
+                  <EntitySetName>accounts</EntitySetName>
+                  <LocalizedNames><LocalizedName description="{{entityDisplayName}}" languagecode="1033" /></LocalizedNames>
+                  <LocalizedCollectionNames><LocalizedCollectionName description="Accounts" languagecode="1033" /></LocalizedCollectionNames>
+                  <attributes />
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """);
     }
 }

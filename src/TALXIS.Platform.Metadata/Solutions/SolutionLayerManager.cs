@@ -8,6 +8,11 @@ using TALXIS.Platform.Metadata.Merging;
 /// </summary>
 public sealed class SolutionLayerManager
 {
+    /// <summary>
+    /// Dataverse name of the shared unmanaged active layer.
+    /// </summary>
+    public const string ActiveSolutionName = "Active";
+
     private readonly Dictionary<string, LayerStack> _stacks = new();
     private readonly Dictionary<ComponentType, IComponentMerger> _mergers = new();
 
@@ -61,18 +66,91 @@ public sealed class SolutionLayerManager
     public void RegisterMerger(IComponentMerger merger) => _mergers[merger.ComponentType] = merger;
 
     /// <summary>
-    /// Imports a solution's components as a new layer.
-    /// Each component gets a layer with the given solution name and order.
+    /// Imports managed solution components as a Dataverse-style managed layer.
     /// </summary>
-    public void ImportSolutionLayer(string solutionName, int order, bool isManaged,
-        IEnumerable<LayerComponentDescriptor> components)
+    /// <param name="solution">Managed solution that owns the layer.</param>
+    /// <param name="order">Caller-defined import order.</param>
+    /// <param name="components">Components in this layer.</param>
+    /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
+    public void ImportManagedLayer(
+        Solution solution,
+        int order,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath = null)
+    {
+        if (solution == null) throw new ArgumentNullException(nameof(solution));
+
+        ImportLayer(
+            solution.UniqueName,
+            solution.UniqueName,
+            SolutionLayerKind.Managed,
+            order,
+            true,
+            components,
+            sourceRootPath);
+    }
+
+    /// <summary>
+    /// Imports unmanaged solution components as source-owned snapshots of the shared Active layer.
+    /// </summary>
+    /// <param name="solution">Unmanaged solution project that owns the source snapshots.</param>
+    /// <param name="order">Caller-defined source precedence order.</param>
+    /// <param name="components">Components in this source snapshot.</param>
+    /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
+    public void ImportActiveLayerSnapshot(
+        Solution solution,
+        int order,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath = null)
+    {
+        if (solution == null) throw new ArgumentNullException(nameof(solution));
+
+        ImportLayer(
+            ActiveSolutionName,
+            solution.UniqueName,
+            SolutionLayerKind.Active,
+            order,
+            false,
+            components,
+            sourceRootPath);
+    }
+
+    /// <summary>
+    /// Imports components as a layer. Prefer <see cref="ImportManagedLayer"/> or
+    /// <see cref="ImportActiveLayerSnapshot"/> when the source solution is known.
+    /// </summary>
+    public void ImportSolutionLayer(string solutionName, int order, bool isManaged, IEnumerable<LayerComponentDescriptor> components)
+    {
+        ImportLayer(
+            isManaged ? solutionName : ActiveSolutionName,
+            solutionName,
+            isManaged ? SolutionLayerKind.Managed : SolutionLayerKind.Active,
+            order,
+            isManaged,
+            components,
+            sourceRootPath: null);
+    }
+
+    private void ImportLayer(
+        string layerSolutionName,
+        string sourceSolutionName,
+        SolutionLayerKind layerKind,
+        int order,
+        bool isManaged,
+        IEnumerable<LayerComponentDescriptor> components,
+        string? sourceRootPath)
     {
         foreach (var component in components)
         {
             var stack = GetOrCreateStack(component.Type, component.Id);
             stack.PushLayer(new ComponentLayer
             {
-                SolutionName = solutionName,
+                SolutionUniqueName = layerSolutionName,
+                SourceSolutionUniqueName = sourceSolutionName,
+                LayerKind = layerKind,
+                SourceRootPath = sourceRootPath,
+                SourceDocumentKey = component.SourceDocumentKey,
+                SourceOrder = order,
                 Order = order,
                 IsManaged = isManaged,
                 Component = component.Component

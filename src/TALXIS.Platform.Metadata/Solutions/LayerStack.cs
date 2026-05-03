@@ -38,7 +38,7 @@ public sealed class LayerStack
     /// </summary>
     public void PushLayer(ComponentLayer layer)
     {
-        var index = _layers.FindIndex(l => l.Order > layer.Order);
+        var index = _layers.FindIndex(existing => CompareLayerOrder(existing, layer) > 0);
         if (index < 0)
             _layers.Add(layer);
         else
@@ -55,7 +55,9 @@ public sealed class LayerStack
     /// </summary>
     public bool RemoveLayer(string solutionName)
     {
-        var layer = _layers.FirstOrDefault(l => l.SolutionName == solutionName);
+        var layer = _layers.FirstOrDefault(l =>
+            string.Equals(l.SolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(l.SourceSolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase));
         if (layer == null) return false;
         return _layers.Remove(layer);
     }
@@ -68,7 +70,30 @@ public sealed class LayerStack
     public T? ResolveTopWins<T>() where T : MetadataBase
     {
         var active = ActiveLayer;
-        if (active?.State != ComponentState.Published) return null;
+        if (active?.State != ComponentState.Publish) return null;
         return active.Component as T;
     }
+
+    private static int CompareLayerOrder(ComponentLayer left, ComponentLayer right)
+    {
+        var layerKindCompare = GetLayerRank(left.LayerKind).CompareTo(GetLayerRank(right.LayerKind));
+        if (layerKindCompare != 0)
+            return layerKindCompare;
+
+        var orderCompare = left.Order.CompareTo(right.Order);
+        if (orderCompare != 0)
+            return orderCompare;
+
+        return left.SourceOrder.CompareTo(right.SourceOrder);
+    }
+
+    private static int GetLayerRank(SolutionLayerKind kind) =>
+        kind switch
+        {
+            SolutionLayerKind.System => 0,
+            SolutionLayerKind.Default => 1,
+            SolutionLayerKind.Managed => 2,
+            SolutionLayerKind.Active => 3,
+            _ => 2
+        };
 }
