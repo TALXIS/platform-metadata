@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+    <ProjectReference Include="../TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
   </ItemGroup>
 
 </Project>
