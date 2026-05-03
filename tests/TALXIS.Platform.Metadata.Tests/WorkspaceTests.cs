@@ -61,6 +61,35 @@ public class WorkspaceTests
         Assert.Equal(2, workspace.GenericComponents.Count);
     }
 
+    [Fact]
+    public void AddFlowDefinition_MissingFilePath_Throws()
+    {
+        var workspace = new Workspace("/tmp/workspace");
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            workspace.AddFlowDefinition(new FlowDefinitionMetadata()));
+
+        Assert.Contains("flow definition", exception.Message);
+        Assert.Contains("non-empty identity key", exception.Message);
+        Assert.Empty(workspace.FlowDefinitions);
+    }
+
+    [Fact]
+    public void AddGenericComponent_MissingFilePath_Throws()
+    {
+        var workspace = new Workspace("/tmp/workspace");
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            workspace.AddGenericComponent(new GenericComponentMetadata
+            {
+                ComponentTypeName = "Connector"
+            }));
+
+        Assert.Contains("generic component", exception.Message);
+        Assert.Contains("non-empty identity key", exception.Message);
+        Assert.Empty(workspace.GenericComponents);
+    }
+
     private static int GetCount(Workspace workspace, string componentType) => componentType switch
     {
         "entity" => workspace.Entities.Count,

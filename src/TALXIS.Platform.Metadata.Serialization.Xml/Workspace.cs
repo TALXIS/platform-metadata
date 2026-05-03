@@ -134,10 +134,7 @@ public sealed class Workspace
     {
         var key = getKey(item);
         if (string.IsNullOrWhiteSpace(key))
-        {
-            items.Add(item);
-            return;
-        }
+            throw new InvalidOperationException($"A {componentType} must have a non-empty identity key before it can be added to the workspace.");
 
         if (items.Any(existing => string.Equals(getKey(existing), key, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"A {componentType} with key '{key}' already exists in the workspace.");
