@@ -991,6 +991,15 @@ public sealed class XmlWorkspaceReader
     };
 
     /// <summary>
+    /// Directories that should never be scanned by the generic component loader
+    /// (build artifacts, IDE folders, package caches, etc.).
+    /// </summary>
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin", "obj", ".vs", ".git", ".github", "node_modules", "packages", "TestResults"
+    };
+
+    /// <summary>
     /// Specific files in Other/ that are handled by dedicated loaders.
     /// </summary>
     private static readonly HashSet<string> DedicatedOtherFiles = new(StringComparer.OrdinalIgnoreCase)
@@ -1023,6 +1032,7 @@ public sealed class XmlWorkspaceReader
         {
             var dirName = Path.GetFileName(dir);
             if (DedicatedDirectories.Contains(dirName)) continue;
+            if (IgnoredDirectories.Contains(dirName)) continue;
             if (dirName.StartsWith(".", StringComparison.Ordinal)) continue;
 
             foreach (var file in Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories))

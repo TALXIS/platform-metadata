@@ -129,7 +129,7 @@ public class FormXmlMergeTests
                   <rows>
                     <row>
                       <cell id=""{00000000-0000-0000-0000-000000000100}"">
-                        <control id=""name"" datafieldname=""fullname"" disabled=""true"" solutionaction=""Modified"" />
+                        <control id=""name"" classid=""{4273EDBD-AC1D-40D3-9FB2-095C621B552D}"" datafieldname=""fullname"" disabled=""true"" solutionaction=""Modified"" />
                       </cell>
                     </row>
                   </rows>

@@ -46,16 +46,16 @@ public static class TreeMergeEngine
             }
             else if (action == MergeAction.Removed)
             {
-                ApplyRemoved(baseNode, layerChild);
+                ApplyRemoved(baseNode, layerChild, layerNode.Children);
             }
             else if (action == MergeAction.Modified)
             {
-                ApplyModified(baseNode, layerChild);
+                ApplyModified(baseNode, layerChild, layerNode.Children);
             }
             else
             {
                 // Structural node without action: find matching element and recurse
-                var match = FindMatchingChild(baseNode, layerChild);
+                var match = FindMatchingChild(baseNode, layerChild, layerNode.Children);
                 if (match != null)
                 {
                     ApplyLayer(match, layerChild);
@@ -74,18 +74,18 @@ public static class TreeMergeEngine
         baseParent.Children.Add(clean);
     }
 
-    private static void ApplyRemoved(MergeableNode baseParent, MergeableNode removedNode)
+    private static void ApplyRemoved(MergeableNode baseParent, MergeableNode removedNode, List<MergeableNode>? removedNodeSiblings = null)
     {
-        var match = FindMatchingChild(baseParent, removedNode);
+        var match = FindMatchingChild(baseParent, removedNode, removedNodeSiblings);
         if (match != null)
         {
             baseParent.Children.Remove(match);
         }
     }
 
-    private static void ApplyModified(MergeableNode baseParent, MergeableNode modifiedNode)
+    private static void ApplyModified(MergeableNode baseParent, MergeableNode modifiedNode, List<MergeableNode>? modifiedNodeSiblings = null)
     {
-        var match = FindMatchingChild(baseParent, modifiedNode);
+        var match = FindMatchingChild(baseParent, modifiedNode, modifiedNodeSiblings);
         if (match == null)
             return;
 
@@ -95,15 +95,20 @@ public static class TreeMergeEngine
             match.Attributes[kvp.Key] = kvp.Value;
         }
 
-        // Update text content
-        if (modifiedNode.TextContent != null)
-            match.TextContent = modifiedNode.TextContent;
+        // Remove attributes that were deleted in the modified node
+        var modifiedAttrNames = new HashSet<string>(modifiedNode.Attributes.Keys);
+        var toRemove = match.Attributes.Keys.Where(k => !modifiedAttrNames.Contains(k)).ToList();
+        foreach (var key in toRemove)
+            match.Attributes.Remove(key);
+
+        // Always sync TextContent (including setting to null for removal)
+        match.TextContent = modifiedNode.TextContent;
 
         // Recurse into children for nested changes
         ApplyLayer(match, modifiedNode);
     }
 
-    private static MergeableNode? FindMatchingChild(MergeableNode parent, MergeableNode target)
+    private static MergeableNode? FindMatchingChild(MergeableNode parent, MergeableNode target, List<MergeableNode>? targetSiblings = null)
     {
         var name = target.Name;
         var candidates = new List<MergeableNode>();
@@ -166,6 +171,18 @@ public static class TreeMergeEngine
             }
         }
 
+        // Index-based matching for keyless elements (e.g. rows)
+        if (targetSiblings != null)
+        {
+            int targetIndex = 0;
+            for (int j = 0; j < targetSiblings.Count; j++)
+            {
+                if (targetSiblings[j] == target) break;
+                if (targetSiblings[j].Name == name) targetIndex++;
+            }
+            return targetIndex < candidates.Count ? candidates[targetIndex] : candidates[0];
+        }
+
         // Last resort: first candidate
         return candidates[0];
     }
@@ -210,7 +227,7 @@ public static class TreeMergeEngine
         for (int m = 0; m < modifiedChildren.Count; m++)
         {
             var mc = modifiedChildren[m];
-            var bestMatch = FindBestMatchIndex(baseChildren, mc, matchedBase);
+            var bestMatch = FindBestMatchIndex(baseChildren, mc, matchedBase, modifiedChildren);
             if (bestMatch >= 0)
             {
                 pairs.Add((bestMatch, m));
@@ -287,7 +304,7 @@ public static class TreeMergeEngine
         }
     }
 
-    private static int FindBestMatchIndex(List<MergeableNode> candidates, MergeableNode target, HashSet<int> excluded)
+    private static int FindBestMatchIndex(List<MergeableNode> candidates, MergeableNode target, HashSet<int> excluded, List<MergeableNode>? targetParentChildren = null)
     {
         var name = target.Name;
         var keys = GetMatchingKeys(name);
@@ -353,7 +370,19 @@ public static class TreeMergeEngine
         }
 
         if (sameNameIndices.Count > 0)
-            return sameNameIndices[0];
+        {
+            // Determine position of target among its same-name siblings in the source
+            int targetIndex = 0;
+            if (targetParentChildren != null)
+            {
+                for (int j = 0; j < targetParentChildren.Count; j++)
+                {
+                    if (targetParentChildren[j] == target) break;
+                    if (targetParentChildren[j].Name == target.Name) targetIndex++;
+                }
+            }
+            return targetIndex < sameNameIndices.Count ? sameNameIndices[targetIndex] : sameNameIndices[0];
+        }
 
         return -1;
     }

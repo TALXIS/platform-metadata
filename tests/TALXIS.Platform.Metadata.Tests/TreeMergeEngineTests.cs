@@ -95,7 +95,7 @@ public class TreeMergeEngineTests
                                             Node("rows",
                                                 Node("row",
                                                     Node("cell", new Dictionary<string, string> { ["id"] = "{00000000-0000-0000-0000-000000000100}" },
-                                                        ControlModified("name", "fullname", "true")))))))))))));
+                                                        ControlModified("name", "{4273EDBD-AC1D-40D3-9FB2-095C621B552D}", "fullname", "true")))))))))))));
 
         var result = TreeMergeEngine.Merge(baseTree, layer);
 
@@ -253,9 +253,9 @@ public class TreeMergeEngineTests
     private static MergeableNode Control(string id, string classId, string datafieldname)
         => Node("control", new Dictionary<string, string> { ["id"] = id, ["classid"] = classId, ["datafieldname"] = datafieldname });
 
-    private static MergeableNode ControlModified(string id, string datafieldname, string disabled)
+    private static MergeableNode ControlModified(string id, string classid, string datafieldname, string disabled)
     {
-        var c = Node("control", new Dictionary<string, string> { ["id"] = id, ["datafieldname"] = datafieldname, ["disabled"] = disabled });
+        var c = Node("control", new Dictionary<string, string> { ["id"] = id, ["classid"] = classid, ["datafieldname"] = datafieldname, ["disabled"] = disabled });
         c.Action = MergeAction.Modified;
         return c;
     }

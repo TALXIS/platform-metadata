@@ -19,29 +19,26 @@ public sealed class FormMerger : IComponentMerger
 
         // If the topmost layer marks the component as deleted, return null
         var topLayer = layers[layers.Count - 1];
-        if (topLayer.State != ComponentState.Published && topLayer.State != ComponentState.Unpublished)
+        if (topLayer.State == ComponentState.Deleted || topLayer.State == ComponentState.DeletedUnpublished)
             return null;
 
-        // Filter to published layers only
-        var publishedLayers = new List<ComponentLayer>();
-        foreach (var layer in layers)
-        {
-            if (layer.State == ComponentState.Published)
-                publishedLayers.Add(layer);
-        }
+        // Filter out deleted layers, keep Published and Unpublished
+        var activeLayers = layers
+            .Where(l => l.State != ComponentState.Deleted && l.State != ComponentState.DeletedUnpublished && l.Component is FormMetadata)
+            .ToList();
 
-        if (publishedLayers.Count == 0)
+        if (activeLayers.Count == 0)
             return null;
 
-        var baseLayer = publishedLayers[0];
+        var baseLayer = activeLayers[0];
         if (baseLayer.Component is not FormMetadata baseForm || baseForm.Body == null)
             return baseLayer.Component;
 
         var current = baseForm.Body;
 
-        for (int i = 1; i < publishedLayers.Count; i++)
+        for (int i = 1; i < activeLayers.Count; i++)
         {
-            if (publishedLayers[i].Component is FormMetadata layerForm && layerForm.Body != null)
+            if (activeLayers[i].Component is FormMetadata layerForm && layerForm.Body != null)
             {
                 current = TreeMergeEngine.Merge(current, layerForm.Body);
             }

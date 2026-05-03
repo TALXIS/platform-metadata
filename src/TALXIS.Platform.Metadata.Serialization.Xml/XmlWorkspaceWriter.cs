@@ -761,9 +761,9 @@ public sealed class XmlWorkspaceWriter
         if (view.QueryType.HasValue)
             SetElementValueIfExists(savedQuery, "querytype", view.QueryType.Value.ToString());
         if (view.FetchXml != null)
-            SetElementValueIfExists(savedQuery, "fetchxml", view.FetchXml);
+            SetElementContentPreserveCData(savedQuery, "fetchxml", view.FetchXml);
         if (view.LayoutXml != null)
-            SetElementValueIfExists(savedQuery, "layoutxml", view.LayoutXml);
+            SetElementContentPreserveCData(savedQuery, "layoutxml", view.LayoutXml);
 
         var locNames = savedQuery.Element("LocalizedNames");
         if (locNames != null)
@@ -854,10 +854,17 @@ public sealed class XmlWorkspaceWriter
             var doc = new XDocument(origDoc);
             PatchWorkflow(doc, workflow);
 
-            var workflowsDir = Path.Combine(outputPath, "Workflows");
-            Directory.CreateDirectory(workflowsDir);
-            var fileName = workflow.UniqueName ?? workflow.WorkflowId;
-            var filePath = Path.Combine(workflowsDir, $"{fileName}.data.xml");
+            // Preserve original file path when available for roundtrip fidelity
+            var filePath = TryGetOriginalRelativePath(workflow.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var workflowsDir = Path.Combine(outputPath, "Workflows");
+                Directory.CreateDirectory(workflowsDir);
+                var fileName = workflow.UniqueName ?? workflow.WorkflowId;
+                filePath = Path.Combine(workflowsDir, $"{fileName}.data.xml");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
@@ -916,10 +923,17 @@ public sealed class XmlWorkspaceWriter
                 doc = BuildPluginAssemblyFromScratch(assembly);
             }
 
-            var assemblyName = assembly.Name ?? assembly.PluginAssemblyId;
-            var assemblyDir = Path.Combine(outputPath, "PluginAssemblies", assemblyName);
-            Directory.CreateDirectory(assemblyDir);
-            var filePath = Path.Combine(assemblyDir, $"{assemblyName}.data.xml");
+            // Preserve original file path when available for roundtrip fidelity
+            var filePath = TryGetOriginalRelativePath(assembly.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var assemblyName = assembly.Name ?? assembly.PluginAssemblyId;
+                var assemblyDir = Path.Combine(outputPath, "PluginAssemblies", assemblyName);
+                Directory.CreateDirectory(assemblyDir);
+                filePath = Path.Combine(assemblyDir, $"{assemblyName}.data.xml");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
@@ -1351,6 +1365,28 @@ public sealed class XmlWorkspaceWriter
             parent.Add(new XElement(elementName, value));
     }
 
+    /// <summary>
+    /// Updates an element's content, preserving CDATA wrapping if the original content used it.
+    /// </summary>
+    private static void SetElementContentPreserveCData(XElement parent, string elementName, string? value)
+    {
+        if (value == null) return;
+        var el = parent.Element(elementName);
+        if (el == null) return;
+
+        var existingCdata = el.Nodes().OfType<XCData>().FirstOrDefault();
+        if (existingCdata != null)
+        {
+            if (existingCdata.Value != value)
+                existingCdata.Value = value;
+        }
+        else
+        {
+            if (el.Value != value)
+                el.Value = value;
+        }
+    }
+
     private static void SetElementValueIfExists(XElement parent, string elementName, string? value)
     {
         if (value == null) return;
@@ -1459,6 +1495,25 @@ public sealed class XmlWorkspaceWriter
             if (dir != null) Directory.CreateDirectory(dir);
             SaveDocument(doc, filePath);
         }
+    }
+
+    /// <summary>
+    /// If the metadata was loaded from a file under <paramref name="originalRoot"/>,
+    /// returns the equivalent path under <paramref name="outputRoot"/>; otherwise null.
+    /// </summary>
+    private static string? TryGetOriginalRelativePath(SourceLocation? source, string originalRoot, string outputRoot)
+    {
+        if (source?.FilePath == null) return null;
+
+        var normalizedRoot = originalRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var normalizedFile = source.FilePath;
+
+        if (!normalizedFile.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var relativePath = normalizedFile.Substring(normalizedRoot.Length);
+        return Path.Combine(outputRoot, relativePath);
     }
 
     private static void SaveDocument(XDocument doc, string filePath)
