@@ -35,12 +35,12 @@ public sealed class Workspace
     /// <summary>
     /// Gets solution/component membership rows, separate from component layers.
     /// </summary>
-    public IReadOnlyList<SolutionComponentMembership> SolutionComponents => _solutionComponents;
+    public IReadOnlyList<SolutionComponentMembership> SolutionComponentMemberships => _solutionComponents;
 
     /// <summary>
     /// Gets source-owned component snapshots loaded from solution projects.
     /// </summary>
-    public IReadOnlyList<ComponentSourceSnapshot> ComponentSources => _componentSources;
+    public IReadOnlyList<ComponentSourceSnapshot> ComponentSourceSnapshots => _componentSources;
 
     /// <summary>
     /// Gets the Dataverse-style component layer manager for this workspace.
@@ -205,7 +205,7 @@ public sealed class Workspace
     /// <summary>
     /// Adds a solution membership row.
     /// </summary>
-    public void AddSolutionComponent(SolutionComponentMembership membership)
+    public void AddSolutionComponentMembership(SolutionComponentMembership membership)
     {
         if (membership == null) throw new ArgumentNullException(nameof(membership));
         _solutionComponents.Add(membership);
@@ -214,7 +214,7 @@ public sealed class Workspace
     /// <summary>
     /// Adds a source-owned component snapshot.
     /// </summary>
-    public void AddComponentSource(ComponentSourceSnapshot snapshot)
+    public void AddComponentSourceSnapshot(ComponentSourceSnapshot snapshot)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
         _componentSources.Add(snapshot);
@@ -223,7 +223,11 @@ public sealed class Workspace
     /// <summary>
     /// Registers a solution project's memberships, source snapshots, and Dataverse-like layer state.
     /// </summary>
-    public void RegisterSolutionSource(Solution solution, int order, string? sourceRootPath, IEnumerable<LayerComponentDescriptor> components)
+    /// <param name="solution">Solution manifest that owns the source project.</param>
+    /// <param name="importOrder">Caller-defined import/source order.</param>
+    /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
+    /// <param name="components">Components loaded from the source project.</param>
+    public void RegisterSolutionSource(Solution solution, int importOrder, string? sourceRootPath, IEnumerable<LayerComponentDescriptor> components)
     {
         if (solution == null) throw new ArgumentNullException(nameof(solution));
         if (components == null) throw new ArgumentNullException(nameof(components));
@@ -236,10 +240,10 @@ public sealed class Workspace
             if (string.IsNullOrWhiteSpace(objectId))
                 continue;
 
-            AddSolutionComponent(new SolutionComponentMembership
+            AddSolutionComponentMembership(new SolutionComponentMembership
             {
                 SolutionUniqueName = solution.UniqueName,
-                Component = new ComponentIdentity(rootComponent.Type, objectId!),
+                Identity = new ComponentIdentity(rootComponent.Type, objectId!),
                 RootComponentBehavior = rootComponent.BehaviorOption,
                 SourceRootPath = sourceRootPath,
                 SourceDocumentKey = GetSolutionDocumentKey(solution.UniqueName)
@@ -248,22 +252,22 @@ public sealed class Workspace
 
         foreach (var component in componentList)
         {
-            AddComponentSource(new ComponentSourceSnapshot
+            AddComponentSourceSnapshot(new ComponentSourceSnapshot
             {
                 SourceSolutionUniqueName = solution.UniqueName,
-                Component = new ComponentIdentity(component.Type, component.Id),
-                Metadata = component.Component,
+                Identity = component.Identity,
+                Metadata = component.Metadata,
                 SourceRootPath = sourceRootPath,
                 SourceDocumentKey = component.SourceDocumentKey,
-                SourceOrder = order,
+                SourceOrder = importOrder,
                 IsManaged = solution.IsManaged
             });
         }
 
         if (solution.IsManaged)
-            Layers.ImportManagedLayer(solution, order, componentList, sourceRootPath);
+            Layers.ImportManagedLayer(solution, importOrder, componentList, sourceRootPath);
         else
-            Layers.ImportActiveLayerSnapshot(solution, order, componentList, sourceRootPath);
+            Layers.ImportActiveLayerSnapshot(solution, importOrder, componentList, sourceRootPath);
     }
 
     internal static string GetSolutionDocumentKey(string uniqueName) => $"Solution:{uniqueName}:Solution.xml";

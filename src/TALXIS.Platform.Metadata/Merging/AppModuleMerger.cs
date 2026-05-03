@@ -10,7 +10,7 @@ public sealed class AppModuleMerger : IComponentMerger
     public MetadataBase? Merge(IReadOnlyList<ComponentLayer> layers)
     {
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Component is AppModuleMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Metadata is AppModuleMetadata)
             .ToList();
         if (activeLayers.Count == 0) return null;
 
@@ -18,18 +18,18 @@ public sealed class AppModuleMerger : IComponentMerger
         if (topLayer.State == ComponentState.Delete || topLayer.State == ComponentState.UnpublishedDelete)
             return null;
 
-        var baseApp = (AppModuleMetadata)activeLayers[0].Component!;
+        var baseApp = (AppModuleMetadata)activeLayers[0].Metadata!;
         var current = baseApp.Body;
         for (int i = 1; i < activeLayers.Count; i++)
         {
-            var layerApp = (AppModuleMetadata)activeLayers[i].Component!;
+            var layerApp = (AppModuleMetadata)activeLayers[i].Metadata!;
             if (current != null && layerApp.Body != null)
                 current = TreeMergeEngine.Merge(current, layerApp.Body);
             else if (layerApp.Body != null)
                 current = layerApp.Body;
         }
 
-        var topApp = (AppModuleMetadata)activeLayers[activeLayers.Count - 1].Component!;
+        var topApp = (AppModuleMetadata)activeLayers[activeLayers.Count - 1].Metadata!;
         var result = new AppModuleMetadata
         {
             UniqueName = topApp.UniqueName,

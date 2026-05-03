@@ -6,22 +6,22 @@ namespace TALXIS.Platform.Metadata.Solutions;
 public enum SolutionLayerKind
 {
     /// <summary>
-    /// A managed solution layer ordered by import order.
-    /// </summary>
-    Managed = 0,
-
-    /// <summary>
-    /// The shared unmanaged active layer that sits above managed layers.
-    /// </summary>
-    Active = 1,
-
-    /// <summary>
     /// System/base layer, reserved for live-environment projections.
     /// </summary>
-    System = 2,
+    System = 0,
 
     /// <summary>
     /// Default solution container, reserved for live-environment projections.
     /// </summary>
-    Default = 3
+    Default = 1,
+
+    /// <summary>
+    /// A managed solution layer ordered by import order.
+    /// </summary>
+    Managed = 2,
+
+    /// <summary>
+    /// The shared unmanaged active layer that sits above managed layers.
+    /// </summary>
+    Active = 3
 }

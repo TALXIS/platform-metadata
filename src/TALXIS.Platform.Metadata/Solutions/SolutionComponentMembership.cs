@@ -19,7 +19,7 @@ public sealed class SolutionComponentMembership
     /// <summary>
     /// Gets or sets the component identity.
     /// </summary>
-    public required ComponentIdentity Component { get; set; }
+    public required ComponentIdentity Identity { get; set; }
 
     /// <summary>
     /// Gets or sets the root component behavior declared by the solution, when this is a root component.

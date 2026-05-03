@@ -30,15 +30,15 @@ public sealed class SolutionLayerManager
     /// <summary>
     /// Gets an existing layer stack for the component or creates a new one.
     /// </summary>
-    public LayerStack GetOrCreateStack(ComponentType componentType, string componentId)
+    public LayerStack GetOrCreateStack(ComponentType componentType, string componentObjectId)
     {
-        var key = $"{(int)componentType}:{componentId}";
+        var key = $"{(int)componentType}:{componentObjectId}";
         if (!_stacks.TryGetValue(key, out var stack))
         {
             stack = new LayerStack
             {
                 ComponentType = componentType,
-                ComponentId = componentId,
+                ComponentObjectId = componentObjectId,
                 RequiresMerge = ComponentDefinitionRegistry.GetByType(componentType)?.IsMergeable == true
             };
             _stacks[key] = stack;
@@ -49,42 +49,48 @@ public sealed class SolutionLayerManager
     /// <summary>
     /// Finds an existing layer stack without creating a new one.
     /// </summary>
-    public LayerStack? FindStack(ComponentType componentType, string componentId)
+    public LayerStack? FindStack(ComponentType componentType, string componentObjectId)
     {
-        var key = $"{(int)componentType}:{componentId}";
+        var key = $"{(int)componentType}:{componentObjectId}";
         return _stacks.TryGetValue(key, out var stack) ? stack : null;
     }
 
     /// <summary>
     /// Gets all tracked component stacks.
     /// </summary>
-    public IReadOnlyCollection<LayerStack> AllStacks => _stacks.Values;
+    public IReadOnlyCollection<LayerStack> Stacks => _stacks.Values;
 
     /// <summary>
     /// Registers or replaces the merger used for a mergeable component type.
     /// </summary>
-    public void RegisterMerger(IComponentMerger merger) => _mergers[merger.ComponentType] = merger;
+    public void RegisterMerger(IComponentMerger merger)
+    {
+        if (merger == null) throw new ArgumentNullException(nameof(merger));
+
+        _mergers[merger.ComponentType] = merger;
+    }
 
     /// <summary>
     /// Imports managed solution components as a Dataverse-style managed layer.
     /// </summary>
     /// <param name="solution">Managed solution that owns the layer.</param>
-    /// <param name="order">Caller-defined import order.</param>
+    /// <param name="importOrder">Caller-defined import order.</param>
     /// <param name="components">Components in this layer.</param>
     /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
     public void ImportManagedLayer(
         Solution solution,
-        int order,
+        int importOrder,
         IEnumerable<LayerComponentDescriptor> components,
         string? sourceRootPath = null)
     {
         if (solution == null) throw new ArgumentNullException(nameof(solution));
+        if (components == null) throw new ArgumentNullException(nameof(components));
 
         ImportLayer(
             solution.UniqueName,
             solution.UniqueName,
             SolutionLayerKind.Managed,
-            order,
+            importOrder,
             true,
             components,
             sourceRootPath);
@@ -94,41 +100,26 @@ public sealed class SolutionLayerManager
     /// Imports unmanaged solution components as source-owned snapshots of the shared Active layer.
     /// </summary>
     /// <param name="solution">Unmanaged solution project that owns the source snapshots.</param>
-    /// <param name="order">Caller-defined source precedence order.</param>
+    /// <param name="importOrder">Caller-defined source precedence order.</param>
     /// <param name="components">Components in this source snapshot.</param>
     /// <param name="sourceRootPath">Optional source project root for diagnostics and write-back.</param>
     public void ImportActiveLayerSnapshot(
         Solution solution,
-        int order,
+        int importOrder,
         IEnumerable<LayerComponentDescriptor> components,
         string? sourceRootPath = null)
     {
         if (solution == null) throw new ArgumentNullException(nameof(solution));
+        if (components == null) throw new ArgumentNullException(nameof(components));
 
         ImportLayer(
             ActiveSolutionName,
             solution.UniqueName,
             SolutionLayerKind.Active,
-            order,
+            importOrder,
             false,
             components,
             sourceRootPath);
-    }
-
-    /// <summary>
-    /// Imports components as a layer. Prefer <see cref="ImportManagedLayer"/> or
-    /// <see cref="ImportActiveLayerSnapshot"/> when the source solution is known.
-    /// </summary>
-    public void ImportSolutionLayer(string solutionName, int order, bool isManaged, IEnumerable<LayerComponentDescriptor> components)
-    {
-        ImportLayer(
-            isManaged ? solutionName : ActiveSolutionName,
-            solutionName,
-            isManaged ? SolutionLayerKind.Managed : SolutionLayerKind.Active,
-            order,
-            isManaged,
-            components,
-            sourceRootPath: null);
     }
 
     private void ImportLayer(
@@ -142,18 +133,18 @@ public sealed class SolutionLayerManager
     {
         foreach (var component in components)
         {
-            var stack = GetOrCreateStack(component.Type, component.Id);
-            stack.PushLayer(new ComponentLayer
+            var stack = GetOrCreateStack(component.Type, component.ObjectId);
+            stack.AddLayer(new ComponentLayer
             {
-                SolutionUniqueName = layerSolutionName,
+                LayerSolutionUniqueName = layerSolutionName,
                 SourceSolutionUniqueName = sourceSolutionName,
                 LayerKind = layerKind,
                 SourceRootPath = sourceRootPath,
                 SourceDocumentKey = component.SourceDocumentKey,
                 SourceOrder = order,
-                Order = order,
+                LayerOrder = order,
                 IsManaged = isManaged,
-                Component = component.Component
+                Metadata = component.Metadata
             });
         }
     }
@@ -164,6 +155,8 @@ public sealed class SolutionLayerManager
     /// </summary>
     public MetadataBase? Resolve(LayerStack stack)
     {
+        if (stack == null) throw new ArgumentNullException(nameof(stack));
+
         if (stack.RequiresMerge && _mergers.TryGetValue(stack.ComponentType, out var merger))
         {
             return merger.Merge(stack.Layers);
@@ -176,7 +169,7 @@ public sealed class SolutionLayerManager
     {
         foreach (var stack in _stacks.Values)
         {
-            stack.RemoveLayer(solutionName);
+            stack.RemoveLayersForSolution(solutionName);
         }
 
         var emptyKeys = _stacks.Where(kvp => kvp.Value.Layers.Count == 0)

@@ -15,9 +15,9 @@ public sealed class LayerStack
     public required ComponentType ComponentType { get; set; }
 
     /// <summary>
-    /// Gets or sets the component identifier within the type.
+    /// Gets or sets the component object identifier within the type.
     /// </summary>
-    public required string ComponentId { get; set; }
+    public required string ComponentObjectId { get; set; }
 
     /// <summary>
     /// Gets the ordered layers from base to topmost.
@@ -34,11 +34,13 @@ public sealed class LayerStack
     public bool RequiresMerge { get; set; }
 
     /// <summary>
-    /// Adds a layer while keeping the stack ordered by layer kind, <see cref="ComponentLayer.Order"/>,
+    /// Adds a layer while keeping the stack ordered by layer kind, <see cref="ComponentLayer.LayerOrder"/>,
     /// and <see cref="ComponentLayer.SourceOrder"/>. Repeated snapshots from the same source are retained.
     /// </summary>
-    public void PushLayer(ComponentLayer layer)
+    public void AddLayer(ComponentLayer layer)
     {
+        if (layer == null) throw new ArgumentNullException(nameof(layer));
+
         var index = _layers.FindIndex(existing => CompareLayerOrder(existing, layer) > 0);
         if (index < 0)
             _layers.Add(layer);
@@ -47,18 +49,15 @@ public sealed class LayerStack
     }
 
     /// <summary>
-    /// Inserts a layer at a specific position.
-    /// </summary>
-    public void InsertLayer(int index, ComponentLayer layer) => _layers.Insert(index, layer);
-
-    /// <summary>
     /// Removes all layers belonging to the supplied layer or source solution.
     /// </summary>
-    public bool RemoveLayer(string solutionName)
+    public bool RemoveLayersForSolution(string solutionUniqueName)
     {
+        if (string.IsNullOrWhiteSpace(solutionUniqueName)) throw new ArgumentException("Solution unique name is required.", nameof(solutionUniqueName));
+
         var removed = _layers.RemoveAll(l =>
-            string.Equals(l.SolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(l.SourceSolutionUniqueName, solutionName, StringComparison.OrdinalIgnoreCase));
+            string.Equals(l.LayerSolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(l.SourceSolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase));
         return removed > 0;
     }
 
@@ -71,7 +70,7 @@ public sealed class LayerStack
     {
         var top = TopLayer;
         if (top?.State != ComponentState.Publish) return null;
-        return top.Component as T;
+        return top.Metadata as T;
     }
 
     private static int CompareLayerOrder(ComponentLayer left, ComponentLayer right)
@@ -80,7 +79,7 @@ public sealed class LayerStack
         if (layerKindCompare != 0)
             return layerKindCompare;
 
-        var orderCompare = left.Order.CompareTo(right.Order);
+        var orderCompare = left.LayerOrder.CompareTo(right.LayerOrder);
         if (orderCompare != 0)
             return orderCompare;
 

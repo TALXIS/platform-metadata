@@ -9,11 +9,13 @@ public sealed class SolutionWorkspaceSource
     /// Creates a solution workspace source.
     /// </summary>
     /// <param name="path">Root directory of the unpacked SolutionPackager project.</param>
-    /// <param name="order">Caller-defined import/source order.</param>
-    public SolutionWorkspaceSource(string path, int order)
+    /// <param name="importOrder">Caller-defined import/source order. Lower values are loaded first.</param>
+    public SolutionWorkspaceSource(string path, int importOrder)
     {
-        Path = path ?? throw new ArgumentNullException(nameof(path));
-        Order = order;
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("Workspace source path is required.", nameof(path));
+
+        Path = path;
+        ImportOrder = importOrder;
     }
 
     /// <summary>
@@ -22,7 +24,7 @@ public sealed class SolutionWorkspaceSource
     public string Path { get; }
 
     /// <summary>
-    /// Gets the caller-defined import/source order.
+    /// Gets the caller-defined import/source order. Lower values are loaded first.
     /// </summary>
-    public int Order { get; }
+    public int ImportOrder { get; }
 }

@@ -1,5 +1,8 @@
 namespace TALXIS.Platform.Metadata.Solutions;
 
+/// <summary>
+/// Dataverse component state values used by solution layers.
+/// </summary>
 public enum ComponentState
 {
     /// <summary>

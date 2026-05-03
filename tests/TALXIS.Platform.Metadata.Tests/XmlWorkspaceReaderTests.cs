@@ -447,14 +447,14 @@ public class XmlWorkspaceReaderTests
             });
 
             Assert.Equal(2, workspace.Solutions.Count);
-            Assert.Equal(2, workspace.SolutionComponents.Count);
-            Assert.Equal(2, workspace.ComponentSources.Count);
+            Assert.Equal(2, workspace.SolutionComponentMemberships.Count);
+            Assert.Equal(2, workspace.ComponentSourceSnapshots.Count);
 
             var stack = workspace.Layers.FindStack(ComponentType.Entity, "account");
             Assert.NotNull(stack);
             Assert.Equal(2, stack!.Layers.Count);
-            Assert.Equal("ManagedBase", stack.BaseLayer!.SolutionUniqueName);
-            Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.SolutionUniqueName);
+            Assert.Equal("ManagedBase", stack.BaseLayer!.LayerSolutionUniqueName);
+            Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.LayerSolutionUniqueName);
             Assert.Equal("UnmanagedUi", stack.TopLayer.SourceSolutionUniqueName);
 
             var resolved = Assert.IsType<EntityMetadata>(workspace.Layers.Resolve(stack));

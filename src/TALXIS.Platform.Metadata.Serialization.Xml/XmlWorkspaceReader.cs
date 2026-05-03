@@ -64,7 +64,7 @@ public sealed class XmlWorkspaceReader
         if (sources == null) throw new ArgumentNullException(nameof(sources));
 
         var orderedSources = sources
-            .OrderBy(source => source.Order)
+            .OrderBy(source => source.ImportOrder)
             .ToArray();
 
         if (orderedSources.Length == 0)
@@ -90,7 +90,7 @@ public sealed class XmlWorkspaceReader
             foreach (var solution in sourceWorkspace.Solutions)
             {
                 workspace.AddSolution(solution);
-                RegisterLoadedSolutionSource(workspace, source.Path, source.Order, solution, sourceWorkspace.EnumerateLayerComponents());
+                RegisterLoadedSolutionSource(workspace, source.Path, source.ImportOrder, solution, sourceWorkspace.EnumerateLayerComponents());
             }
         }
 

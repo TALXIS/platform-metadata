@@ -194,12 +194,12 @@ public sealed class ComponentSummary
     /// <summary>
     /// Gets the number of solution/component membership rows loaded into the workspace.
     /// </summary>
-    public int SolutionComponents { get; }
+    public int SolutionComponentMemberships { get; }
 
     /// <summary>
     /// Gets the number of source-owned component snapshots loaded into the workspace.
     /// </summary>
-    public int ComponentSources { get; }
+    public int ComponentSourceSnapshots { get; }
 
     /// <summary>
     /// Gets the number of entities loaded into the workspace.
@@ -291,8 +291,8 @@ public sealed class ComponentSummary
     {
         Entities = workspace.Entities.Count;
         Solutions = workspace.Solutions.Count;
-        SolutionComponents = workspace.SolutionComponents.Count;
-        ComponentSources = workspace.ComponentSources.Count;
+        SolutionComponentMemberships = workspace.SolutionComponentMemberships.Count;
+        ComponentSourceSnapshots = workspace.ComponentSourceSnapshots.Count;
         Attributes = workspace.Entities.Sum(e => e.Attributes.Count);
         Forms = workspace.Forms.Count;
         Views = workspace.Views.Count;
@@ -316,8 +316,8 @@ public sealed class ComponentSummary
     {
         var parts = new List<string>();
         if (Solutions > 0) parts.Add($"{Solutions} solutions");
-        if (SolutionComponents > 0) parts.Add($"{SolutionComponents} solution components");
-        if (ComponentSources > 0) parts.Add($"{ComponentSources} component sources");
+        if (SolutionComponentMemberships > 0) parts.Add($"{SolutionComponentMemberships} solution component memberships");
+        if (ComponentSourceSnapshots > 0) parts.Add($"{ComponentSourceSnapshots} component source snapshots");
         if (Entities > 0) parts.Add($"{Entities} entities ({Attributes} attributes)");
         if (Forms > 0) parts.Add($"{Forms} forms");
         if (Views > 0) parts.Add($"{Views} views");

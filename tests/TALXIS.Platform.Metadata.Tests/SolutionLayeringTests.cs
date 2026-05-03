@@ -12,29 +12,29 @@ public class SolutionLayeringTests
     [Fact]
     public void LayerStack_TopWins()
     {
-        var stack = new LayerStack { ComponentType = ComponentType.Entity, ComponentId = "account" };
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Base", Order = 0, IsManaged = true });
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "ISV", Order = 1, IsManaged = true });
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Active", Order = 2, IsManaged = false, LayerKind = SolutionLayerKind.Active });
+        var stack = new LayerStack { ComponentType = ComponentType.Entity, ComponentObjectId = "account" };
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "Base", LayerOrder = 0, IsManaged = true });
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "ISV", LayerOrder = 1, IsManaged = true });
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "Active", LayerOrder = 2, IsManaged = false, LayerKind = SolutionLayerKind.Active });
 
         Assert.Equal(3, stack.Layers.Count);
-        Assert.Equal("Active", stack.TopLayer!.SolutionUniqueName);
-        Assert.Equal("Base", stack.BaseLayer!.SolutionUniqueName);
+        Assert.Equal("Active", stack.TopLayer!.LayerSolutionUniqueName);
+        Assert.Equal("Base", stack.BaseLayer!.LayerSolutionUniqueName);
     }
 
     [Fact]
     public void LayerStack_RemoveLayer()
     {
-        var stack = new LayerStack { ComponentType = ComponentType.Entity, ComponentId = "contact" };
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Base", Order = 0, IsManaged = true });
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "ISV", Order = 1, IsManaged = true });
+        var stack = new LayerStack { ComponentType = ComponentType.Entity, ComponentObjectId = "contact" };
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "Base", LayerOrder = 0, IsManaged = true });
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "ISV", LayerOrder = 1, IsManaged = true });
 
-        var removed = stack.RemoveLayer("ISV");
+        var removed = stack.RemoveLayersForSolution("ISV");
 
         Assert.True(removed);
         Assert.Single(stack.Layers);
-        Assert.Equal("Base", stack.Layers[0].SolutionUniqueName);
-        Assert.False(stack.RemoveLayer("NonExistent"));
+        Assert.Equal("Base", stack.Layers[0].LayerSolutionUniqueName);
+        Assert.False(stack.RemoveLayersForSolution("NonExistent"));
     }
 
     [Fact]
@@ -43,9 +43,9 @@ public class SolutionLayeringTests
         var baseForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Base Form") };
         var customForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Custom Form") };
 
-        var stack = new LayerStack { ComponentType = ComponentType.SystemForm, ComponentId = "form-1" };
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Base", Order = 0, IsManaged = true, Component = baseForm });
-        stack.PushLayer(new ComponentLayer { SolutionUniqueName = "Active", Order = 1, IsManaged = false, LayerKind = SolutionLayerKind.Active, Component = customForm });
+        var stack = new LayerStack { ComponentType = ComponentType.SystemForm, ComponentObjectId = "form-1" };
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "Base", LayerOrder = 0, IsManaged = true, Metadata = baseForm });
+        stack.AddLayer(new ComponentLayer { LayerSolutionUniqueName = "Active", LayerOrder = 1, IsManaged = false, LayerKind = SolutionLayerKind.Active, Metadata = customForm });
 
         var resolved = stack.ResolveTopWins<FormMetadata>();
         Assert.NotNull(resolved);
@@ -57,10 +57,10 @@ public class SolutionLayeringTests
     {
         var entity = new EntityMetadata { LogicalName = "account" };
 
-        var stack = new LayerStack { ComponentType = ComponentType.WebResource, ComponentId = "wr-1" };
-        stack.PushLayer(new ComponentLayer
+        var stack = new LayerStack { ComponentType = ComponentType.WebResource, ComponentObjectId = "wr-1" };
+        stack.AddLayer(new ComponentLayer
         {
-            SolutionUniqueName = "Active", Order = 0, Component = entity,
+            LayerSolutionUniqueName = "Active", LayerOrder = 0, Metadata = entity,
             LayerKind = SolutionLayerKind.Active,
             State = ComponentState.Delete
         });
@@ -81,20 +81,20 @@ public class SolutionLayeringTests
             new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", mainForm)
         };
 
-        mgr.ImportSolutionLayer("MySolution", 1, true, components);
+        mgr.ImportManagedLayer(new Solution { UniqueName = "MySolution", IsManaged = true }, 1, components);
 
         var entityStack = mgr.FindStack(ComponentType.Entity, "account");
         Assert.NotNull(entityStack);
         Assert.Single(entityStack!.Layers);
-        Assert.Equal("MySolution", entityStack.Layers[0].SolutionUniqueName);
+        Assert.Equal("MySolution", entityStack.Layers[0].LayerSolutionUniqueName);
         Assert.True(entityStack.Layers[0].IsManaged);
-        var resolvedEntity = entityStack.Layers[0].Component as EntityMetadata;
+        var resolvedEntity = entityStack.Layers[0].Metadata as EntityMetadata;
         Assert.NotNull(resolvedEntity);
         Assert.Equal("account", resolvedEntity!.LogicalName);
 
         var formStack = mgr.FindStack(ComponentType.SystemForm, "form-1");
         Assert.NotNull(formStack);
-        var resolvedForm = formStack!.Layers[0].Component as FormMetadata;
+        var resolvedForm = formStack!.Layers[0].Metadata as FormMetadata;
         Assert.NotNull(resolvedForm);
         Assert.Equal("Main", resolvedForm!.DisplayName.Default);
 
@@ -110,12 +110,12 @@ public class SolutionLayeringTests
         var sol1Attr = new StringAttributeMetadata { LogicalName = "name" };
         var sol2Entity = new EntityMetadata { LogicalName = "account" };
 
-        mgr.ImportSolutionLayer("Sol1", 0, true, new[]
+        mgr.ImportManagedLayer(new Solution { UniqueName = "Sol1", IsManaged = true }, 0, new[]
         {
             new LayerComponentDescriptor(ComponentType.Entity, "account", sol1Entity),
             new LayerComponentDescriptor(ComponentType.Attribute, "name", sol1Attr)
         });
-        mgr.ImportSolutionLayer("Sol2", 1, true, new[]
+        mgr.ImportManagedLayer(new Solution { UniqueName = "Sol2", IsManaged = true }, 1, new[]
         {
             new LayerComponentDescriptor(ComponentType.Entity, "account", sol2Entity)
         });
@@ -126,11 +126,11 @@ public class SolutionLayeringTests
         var accountStack = mgr.FindStack(ComponentType.Entity, "account");
         Assert.NotNull(accountStack);
         Assert.Single(accountStack!.Layers);
-        Assert.Equal("Sol2", accountStack.Layers[0].SolutionUniqueName);
+        Assert.Equal("Sol2", accountStack.Layers[0].LayerSolutionUniqueName);
 
         // name stack was emptied and cleaned up
         Assert.Null(mgr.FindStack(ComponentType.Attribute, "name"));
-        Assert.Single(mgr.AllStacks);
+        Assert.Single(mgr.Stacks);
     }
 
     [Fact]
@@ -151,11 +151,11 @@ public class SolutionLayeringTests
         var baseEntity = new EntityMetadata { LogicalName = "account" };
         var activeEntity = new EntityMetadata { LogicalName = "account", IsAuditEnabled = true };
 
-        mgr.ImportSolutionLayer("Base", 0, true, new[]
+        mgr.ImportManagedLayer(new Solution { UniqueName = "Base", IsManaged = true }, 0, new[]
         {
             new LayerComponentDescriptor(ComponentType.Entity, "account", baseEntity)
         });
-        mgr.ImportSolutionLayer("Active", 1, false, new[]
+        mgr.ImportActiveLayerSnapshot(new Solution { UniqueName = "Active", IsManaged = false }, 1, new[]
         {
             new LayerComponentDescriptor(ComponentType.Entity, "account", activeEntity)
         });
@@ -187,8 +187,8 @@ public class SolutionLayeringTests
 
         var stack = mgr.FindStack(ComponentType.Entity, "account")!;
 
-        Assert.Equal("ManagedBase", stack.BaseLayer!.SolutionUniqueName);
-        Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.SolutionUniqueName);
+        Assert.Equal("ManagedBase", stack.BaseLayer!.LayerSolutionUniqueName);
+        Assert.Equal(SolutionLayerManager.ActiveSolutionName, stack.TopLayer!.LayerSolutionUniqueName);
         Assert.Equal("UnmanagedEdits", stack.TopLayer.SourceSolutionUniqueName);
         Assert.Equal("Active", ((EntityMetadata)mgr.Resolve(stack)!).DisplayName.Default);
     }
@@ -222,23 +222,23 @@ public class SolutionLayeringTests
             new LayerComponentDescriptor(ComponentType.Entity, "account", new EntityMetadata { LogicalName = "account" }, "Entity:account")
         });
 
-        var membership = Assert.Single(workspace.SolutionComponents);
+        var membership = Assert.Single(workspace.SolutionComponentMemberships);
         Assert.Equal("UnmanagedUi", membership.SolutionUniqueName);
-        Assert.Equal(ComponentType.Entity, membership.Component.Type);
-        Assert.Equal("account", membership.Component.ObjectId);
+        Assert.Equal(ComponentType.Entity, membership.Identity.Type);
+        Assert.Equal("account", membership.Identity.ObjectId);
 
-        var snapshot = Assert.Single(workspace.ComponentSources);
+        var snapshot = Assert.Single(workspace.ComponentSourceSnapshots);
         Assert.Equal("UnmanagedUi", snapshot.SourceSolutionUniqueName);
         Assert.False(snapshot.IsManaged);
 
         var layer = workspace.Layers.FindStack(ComponentType.Entity, "account")!.TopLayer!;
-        Assert.Equal(SolutionLayerManager.ActiveSolutionName, layer.SolutionUniqueName);
+        Assert.Equal(SolutionLayerManager.ActiveSolutionName, layer.LayerSolutionUniqueName);
         Assert.Equal("UnmanagedUi", layer.SourceSolutionUniqueName);
         Assert.Equal(SolutionLayerKind.Active, layer.LayerKind);
 
         Assert.True(workspace.RemoveSolution("UnmanagedUi"));
-        Assert.Empty(workspace.SolutionComponents);
-        Assert.Empty(workspace.ComponentSources);
+        Assert.Empty(workspace.SolutionComponentMemberships);
+        Assert.Empty(workspace.ComponentSourceSnapshots);
         Assert.Null(workspace.Layers.FindStack(ComponentType.Entity, "account"));
     }
 
@@ -303,11 +303,11 @@ public class SolutionLayeringTests
         var baseForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Base") };
         var activeForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Active") };
 
-        mgr.ImportSolutionLayer("Base", 0, true, new[]
+        mgr.ImportManagedLayer(new Solution { UniqueName = "Base", IsManaged = true }, 0, new[]
         {
             new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", baseForm)
         });
-        mgr.ImportSolutionLayer("Active", 1, false, new[]
+        mgr.ImportActiveLayerSnapshot(new Solution { UniqueName = "Active", IsManaged = false }, 1, new[]
         {
             new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", activeForm)
         });
@@ -325,7 +325,7 @@ public class SolutionLayeringTests
     {
         var mgr = new SolutionLayerManager();
 
-        mgr.ImportSolutionLayer("Base", 0, true, new[]
+        mgr.ImportManagedLayer(new Solution { UniqueName = "Base", IsManaged = true }, 0, new[]
         {
             new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", new FormMetadata { FormId = "form-1" }),
             new LayerComponentDescriptor(ComponentType.SiteMap, "site-map", new SiteMapMetadata { UniqueName = "site-map" }),
@@ -360,11 +360,11 @@ public class SolutionLayeringTests
 
         var components = workspace.EnumerateLayerComponents().ToArray();
 
-        Assert.Contains(components, c => c.Type == ComponentType.EntityRelationship && c.Id == "account_contact");
-        Assert.Contains(components, c => c.Type == ComponentType.SystemForm && c.Id == "form-1");
-        Assert.Contains(components, c => c.Type == ComponentType.SiteMap && c.Id == "app_sitemap");
-        Assert.Contains(components, c => c.Type == ComponentType.AppModule && c.Id == "app");
-        Assert.Contains(components, c => c.Type == ComponentType.RibbonCustomization && c.Id == "account");
+        Assert.Contains(components, c => c.Type == ComponentType.EntityRelationship && c.ObjectId == "account_contact");
+        Assert.Contains(components, c => c.Type == ComponentType.SystemForm && c.ObjectId == "form-1");
+        Assert.Contains(components, c => c.Type == ComponentType.SiteMap && c.ObjectId == "app_sitemap");
+        Assert.Contains(components, c => c.Type == ComponentType.AppModule && c.ObjectId == "app");
+        Assert.Contains(components, c => c.Type == ComponentType.RibbonCustomization && c.ObjectId == "account");
     }
 
     /// <summary>Stub merger that returns a FormMetadata indicating how many layers were merged.</summary>

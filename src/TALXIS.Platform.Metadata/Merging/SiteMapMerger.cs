@@ -10,7 +10,7 @@ public sealed class SiteMapMerger : IComponentMerger
     public MetadataBase? Merge(IReadOnlyList<ComponentLayer> layers)
     {
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Component is SiteMapMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Metadata is SiteMapMetadata)
             .ToList();
         if (activeLayers.Count == 0) return null;
 
@@ -18,18 +18,18 @@ public sealed class SiteMapMerger : IComponentMerger
         if (topLayer.State == ComponentState.Delete || topLayer.State == ComponentState.UnpublishedDelete)
             return null;
 
-        var baseSiteMap = (SiteMapMetadata)activeLayers[0].Component!;
+        var baseSiteMap = (SiteMapMetadata)activeLayers[0].Metadata!;
         var current = baseSiteMap.Body;
         for (int i = 1; i < activeLayers.Count; i++)
         {
-            var layerSiteMap = (SiteMapMetadata)activeLayers[i].Component!;
+            var layerSiteMap = (SiteMapMetadata)activeLayers[i].Metadata!;
             if (current != null && layerSiteMap.Body != null)
                 current = TreeMergeEngine.Merge(current, layerSiteMap.Body);
             else if (layerSiteMap.Body != null)
                 current = layerSiteMap.Body;
         }
 
-        var topSiteMap = (SiteMapMetadata)activeLayers[activeLayers.Count - 1].Component!;
+        var topSiteMap = (SiteMapMetadata)activeLayers[activeLayers.Count - 1].Metadata!;
         return new SiteMapMetadata
         {
             UniqueName = topSiteMap.UniqueName,

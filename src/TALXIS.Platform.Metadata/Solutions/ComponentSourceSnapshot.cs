@@ -14,7 +14,7 @@ public sealed class ComponentSourceSnapshot
     /// <summary>
     /// Gets or sets the component identity.
     /// </summary>
-    public required ComponentIdentity Component { get; set; }
+    public required ComponentIdentity Identity { get; set; }
 
     /// <summary>
     /// Gets or sets the loaded metadata payload, when a typed payload exists.

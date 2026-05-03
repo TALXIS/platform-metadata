@@ -24,21 +24,21 @@ public sealed class FormMerger : IComponentMerger
 
         // Filter out deleted layers, keep Published and Unpublished
         var activeLayers = layers
-            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Component is FormMetadata)
+            .Where(l => l.State != ComponentState.Delete && l.State != ComponentState.UnpublishedDelete && l.Metadata is FormMetadata)
             .ToList();
 
         if (activeLayers.Count == 0)
             return null;
 
         var baseLayer = activeLayers[0];
-        if (baseLayer.Component is not FormMetadata baseForm || baseForm.Body == null)
-            return baseLayer.Component;
+        if (baseLayer.Metadata is not FormMetadata baseForm || baseForm.Body == null)
+            return baseLayer.Metadata;
 
         var current = baseForm.Body;
 
         for (int i = 1; i < activeLayers.Count; i++)
         {
-            if (activeLayers[i].Component is FormMetadata layerForm && layerForm.Body != null)
+            if (activeLayers[i].Metadata is FormMetadata layerForm && layerForm.Body != null)
             {
                 current = TreeMergeEngine.Merge(current, layerForm.Body);
             }
@@ -65,7 +65,7 @@ public sealed class FormMerger : IComponentMerger
             result.Description[kvp.Key] = kvp.Value;
 
         // Apply top-wins for scalar properties from topmost layer
-        var topForm = activeLayers[activeLayers.Count - 1].Component as FormMetadata;
+        var topForm = activeLayers[activeLayers.Count - 1].Metadata as FormMetadata;
         if (topForm != null && activeLayers.Count > 1)
         {
             result.FormType = topForm.FormType ?? result.FormType;

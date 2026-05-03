@@ -99,7 +99,7 @@ public sealed class XmlWorkspaceWriter
         exportWorkspace.AddSolution(solution);
         exportWorkspace.CopyOriginalDocumentsFrom(workspace);
 
-        foreach (var snapshot in workspace.ComponentSources.Where(source =>
+        foreach (var snapshot in workspace.ComponentSourceSnapshots.Where(source =>
             string.Equals(source.SourceSolutionUniqueName, solution.UniqueName, StringComparison.OrdinalIgnoreCase)))
         {
             if (snapshot.Metadata != null)
@@ -1796,7 +1796,7 @@ public sealed class XmlWorkspaceWriter
 
     private static string? FindSourceRoot(Workspace workspace, string solutionUniqueName)
     {
-        var sourceRoot = workspace.ComponentSources
+        var sourceRoot = workspace.ComponentSourceSnapshots
             .Where(source => string.Equals(source.SourceSolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase))
             .Select(source => source.SourceRootPath)
             .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
@@ -1804,7 +1804,7 @@ public sealed class XmlWorkspaceWriter
         if (!string.IsNullOrWhiteSpace(sourceRoot))
             return sourceRoot;
 
-        return workspace.SolutionComponents
+        return workspace.SolutionComponentMemberships
             .Where(membership => string.Equals(membership.SolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase))
             .Select(membership => membership.SourceRootPath)
             .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));

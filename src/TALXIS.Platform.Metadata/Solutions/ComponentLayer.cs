@@ -9,7 +9,7 @@ public sealed class ComponentLayer
     /// <summary>
     /// Gets or sets the Dataverse layer solution name, such as a managed solution name or <c>Active</c>.
     /// </summary>
-    public required string SolutionUniqueName { get; set; }
+    public required string LayerSolutionUniqueName { get; set; }
 
     /// <summary>
     /// Gets or sets the solution project that owns the source payload.
@@ -36,8 +36,19 @@ public sealed class ComponentLayer
     /// </summary>
     public int SourceOrder { get; set; }
 
-    public required int Order { get; set; }
+    /// <summary>
+    /// Gets or sets the caller-defined layer order.
+    /// </summary>
+    public required int LayerOrder { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this is a managed solution layer.
+    /// </summary>
     public bool IsManaged { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Dataverse component state for this layer.
+    /// </summary>
     public ComponentState State { get; set; } = ComponentState.Publish;
 
     /// <summary>
@@ -58,8 +69,8 @@ public sealed class ComponentLayer
     /// <summary>
     /// The component metadata for this layer. Can be any MetadataBase subclass
     /// (EntityMetadata, FormMetadata, SecurityRoleMetadata, etc.).
-    /// For top-wins resolution, the active layer's Component is the effective value.
-    /// For mergeable types, all layers' Components are inputs to the merge engine.
+    /// For top-wins resolution, the top layer's metadata is the effective value.
+    /// For mergeable types, all layers' metadata payloads are inputs to the merge engine.
     /// </summary>
-    public MetadataBase? Component { get; set; }
+    public MetadataBase? Metadata { get; set; }
 }
