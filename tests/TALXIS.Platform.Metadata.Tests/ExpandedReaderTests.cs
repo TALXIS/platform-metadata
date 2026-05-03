@@ -470,6 +470,7 @@ public class ExpandedReaderTests
             var scope = Assert.Single(flow.Actions, a => a.Name == "Scope");
             Assert.Equal("properties.definition.actions.Scope", scope.JsonPath);
             Assert.Equal(2, scope.Children.Count);
+            Assert.Empty(scope.ExpressionReferences);
 
             var getRow = Assert.Single(scope.Children, a => a.Name == "Get_row");
             Assert.Equal("GetItem", getRow.OperationId);
@@ -481,12 +482,14 @@ public class ExpandedReaderTests
 
             var condition = Assert.Single(flow.Actions, a => a.Name == "Condition");
             Assert.Contains(condition.ExpressionReferences, r => r.Kind == "parameters" && r.Name == "enabled");
+            Assert.DoesNotContain(condition.ExpressionReferences, r => r.Kind == "triggerBody");
             Assert.Contains(condition.Children, c => c.Name == "When_true" && c.ContainerPath == "actions");
             Assert.Contains(condition.Children, c => c.Name == "When_false" && c.BranchName == "else");
 
             var @switch = Assert.Single(flow.Actions, a => a.Name == "Switch");
             Assert.Equal("Condition", Assert.Single(@switch.RunAfter).TargetName);
             Assert.Contains(@switch.ExpressionReferences, r => r.Kind == "variables" && r.Name == "status");
+            Assert.DoesNotContain(@switch.ExpressionReferences, r => r.Kind == "items" || r.Kind == "triggerOutputs");
             Assert.Contains(@switch.Children, c => c.Name == "Case_action" && c.BranchName == "CaseA");
             Assert.Contains(@switch.Children, c => c.Name == "Default_action" && c.BranchName == "default");
             Assert.Contains(@switch.Children.SelectMany(c => c.ExpressionReferences), r => r.Kind == "triggerOutputs");

@@ -304,6 +304,9 @@ internal static class FlowDefinitionReader
     {
         foreach (var value in nodeObject.DescendantsAndSelf().OfType<JValue>())
         {
+            if (IsInsideNestedActionContainer(value, nodeObject))
+                continue;
+
             if (value.Type != JTokenType.String || value.Value is not string expression)
                 continue;
 
@@ -313,6 +316,20 @@ internal static class FlowDefinitionReader
             foreach (var reference in ExtractExpressionReferences(expression, value.Path, CreateSourceLocation(filePath, value)))
                 node.AddExpressionReference(reference);
         }
+    }
+
+    private static bool IsInsideNestedActionContainer(JToken value, JObject nodeObject)
+    {
+        var current = value;
+        while (current.Parent != null && !ReferenceEquals(current, nodeObject))
+        {
+            if (current.Parent is JProperty { Name: "actions", Value: JObject })
+                return true;
+
+            current = current.Parent;
+        }
+
+        return false;
     }
 
     private static IEnumerable<FlowExpressionReference> ExtractExpressionReferences(string expression, string jsonPath, SourceLocation source)
