@@ -159,7 +159,7 @@ public class XmlWorkspaceReaderTests
                 "<?xml version=\"1.0\"?><ImportExportXml><SolutionManifest><UniqueName>T</UniqueName><Version>1.0</Version><Managed>0</Managed><Publisher><UniqueName>t</UniqueName><CustomizationPrefix>t</CustomizationPrefix></Publisher><RootComponents/></SolutionManifest></ImportExportXml>");
 
             var workspace = new XmlWorkspaceReader().Load(dir);
-            
+            Assert.Empty(workspace.Relationships);
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }

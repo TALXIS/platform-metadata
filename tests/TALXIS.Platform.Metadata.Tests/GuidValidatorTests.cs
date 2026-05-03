@@ -97,15 +97,10 @@ public class GuidValidatorTests : IDisposable
 
         var results = _validator.ValidateDirectory(_tempDir);
 
-        // The GuidValidator groups by GUID value regardless of element name,
-        // so same GUID in different component types IS a duplicate.
-        // If they don't conflict, results should be empty; if they do, non-empty.
-        // Based on the implementation, GUIDs are tracked globally — same GUID = duplicate.
-        if (results.Count > 0)
-        {
-            // Implementation treats same GUID across component types as a duplicate
-            Assert.All(results, r => Assert.Equal(ValidationSeverity.Error, r.Severity));
-        }
-        // Either way the test documents the behavior
+        // GuidValidator tracks GUIDs globally — same GUID across different
+        // component types (formid vs savedqueryid) IS flagged as a duplicate.
+        Assert.NotEmpty(results);
+        Assert.True(results.Count >= 2, "Expected at least 2 results (one per occurrence)");
+        Assert.All(results, r => Assert.Equal(ValidationSeverity.Error, r.Severity));
     }
 }
