@@ -2,7 +2,9 @@
 
 ## Overview
 
-TALXIS Platform Metadata is a typed C# object model for model-driven platform components. It serves as the shared kernel for all tools and services that need to understand, validate, or manipulate platform metadata - whether from files on disk, a live environment API, or an in-memory workspace.
+TALXIS Platform Metadata is a typed C# object model for model-driven platform components. It serves as the shared kernel for all tools and services that need to understand, validate, or manipulate platform metadata -- whether from files on disk, a live environment API, or an in-memory workspace.
+
+The long-term vision is to build a lightweight, embeddable metadata runtime that replicates Dataverse solution framework behavior (layering, merging, dependency resolution) and can serve metadata via APIs, run in WASM, and power a language server. See [Runtime Architecture](runtime-architecture.md) for the full design.
 
 ## Design Philosophy: Simplify, Don't Replicate
 
@@ -41,12 +43,15 @@ The platform has two distinct component systems (see [blog post](https://blog.ne
 - SolutionPackager splits them into per-component files
 - Readable diffs in source control
 
-### SCF Components (type code 99998)
-- Runtime-assigned type codes (>1000), resolved by name not code
-- Registered dynamically via `solutioncomponentdefinition`
-- No static schema - each component owner decides format (JSON or XML)
-- Single generic handler with identity via `ComponentName` + `SchemaName`
+### SCF Components (Solution Component Framework)
+- SCF is not a single type code -- it is the extensibility framework for dynamically registered components
+- Hardcoded types (<1000) have dedicated processors: CustomControl/PCF (66), CanvasApp (300), EnvironmentVariable (380), Bot (403)
+- Dynamic types (>=10000) are registered at runtime via `SolutionComponentDefinition` entity (type 270)
+- Type codes can differ between environments -- identity is by `ComponentName` + `SchemaName`, not type code
+- No static schema -- each component owner decides format (JSON or XML)
+- Single `ScfPacker` handles all SCF child components for source control integration
 - Less readable in source control (GUIDs, encoded properties)
+- SmartDiff is built into the framework and applies automatically to all SCF types
 
 Both are first-class in our model. The `ComponentDefinition` registry handles both - platform types are pre-registered with known schemas, SCF types are discovered at runtime.
 

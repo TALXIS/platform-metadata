@@ -1,91 +1,96 @@
 # Roadmap
 
-## Phase 1: Foundation - Validation & Schemas
-**Goal:** Extract and share what already exists across repos.
+## Milestone 1: Foundation (DONE)
 
-- [ ] Create `TALXIS.Platform.Metadata` project (netstandard2.0)
-- [ ] Move 23 XSD schemas from [tools-devkit-build](https://github.com/TALXIS/tools-devkit-build/tree/master/src/Dataverse/Tasks/ValidationSchema) as embedded resources
-- [ ] Port `ValidateXmlFiles` core logic (XSD validation + nil normalization)
-- [ ] Port `ValidateDuplicateGuids` core logic (component identity rules)
-- [ ] Port `ComponentType` constants (scattered across build SDK tasks)
-- [ ] `SolutionPackagerLayout` - well-known paths (`Other/Solution.xml`, `Entities/`, etc.)
-- [ ] Publish to NuGet
-- [ ] Update `tools-devkit-build` to consume this package instead of bundling XSDs
-- [ ] Wire into CLI's reserved `workspace validate` command
+Three packages published to NuGet (v0.1.3):
+- `TALXIS.Platform.Metadata` - core model (zero deps, netstandard2.0)
+- `TALXIS.Platform.Metadata.Serialization.Xml` - SolutionPackager XML read/write
+- `TALXIS.Platform.Metadata.Validation` - 21 XSD schemas + GUID/JSON validators
 
-## Phase 2: Serialization - Read SolutionPackager Format
-**Goal:** Load a solution workspace from disk into typed objects.
+Wired into consumers: Build SDK references Validation, CLI has `workspace validate`.
 
-- [ ] `EntityMetadata` - load from `Entity.xml` (name, ownership, attributes, keys)
-- [ ] `AttributeMetadata` - typed subclasses (String, Integer, Picklist, Money, Lookup, ...)
-- [ ] `RelationshipMetadata` - load from `Relationships/*.xml`
-- [ ] `OptionSetMetadata` - global (`OptionSets/*.xml`) and local (inline in Entity.xml)
-- [ ] `SolutionMetadata` - load from `Solution.xml` (publisher, version, root components)
-- [ ] `CustomizationsMetadata` - load from `Customizations.xml` (component registrations)
-- [ ] `SolutionPackagerReader` - load entire workspace into a `Workspace` object
-- [ ] Roundtrip test: Load → Save = zero diff (against real solution exports)
+## Milestone 2: Expanded Model + Layering (DONE)
 
-## Phase 3: Serialization - Write SolutionPackager Format
-**Goal:** Write typed objects back to disk with minimal git diff.
+- 12 new model classes: Form, SavedQuery, WebResource, Workflow, PluginAssembly, PluginType, SdkMessageProcessingStep, StepImage, SecurityRole, AppModule, SiteMap, GenericComponent
+- XmlWorkspaceReader expanded with 10 loaders (covers all 48 templates)
+- XmlWorkspaceWriter with roundtrip-safe save for all types
+- IComponentDefinition port (13 behavioral properties)
+- Solution layering: ComponentLayer, LayerStack, SolutionLayerManager
+- IComponentMerger interface + FormMerger using TreeMergeEngine
+- MergeableNode: format-agnostic tree for merge operations (no XML dependency in core)
+- Label data-loss bug fixed (multi-language support)
+- 228 tests passing
 
-- [ ] `SolutionPackagerWriter` - write `Workspace` to disk
-- [ ] `XmlPreservingSerializer` - preserves unknown elements, attribute ordering, whitespace
-- [ ] Only write files that have been modified (dirty tracking)
-- [ ] Roundtrip test suite: Load from various real-world solutions, Save, verify zero diff
+## Milestone 3: MetadataRuntime + Solution Import
 
-## Phase 4: Workspace Manipulation API
-**Goal:** Type-safe, validated, deduplicating component manipulation.
+**Goal:** Replicate Dataverse solution framework behavior as a standalone runtime.
 
-- [ ] `IWorkspaceContext` interface
-- [ ] `FileSystemContext` - direct disk (for `dotnet new` scripts)
-- [ ] `TransactionalContext` - buffered writes with rollback (for CLI)
-- [ ] `SolutionXml.AddRootComponent()` - replaces raw XML manipulation in template scripts
-- [ ] `CustomizationsXml.EnsureNode()` - replaces 15+ template scripts that do the same thing
-- [ ] `EntityBuilder` - fluent API for creating entities with attributes, forms, views
-- [ ] Publish updated package
-- [ ] Migrate template post-action scripts to use this API
+- [ ] `MetadataRuntime` facade - wires providers, layer manager, mergers, query API
+- [ ] `ImportSolution(stream)` - deserialize ZIP, add layers, recompute active state
+- [ ] `UninstallSolution(name)` - remove layers, cascade checks, recompute
+- [ ] `GetEffective<T>(type, id)` - resolved component after layering
+- [ ] `DependencyGraph` - component reference tracking, cascade validation
+- [ ] `OnChanged` event - notify subscribers of component changes
+- [ ] Incremental recomputation (only affected components, not full rebuild)
+- [ ] `Serialization.Zip` package - solution ZIP pack/unpack
 
-## Phase 5: Form & View Models
-**Goal:** Typed form and view manipulation.
+## Milestone 4: Workspace Manipulation API
 
-- [ ] `FormMetadata` - tabs, sections, rows, cells, controls with ClassID mapping
-- [ ] `ViewMetadata` - FetchXML, layout XML, column definitions
-- [ ] `FormBuilder` - fluent API for constructing forms
-- [ ] Replace form/view template scripts with typed builders
+**Goal:** Type-safe component manipulation for CLI and template engine.
 
-## Phase 6: Solution Layers
-**Goal:** Multi-layer component model mirroring platform behavior.
+- [ ] `IWorkspaceContext` interface (FileSystem, Transactional, InMemory)
+- [ ] `SolutionXml.AddRootComponent()` - replace raw XML manipulation
+- [ ] `EntityBuilder` - fluent API for entity + attribute creation
+- [ ] `FormBuilder` - fluent API for form construction
+- [ ] Migrate template post-action scripts to typed API
+- [ ] Dirty tracking (only write modified files)
 
-- [ ] `ComponentLayer` - solution-scoped component state
-- [ ] `ComponentDefinition` - per-type behavior (mergeable, dependency rules)
-- [ ] `LayerStack` - ordered layers with active resolution
-- [ ] Load layers from multiple solution exports
-- [ ] Diff between layers (what changed)
+## Milestone 5: CDN Snapshot Format
 
-## Phase 7: Language Server Integration
+**Goal:** Fast, CDN-friendly serialization for SPA and WASM scenarios.
+
+- [ ] Content-addressable component store (hash-based file names)
+- [ ] Manifest + indices for filtered loading (by-type, by-entity, by-app)
+- [ ] Binary serialization (MessagePack or custom) - no XML parser needed
+- [ ] Sub-100ms cold start for typical solution
+- [ ] `Serialization.Snap` package
+- [ ] Version-tagged URLs for immutable CDN caching
+
+## Milestone 6: Provider.Dataverse
+
+**Goal:** Bidirectional sync with live Dataverse environments.
+
+- [ ] `RetrieveMetadataChangesRequest` for entities/attributes/relationships
+- [ ] `RetrieveMultiple` for forms, views, plugins, roles
+- [ ] Incremental sync via server version tokens
+- [ ] Drift detection (compare workspace vs live)
+- [ ] Write metadata back (create/update entities, attributes)
+
+## Milestone 7: Language Server
+
 **Goal:** Real-time diagnostics and completions in VS Code.
 
-- [ ] `InMemoryContext` - for language server workspace
-- [ ] Diagnostics from `SchemaValidator` + `StructuralValidator`
-- [ ] Completions from loaded workspace model (entity names, attribute names, option values)
-- [ ] Go-to-definition for cross-file references (form → entity → attribute)
+- [ ] LSP server using core model + validation
+- [ ] Diagnostics from SchemaValidator + StructuralValidator
+- [ ] Completions from loaded workspace (entity/attribute/option set names)
+- [ ] Go-to-definition for cross-file references
+- [ ] File watching + incremental reload via InMemoryContext
+- [ ] Uses SourceLocation from core model
 
-## Phase 8: API Loader
-**Goal:** Load metadata model from a live environment.
+## Milestone 8: Code Generation
 
-- [ ] `ApiMetadataReader` - `RetrieveEntityRequest` → `EntityMetadata`
-- [ ] `ApiMetadataWriter` - `CreateEntityRequest` from model objects
-- [ ] Compare disk model vs. live environment (drift detection)
+**Goal:** Generate typed code from metadata model.
 
-## Existing Code to Consolidate
+- [ ] `CodeGen.CSharp` - Roslyn SyntaxFactory (not CodeDOM), split files per entity
+- [ ] `CodeGen.TypeScript` - TS interfaces + Zod schemas
+- [ ] Roundtrip: Entity.xml -> Core Model -> Entity.cs
 
-| Source | What | Destination |
+## Related Repositories
+
+| Repository | Role | Integration point |
 |---|---|---|
-| `tools-devkit-build/ValidationSchema/*.xsd` | 23 XSD schemas | `Validation/Schemas/` |
-| `tools-devkit-build/Tasks/ValidateXmlFiles.cs` | XSD validation + nil normalization | `Validation/SchemaValidator.cs` |
-| `tools-devkit-build/Tasks/ValidateDuplicateGuids.cs` | GUID identity rules per component type | `Validation/GuidValidator.cs` |
-| `tools-devkit-build/Tasks/EnsureAllCustomizationsNodes.cs` | Component → Customizations.xml node mapping | `Solutions/ComponentDefinitionRegistry.cs` |
-| `tools-cli/DataModelConverter/Model/` | `Table`, `TableRow`, `Relationship`, `OptionsetEnum` | `EntityMetadata`, `AttributeMetadata`, etc. |
-| `tools-cli/DataModelConverter/XMLSchemas/OptionSetXmlSchema.cs` | OptionSet XML deserializer | `Serialization/` |
-| `client-metadata` (TypeScript) | `IEntityDefinition`, `Attribute`, `DataType` | Port interfaces to C# |
-| `INT0014/SDK/ObjectModel/CDS/Solution/` | `Customizations`, `Workflow`, enums | `Solutions/`, `Metadata/` |
+| [TALXIS/tools-cli](https://github.com/TALXIS/tools-cli) | CLI commands, MCP server | References all packages |
+| [TALXIS/tools-devkit-build](https://github.com/TALXIS/tools-devkit-build) | MSBuild SDK | References Validation |
+| [TALXIS/tools-devkit-templates](https://github.com/TALXIS/tools-devkit-templates) | dotnet new templates | Post-actions will use Workspace API |
+| INT0014-MetadataService | SPA metadata proxy | Will use core model as shared types |
+| INT0014-EnvironmentDataService | Dataverse replacement runtime | Will use MetadataRuntime for solution import |
