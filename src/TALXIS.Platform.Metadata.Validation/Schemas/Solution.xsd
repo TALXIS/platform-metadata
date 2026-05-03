@@ -128,10 +128,11 @@
                                             <xs:complexType>
                                                 <xs:simpleContent>
                                                     <xs:extension base="xs:string">
-                                                        <xs:attribute type="xs:int" name="type" use="optional"/>
+                                                        <xs:attribute type="xs:string" name="type" use="optional"/>
                                                         <xs:attribute type="xs:string" name="schemaName" use="optional"/>
                                                         <xs:attribute type="xs:byte" name="behavior" use="optional"/>
                                                         <xs:attribute type="xs:string" name="id" use="optional"/>
+                                                        <xs:anyAttribute processContents="lax"/>
                                                     </xs:extension>
                                                 </xs:simpleContent>
                                             </xs:complexType>
@@ -147,21 +148,32 @@
                                                 <xs:sequence>
                                                     <xs:element name="Required">
                                                         <xs:complexType>
-                                                            <xs:attribute type="xs:int" name="type" use="required"/>
-                                                            <xs:attribute type="xs:string" name="schemaName" use="required"/>
+                                                            <xs:sequence>
+                                                                <xs:element name="package" minOccurs="0" maxOccurs="unbounded">
+                                                                    <xs:complexType mixed="true">
+                                                                        <xs:attribute type="xs:string" name="appName" use="optional"/>
+                                                                        <xs:attribute type="xs:string" name="version" use="optional"/>
+                                                                    </xs:complexType>
+                                                                </xs:element>
+                                                            </xs:sequence>
+                                                            <xs:attribute type="xs:string" name="type" use="required"/>
+                                                            <xs:attribute type="xs:string" name="schemaName" use="optional"/>
                                                             <xs:attribute type="xs:string" name="displayName" use="required"/>
                                                             <xs:attribute type="xs:string" name="solution" use="optional"/>
+                                                            <xs:attribute type="xs:string" name="id" use="optional"/>
                                                             <xs:attribute type="xs:string" name="parentSchemaName" use="optional"/>
                                                             <xs:attribute type="xs:string" name="parentDisplayName" use="optional"/>
+                                                            <xs:anyAttribute processContents="lax"/>
                                                         </xs:complexType>
                                                     </xs:element>
                                                     <xs:element name="Dependent">
                                                         <xs:complexType>
-                                                            <xs:attribute type="xs:int" name="type" use="optional"/>
+                                                            <xs:attribute type="xs:string" name="type" use="optional"/>
                                                             <xs:attribute type="xs:string" name="schemaName" use="optional"/>
                                                             <xs:attribute type="xs:string" name="displayName" use="optional"/>
                                                             <xs:attribute type="xs:string" name="id" use="optional"/>
                                                             <xs:attribute type="xs:string" name="parentDisplayName" use="optional"/>
+                                                            <xs:anyAttribute processContents="lax"/>
                                                         </xs:complexType>
                                                     </xs:element>
                                                 </xs:sequence>
@@ -354,6 +366,9 @@
             <xs:attribute type="xs:float" name="SolutionPackageVersion"/>
             <xs:attribute type="xs:nonNegativeInteger" name="languagecode"/>
             <xs:attribute type="xs:string" name="generatedBy"/>
+            <xs:attribute type="xs:string" name="OrganizationVersion"/>
+            <xs:attribute type="xs:string" name="OrganizationSchemaType"/>
+            <xs:attribute type="xs:string" name="CRMServerServiceabilityVersion"/>
         </xs:complexType>
     </xs:element>
 </xs:schema>
