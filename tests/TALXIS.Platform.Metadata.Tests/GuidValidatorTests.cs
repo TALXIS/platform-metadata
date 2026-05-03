@@ -73,6 +73,49 @@ public class GuidValidatorTests : IDisposable
     }
 
     [Fact]
+    public void DuplicateAttributeGuids_DetectedAcrossFiles()
+    {
+        var stepsDir = Path.Combine(_tempDir, "SdkMessageProcessingSteps");
+        Directory.CreateDirectory(stepsDir);
+
+        var duplicateGuid = "{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}";
+
+        File.WriteAllText(Path.Combine(stepsDir, "step1.xml"), $"""
+            <SdkMessageProcessingStep SdkMessageProcessingStepId="{duplicateGuid}" Name="Step1" />
+            """);
+
+        File.WriteAllText(Path.Combine(stepsDir, "step2.xml"), $"""
+            <SdkMessageProcessingStep SdkMessageProcessingStepId="{duplicateGuid}" Name="Step2" />
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.NotEmpty(results);
+        Assert.True(results.Count >= 2, "Expected at least 2 results (one per occurrence)");
+        Assert.All(results, r => Assert.Equal(ValidationSeverity.Error, r.Severity));
+        Assert.All(results, r => Assert.Contains("Duplicate GUID", r.Message));
+    }
+
+    [Fact]
+    public void DifferentAttributeGuids_NoDuplicates()
+    {
+        var stepsDir = Path.Combine(_tempDir, "SdkMessageProcessingSteps");
+        Directory.CreateDirectory(stepsDir);
+
+        File.WriteAllText(Path.Combine(stepsDir, "step1.xml"), """
+            <SdkMessageProcessingStep SdkMessageProcessingStepId="{11111111-1111-1111-1111-111111111111}" Name="Step1" />
+            """);
+
+        File.WriteAllText(Path.Combine(stepsDir, "step2.xml"), """
+            <SdkMessageProcessingStep SdkMessageProcessingStepId="{22222222-2222-2222-2222-222222222222}" Name="Step2" />
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void DifferentComponentTypes_DontConflict()
     {
         var sameGuid = "{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}";

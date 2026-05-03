@@ -43,6 +43,7 @@ public sealed class GuidValidator
         ("PluginAssemblyId",            "PluginAssemblies"),
         ("WorkflowId",                  "Workflows"),
         ("id",                          "Roles"),
+        ("id",                          "ConnectionRoles"),
         ("AppModuleId",                 "AppModules"),
     };
 
