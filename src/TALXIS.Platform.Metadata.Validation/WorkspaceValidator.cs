@@ -9,6 +9,26 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class WorkspaceValidator
 {
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin", "obj", ".vs", ".git", ".github", "node_modules", "packages", "TestResults"
+    };
+
+    private static IEnumerable<string> EnumerateWorkspaceFiles(string directory, string pattern)
+    {
+        var fullDir = Path.GetFullPath(directory);
+        foreach (var file in Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories))
+        {
+            // Check if any parent directory is in the ignore list
+            var fullFile = Path.GetFullPath(file);
+            var relativePath = fullFile.Substring(fullDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var parts = relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
+            if (parts.Any(p => IgnoredDirectories.Contains(p)))
+                continue;
+            yield return file;
+        }
+    }
+
     /// <summary>
     /// Runs all validation checks on a solution workspace directory:
     /// XSD schema validation, JSON schema validation, duplicate GUID detection,
@@ -27,16 +47,42 @@ public sealed class WorkspaceValidator
 
         // Layer 1: Schema validation
         var schemaValidator = new SchemaValidator();
-        foreach (var xmlFile in Directory.EnumerateFiles(workspacePath, "*.xml", SearchOption.AllDirectories))
+        foreach (var xmlFile in EnumerateWorkspaceFiles(workspacePath, "*.xml"))
         {
-            results.AddRange(schemaValidator.ValidateFile(xmlFile));
+            try
+            {
+                results.AddRange(schemaValidator.ValidateFile(xmlFile));
+            }
+            catch (IOException ex)
+            {
+                results.Add(new ValidationResult(ValidationSeverity.Warning,
+                    $"Cannot read file: {ex.Message}", xmlFile, null, null));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                results.Add(new ValidationResult(ValidationSeverity.Warning,
+                    $"Access denied: {ex.Message}", xmlFile, null, null));
+            }
         }
 
         // Layer 1: JSON validation
         var jsonValidator = new JsonValidator();
-        foreach (var jsonFile in Directory.EnumerateFiles(workspacePath, "*.json", SearchOption.AllDirectories))
+        foreach (var jsonFile in EnumerateWorkspaceFiles(workspacePath, "*.json"))
         {
-            results.AddRange(jsonValidator.ValidateFile(jsonFile));
+            try
+            {
+                results.AddRange(jsonValidator.ValidateFile(jsonFile));
+            }
+            catch (IOException ex)
+            {
+                results.Add(new ValidationResult(ValidationSeverity.Warning,
+                    $"Cannot read file: {ex.Message}", jsonFile, null, null));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                results.Add(new ValidationResult(ValidationSeverity.Warning,
+                    $"Access denied: {ex.Message}", jsonFile, null, null));
+            }
         }
 
         // Layer 1: GUID duplicate detection
@@ -50,11 +96,11 @@ public sealed class WorkspaceValidator
             var reader = new XmlWorkspaceReader();
             workspace = reader.Load(workspacePath);
 
-            // Report load errors as validation warnings
+            // Report load errors as validation errors (malformed XML is not recoverable)
             foreach (var loadError in workspace.LoadErrors)
             {
                 results.Add(new ValidationResult(
-                    ValidationSeverity.Warning,
+                    ValidationSeverity.Error,
                     $"Load error: {loadError.Message}",
                     loadError.FilePath, null, null));
             }
