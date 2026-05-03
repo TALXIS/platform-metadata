@@ -1053,9 +1053,10 @@ public sealed class XmlWorkspaceReader
         {
             doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
         }
-        catch (System.Xml.XmlException)
+        catch (System.Xml.XmlException ex)
         {
-            return; // skip malformed XML
+            workspace.AddLoadError(file, $"Malformed XML: {ex.Message}");
+            return;
         }
 
         var root = doc.Root;

@@ -76,6 +76,7 @@ public sealed class GuidValidator
         }
 
         var guidMap = new Dictionary<string, List<GuidLocation>>(StringComparer.OrdinalIgnoreCase);
+        var results = new List<ValidationResult>();
 
         foreach (var filePath in Directory.EnumerateFiles(workspacePath, "*.xml", SearchOption.AllDirectories))
         {
@@ -83,17 +84,17 @@ public sealed class GuidValidator
             {
                 ScanFile(filePath, guidMap);
             }
-            catch (System.Xml.XmlException)
+            catch (System.Xml.XmlException ex)
             {
-                // Skip files with malformed XML (mirrors build SDK behaviour).
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Warning, $"Malformed XML, skipped GUID scan: {ex.Message}", filePath, null, null));
             }
-            catch (IOException)
+            catch (IOException ex)
             {
-                // Skip files that cannot be read (locked, missing, etc.).
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Warning, $"Cannot read file, skipped GUID scan: {ex.Message}", filePath, null, null));
             }
         }
-
-        var results = new List<ValidationResult>();
 
         foreach (var entry in guidMap)
         {

@@ -1480,10 +1480,10 @@ public sealed class XmlWorkspaceWriter
                 {
                     doc = XDocument.Parse(component.RawXml);
                 }
-                catch (System.Xml.XmlException)
+                catch (System.Xml.XmlException ex)
                 {
-                    // Skip components with malformed raw XML
-                    continue;
+                    throw new InvalidOperationException(
+                        $"Generic component '{component.ComponentTypeName}' at '{component.FilePath}' has malformed RawXml: {ex.Message}", ex);
                 }
             }
             else

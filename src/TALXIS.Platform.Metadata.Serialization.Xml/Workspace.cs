@@ -61,6 +61,17 @@ public sealed class Workspace
     private readonly List<GenericComponentMetadata> _genericComponents = new();
     public IReadOnlyList<GenericComponentMetadata> GenericComponents => _genericComponents;
 
+    private readonly List<WorkspaceLoadError> _loadErrors = new();
+
+    /// <summary>
+    /// Errors encountered during workspace loading (malformed XML, missing required elements, etc.).
+    /// Callers should check this after Load() to report problems to the user.
+    /// </summary>
+    public IReadOnlyList<WorkspaceLoadError> LoadErrors => _loadErrors;
+
+    internal void AddLoadError(string filePath, string message) =>
+        _loadErrors.Add(new WorkspaceLoadError(filePath, message));
+
     /// <summary>
     /// Original XML documents stored by the reader for roundtrip-safe writing.
     /// Keys: "Solution.xml", "Entity:{logicalName}", "OptionSet:{name}", "Relationships.xml"
@@ -83,4 +94,21 @@ public sealed class Workspace
 
     public EntityMetadata? FindEntity(string logicalName) =>
         _entities.FirstOrDefault(e => string.Equals(e.LogicalName, logicalName, StringComparison.OrdinalIgnoreCase));
+}
+
+/// <summary>
+/// An error encountered while loading a workspace file.
+/// </summary>
+public sealed class WorkspaceLoadError
+{
+    public string FilePath { get; }
+    public string Message { get; }
+
+    public WorkspaceLoadError(string filePath, string message)
+    {
+        FilePath = filePath;
+        Message = message;
+    }
+
+    public override string ToString() => $"{FilePath}: {Message}";
 }
