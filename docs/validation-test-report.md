@@ -137,6 +137,54 @@ Copied conference-session to temp, injected 7 errors, validated:
 
 **6/7 caught.** Test 6 confirms PR #22 (attribute GUID scanning) is needed.
 
+## Roundtrip Fidelity Tests
+
+Loaded 14 solutions into memory via XmlWorkspaceReader, wrote back via XmlWorkspaceWriter, diffed against originals.
+
+### Files not roundtripped (dropped entirely)
+
+| File type | Reason | Impact |
+|-----------|--------|--------|
+| `*_managed.xml` forms | Reader skips managed form variants | Forms lost if solution has managed overlays |
+| `RibbonDiff.xml` | No reader/writer support | Ribbon customizations dropped |
+| `Customizations.xml` | No reader/writer support | Component registration stub dropped |
+| `Other/Relationships/*.xml` | Per-entity relationship files not emitted | Entity-specific relationship details lost |
+
+### Data changes (semantic differences)
+
+| Change | Where | Impact |
+|--------|-------|--------|
+| `systemrequired` normalized to `required` | Attribute RequiredLevel | Changes meaning (system vs application required) |
+| `Managed` value `2` changed to `0` | Solution.xml | Incorrect managed state |
+
+### Formatting differences (non-semantic)
+
+| Change | Scope | Notes |
+|--------|-------|-------|
+| BOM stripped | All files | Writer omits UTF-8 BOM that SolutionPackager includes |
+| List children collapsed to single line | RolePrivileges, RootComponents, options, AppModuleComponents | Causes noisy diffs |
+| `xmlns:xsi` no longer line-wrapped | Root elements | Minor whitespace change |
+| Self-closing tag style (`<Foo/>` vs `<Foo />`) | Various | XmlWriter default behavior |
+| Form/view XML reformatted | Forms, views | Semantically equivalent but different whitespace |
+
+### Filename differences
+
+| Component | Expected | Actual |
+|-----------|----------|--------|
+| SiteMap | `AppModuleSiteMap.xml` | `{uniqueName}.xml` |
+| SdkMessageProcessingStep | `{guid}.xml` | `{{guid}}.xml` (double-braced) |
+
+### Assessment
+
+The roundtrip is not yet production-ready. The main issues to fix before relying on write-back:
+
+1. **Missing file types**: RibbonDiff, Customizations, managed forms, per-entity relationships
+2. **Data loss**: RequiredLevel normalization, Managed value
+3. **Formatting noise**: list element indentation, BOM handling
+4. **Filename conventions**: SiteMap and Step naming
+
+The reader handles all component types well (loads successfully). The writer needs work on preserving original formatting and supporting all file types.
+
 ## Recommendations
 
 ### Immediate (before next release)
