@@ -92,10 +92,11 @@ public class ComponentBodyMergerTests
         if (attributes != null)
         {
             foreach (var attribute in attributes)
-                node.Attributes[attribute.Key] = attribute.Value;
+                node.SetAttribute(attribute.Key, attribute.Value);
         }
 
-        node.Children.AddRange(children);
+        foreach (var child in children)
+            node.AddChild(child);
         return node;
     }
 

@@ -74,10 +74,10 @@ public class SolutionLayeringTests
         var accountEntity = new EntityMetadata { LogicalName = "account" };
         var mainForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Main") };
 
-        var components = new (ComponentType, string, MetadataBase?)[]
+        var components = new[]
         {
-            (ComponentType.Entity, "account", accountEntity),
-            (ComponentType.SystemForm, "form-1", mainForm)
+            new LayerComponentDescriptor(ComponentType.Entity, "account", accountEntity),
+            new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", mainForm)
         };
 
         mgr.ImportSolutionLayer("MySolution", 1, true, components);
@@ -109,14 +109,14 @@ public class SolutionLayeringTests
         var sol1Attr = new StringAttributeMetadata { LogicalName = "name" };
         var sol2Entity = new EntityMetadata { LogicalName = "account" };
 
-        mgr.ImportSolutionLayer("Sol1", 0, true, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Sol1", 0, true, new[]
         {
-            (ComponentType.Entity, "account", sol1Entity),
-            (ComponentType.Attribute, "name", sol1Attr)
+            new LayerComponentDescriptor(ComponentType.Entity, "account", sol1Entity),
+            new LayerComponentDescriptor(ComponentType.Attribute, "name", sol1Attr)
         });
-        mgr.ImportSolutionLayer("Sol2", 1, true, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Sol2", 1, true, new[]
         {
-            (ComponentType.Entity, "account", sol2Entity)
+            new LayerComponentDescriptor(ComponentType.Entity, "account", sol2Entity)
         });
 
         mgr.RemoveSolutionLayers("Sol1");
@@ -150,13 +150,13 @@ public class SolutionLayeringTests
         var baseEntity = new EntityMetadata { LogicalName = "account" };
         var activeEntity = new EntityMetadata { LogicalName = "account", IsAuditEnabled = true };
 
-        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Base", 0, true, new[]
         {
-            (ComponentType.Entity, "account", baseEntity)
+            new LayerComponentDescriptor(ComponentType.Entity, "account", baseEntity)
         });
-        mgr.ImportSolutionLayer("Active", 1, false, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Active", 1, false, new[]
         {
-            (ComponentType.Entity, "account", activeEntity)
+            new LayerComponentDescriptor(ComponentType.Entity, "account", activeEntity)
         });
 
         var stack = mgr.FindStack(ComponentType.Entity, "account")!;
@@ -175,13 +175,13 @@ public class SolutionLayeringTests
         var baseForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Base") };
         var activeForm = new FormMetadata { FormId = "form-1", DisplayName = new Label("Active") };
 
-        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Base", 0, true, new[]
         {
-            (ComponentType.SystemForm, "form-1", baseForm)
+            new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", baseForm)
         });
-        mgr.ImportSolutionLayer("Active", 1, false, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Active", 1, false, new[]
         {
-            (ComponentType.SystemForm, "form-1", activeForm)
+            new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", activeForm)
         });
 
         var stack = mgr.FindStack(ComponentType.SystemForm, "form-1")!;
@@ -197,13 +197,13 @@ public class SolutionLayeringTests
     {
         var mgr = new SolutionLayerManager();
 
-        mgr.ImportSolutionLayer("Base", 0, true, new (ComponentType, string, MetadataBase?)[]
+        mgr.ImportSolutionLayer("Base", 0, true, new[]
         {
-            (ComponentType.SystemForm, "form-1", new FormMetadata { FormId = "form-1" }),
-            (ComponentType.SiteMap, "site-map", new SiteMapMetadata { UniqueName = "site-map" }),
-            (ComponentType.AppModule, "app", new AppModuleMetadata { UniqueName = "app" }),
-            (ComponentType.RibbonCustomization, "account", new RibbonMetadata { EntityLogicalName = "account" }),
-            (ComponentType.Entity, "account", new EntityMetadata { LogicalName = "account" })
+            new LayerComponentDescriptor(ComponentType.SystemForm, "form-1", new FormMetadata { FormId = "form-1" }),
+            new LayerComponentDescriptor(ComponentType.SiteMap, "site-map", new SiteMapMetadata { UniqueName = "site-map" }),
+            new LayerComponentDescriptor(ComponentType.AppModule, "app", new AppModuleMetadata { UniqueName = "app" }),
+            new LayerComponentDescriptor(ComponentType.RibbonCustomization, "account", new RibbonMetadata { EntityLogicalName = "account" }),
+            new LayerComponentDescriptor(ComponentType.Entity, "account", new EntityMetadata { LogicalName = "account" })
         });
 
         Assert.True(mgr.FindStack(ComponentType.SystemForm, "form-1")!.RequiresMerge);
@@ -232,11 +232,11 @@ public class SolutionLayeringTests
 
         var components = workspace.EnumerateLayerComponents().ToArray();
 
-        Assert.Contains(components, c => c.type == ComponentType.EntityRelationship && c.id == "account_contact");
-        Assert.Contains(components, c => c.type == ComponentType.SystemForm && c.id == "form-1");
-        Assert.Contains(components, c => c.type == ComponentType.SiteMap && c.id == "app_sitemap");
-        Assert.Contains(components, c => c.type == ComponentType.AppModule && c.id == "app");
-        Assert.Contains(components, c => c.type == ComponentType.RibbonCustomization && c.id == "account");
+        Assert.Contains(components, c => c.Type == ComponentType.EntityRelationship && c.Id == "account_contact");
+        Assert.Contains(components, c => c.Type == ComponentType.SystemForm && c.Id == "form-1");
+        Assert.Contains(components, c => c.Type == ComponentType.SiteMap && c.Id == "app_sitemap");
+        Assert.Contains(components, c => c.Type == ComponentType.AppModule && c.Id == "app");
+        Assert.Contains(components, c => c.Type == ComponentType.RibbonCustomization && c.Id == "account");
     }
 
     /// <summary>Stub merger that returns a FormMetadata indicating how many layers were merged.</summary>

@@ -34,6 +34,8 @@ public sealed class WorkspaceValidator
     /// XSD schema validation, JSON schema validation, duplicate GUID detection,
     /// and model loading (reports parse errors and component counts).
     /// </summary>
+    /// <param name="workspacePath">Path to the unpacked SolutionPackager workspace.</param>
+    /// <returns>A validation report containing all findings and the loaded workspace when loading succeeded.</returns>
     public WorkspaceValidationReport ValidateDirectory(string workspacePath)
     {
         var results = new List<ValidationResult>();
@@ -124,10 +126,24 @@ public sealed class WorkspaceValidator
 /// </summary>
 public sealed class WorkspaceValidationReport
 {
+    /// <summary>
+    /// Gets the individual validation findings.
+    /// </summary>
     public IReadOnlyList<ValidationResult> Results { get; }
+
+    /// <summary>
+    /// Gets the loaded workspace when model loading succeeded; otherwise <see langword="null"/>.
+    /// </summary>
     public Workspace? Workspace { get; }
 
+    /// <summary>
+    /// Gets the number of error-level findings.
+    /// </summary>
     public int ErrorCount => Results.Count(r => r.Severity == ValidationSeverity.Error);
+
+    /// <summary>
+    /// Gets the number of warning-level findings.
+    /// </summary>
     public int WarningCount => Results.Count(r => r.Severity == ValidationSeverity.Warning);
 
     /// <summary>
@@ -135,6 +151,11 @@ public sealed class WorkspaceValidationReport
     /// </summary>
     public ComponentSummary? LoadedComponents { get; }
 
+    /// <summary>
+    /// Creates a validation report.
+    /// </summary>
+    /// <param name="results">Validation results produced by the run.</param>
+    /// <param name="workspace">Loaded workspace, or <see langword="null"/> when model loading failed.</param>
     public WorkspaceValidationReport(IReadOnlyList<ValidationResult> results, Workspace? workspace)
     {
         Results = results;
@@ -151,25 +172,92 @@ public sealed class WorkspaceValidationReport
 /// </summary>
 public sealed class ComponentSummary
 {
+    /// <summary>
+    /// Gets the number of entities loaded into the workspace.
+    /// </summary>
     public int Entities { get; }
-    public int Attributes { get; }
-    public int Forms { get; }
-    public int Views { get; }
-    public int GlobalOptionSets { get; }
-    public int Relationships { get; }
-    public int PluginAssemblies { get; }
-    public int SdkMessageProcessingSteps { get; }
-    public int SecurityRoles { get; }
-    public int AppModules { get; }
-    public int SiteMaps { get; }
-    public int WebResources { get; }
-    public int Workflows { get; }
-    public int FlowDefinitions { get; }
-    public int GenericComponents { get; }
-    public int Total => Entities + Forms + Views + GlobalOptionSets + Relationships +
-                        PluginAssemblies + SdkMessageProcessingSteps + SecurityRoles +
-                        AppModules + SiteMaps + WebResources + Workflows + FlowDefinitions + GenericComponents;
 
+    /// <summary>
+    /// Gets the total number of attributes across all entities.
+    /// </summary>
+    public int Attributes { get; }
+
+    /// <summary>
+    /// Gets the number of forms.
+    /// </summary>
+    public int Forms { get; }
+
+    /// <summary>
+    /// Gets the number of views.
+    /// </summary>
+    public int Views { get; }
+
+    /// <summary>
+    /// Gets the number of global option sets.
+    /// </summary>
+    public int GlobalOptionSets { get; }
+
+    /// <summary>
+    /// Gets the number of relationships.
+    /// </summary>
+    public int Relationships { get; }
+
+    /// <summary>
+    /// Gets the number of plugin assemblies.
+    /// </summary>
+    public int PluginAssemblies { get; }
+
+    /// <summary>
+    /// Gets the number of SDK message processing steps.
+    /// </summary>
+    public int SdkMessageProcessingSteps { get; }
+
+    /// <summary>
+    /// Gets the number of security roles.
+    /// </summary>
+    public int SecurityRoles { get; }
+
+    /// <summary>
+    /// Gets the number of app modules.
+    /// </summary>
+    public int AppModules { get; }
+
+    /// <summary>
+    /// Gets the number of site maps.
+    /// </summary>
+    public int SiteMaps { get; }
+
+    /// <summary>
+    /// Gets the number of web resources.
+    /// </summary>
+    public int WebResources { get; }
+
+    /// <summary>
+    /// Gets the number of workflows.
+    /// </summary>
+    public int Workflows { get; }
+
+    /// <summary>
+    /// Gets the number of parsed flow definitions.
+    /// </summary>
+    public int FlowDefinitions { get; }
+
+    /// <summary>
+    /// Gets the number of generic components.
+    /// </summary>
+    public int GenericComponents { get; }
+
+    /// <summary>
+    /// Gets the total number of top-level loaded component records.
+    /// </summary>
+    public int Total => Entities + Forms + Views + GlobalOptionSets + Relationships +
+                         PluginAssemblies + SdkMessageProcessingSteps + SecurityRoles +
+                         AppModules + SiteMaps + WebResources + Workflows + FlowDefinitions + GenericComponents;
+
+    /// <summary>
+    /// Creates a component summary from a loaded workspace.
+    /// </summary>
+    /// <param name="workspace">Workspace to summarize.</param>
     public ComponentSummary(Workspace workspace)
     {
         Entities = workspace.Entities.Count;
@@ -189,6 +277,9 @@ public sealed class ComponentSummary
         GenericComponents = workspace.GenericComponents.Count;
     }
 
+    /// <summary>
+    /// Returns a concise human-readable summary suitable for logs or CLI output.
+    /// </summary>
     public override string ToString()
     {
         var parts = new List<string>();

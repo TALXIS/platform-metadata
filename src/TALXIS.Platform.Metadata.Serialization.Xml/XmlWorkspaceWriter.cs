@@ -109,7 +109,7 @@ public sealed class XmlWorkspaceWriter
             ReplaceChildElementsPreservingWhitespace(rootComponents, solution.RootComponents.Select(rc =>
             {
                 var rcEl = new XElement("RootComponent",
-                    new XAttribute("type", rc.TypeCode.ToString()));
+                    new XAttribute("type", ((int)rc.Type).ToString()));
                 if (rc.SchemaName != null)
                     rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
                 if (rc.Id.HasValue)
@@ -145,7 +145,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var rc in solution.RootComponents)
         {
             var rcEl = new XElement("RootComponent",
-                new XAttribute("type", rc.TypeCode.ToString()));
+                new XAttribute("type", ((int)rc.Type).ToString()));
             if (rc.SchemaName != null)
                 rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
             if (rc.Id.HasValue)
@@ -1439,7 +1439,7 @@ public sealed class XmlWorkspaceWriter
             ReplaceChildElementsPreservingWhitespace(componentsEl, appModule.Components.Select(comp =>
             {
                 var compEl = new XElement("AppModuleComponent",
-                    new XAttribute("type", comp.Type.ToString()));
+                    new XAttribute("type", ((int)comp.Type).ToString()));
                 if (comp.SchemaName != null)
                     compEl.Add(new XAttribute("schemaName", comp.SchemaName));
                 if (comp.Id != null)

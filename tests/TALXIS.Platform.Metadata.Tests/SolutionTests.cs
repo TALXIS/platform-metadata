@@ -45,7 +45,7 @@ public class SolutionTests
     public void AddRootComponent_AddsToCollection()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        var component = new RootComponent { TypeCode = 1, SchemaName = "account" };
+        var component = new RootComponent { Type = ComponentType.Entity, SchemaName = "account" };
 
         solution.AddRootComponent(component);
 
@@ -57,9 +57,9 @@ public class SolutionTests
     public void AddRootComponent_MultipleComponents_AllPresent()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "account" });
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "contact" });
-        solution.AddRootComponent(new RootComponent { TypeCode = 26, SchemaName = "activeaccounts" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "account" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "contact" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.SavedQuery, SchemaName = "activeaccounts" });
 
         Assert.Equal(3, solution.RootComponents.Count);
     }
@@ -68,10 +68,10 @@ public class SolutionTests
     public void RemoveRootComponent_ByTypeAndSchemaName_RemovesCorrectComponent()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "account" });
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "contact" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "account" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "contact" });
 
-        solution.RemoveRootComponent(1, "account");
+        solution.RemoveRootComponent(ComponentType.Entity, "account");
 
         Assert.Single(solution.RootComponents);
         Assert.Equal("contact", solution.RootComponents[0].SchemaName);
@@ -81,9 +81,9 @@ public class SolutionTests
     public void RemoveRootComponent_CaseInsensitive()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "Account" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "Account" });
 
-        solution.RemoveRootComponent(1, "account");
+        solution.RemoveRootComponent(ComponentType.Entity, "account");
 
         Assert.Empty(solution.RootComponents);
     }
@@ -92,9 +92,9 @@ public class SolutionTests
     public void RemoveRootComponent_NonExistent_DoesNothing()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "account" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "account" });
 
-        solution.RemoveRootComponent(1, "nonexistent");
+        solution.RemoveRootComponent(ComponentType.Entity, "nonexistent");
 
         Assert.Single(solution.RootComponents);
     }
@@ -103,11 +103,11 @@ public class SolutionTests
     public void FindRootComponent_ReturnsCorrectComponent()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        var target = new RootComponent { TypeCode = 26, SchemaName = "activeaccounts" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "account" });
+        var target = new RootComponent { Type = ComponentType.SavedQuery, SchemaName = "activeaccounts" };
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "account" });
         solution.AddRootComponent(target);
 
-        var found = solution.FindRootComponent(26, "activeaccounts");
+        var found = solution.FindRootComponent(ComponentType.SavedQuery, "activeaccounts");
 
         Assert.Same(target, found);
     }
@@ -116,21 +116,21 @@ public class SolutionTests
     public void FindRootComponent_CaseInsensitive()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        var component = new RootComponent { TypeCode = 1, SchemaName = "Account" };
+        var component = new RootComponent { Type = ComponentType.Entity, SchemaName = "Account" };
         solution.AddRootComponent(component);
 
-        Assert.Same(component, solution.FindRootComponent(1, "account"));
-        Assert.Same(component, solution.FindRootComponent(1, "ACCOUNT"));
+        Assert.Same(component, solution.FindRootComponent(ComponentType.Entity, "account"));
+        Assert.Same(component, solution.FindRootComponent(ComponentType.Entity, "ACCOUNT"));
     }
 
     [Fact]
     public void FindRootComponent_UnknownComponent_ReturnsNull()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        solution.AddRootComponent(new RootComponent { TypeCode = 1, SchemaName = "account" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "account" });
 
-        Assert.Null(solution.FindRootComponent(1, "nonexistent"));
-        Assert.Null(solution.FindRootComponent(999, "account"));
+        Assert.Null(solution.FindRootComponent(ComponentType.Entity, "nonexistent"));
+        Assert.Null(solution.FindRootComponent(ComponentType.PluginAssembly, "account"));
     }
 
     [Fact]
@@ -165,21 +165,33 @@ public class SolutionTests
     public void RootComponent_WithGuid_CanBeAccessed()
     {
         var id = Guid.NewGuid();
-        var component = new RootComponent { TypeCode = 61, Id = id, Behavior = 1 };
+        var component = new RootComponent { Type = ComponentType.WebResource, Id = id, Behavior = 1 };
 
-        Assert.Equal(61, component.TypeCode);
+        Assert.Equal(ComponentType.WebResource, component.Type);
         Assert.Equal(id, component.Id);
         Assert.Equal(1, component.Behavior);
+        Assert.Equal(RootComponentBehavior.IncludeSubcomponents, component.BehaviorOption);
+    }
+
+    [Fact]
+    public void RootComponent_BehaviorOption_SynchronizesRawBehavior()
+    {
+        var component = new RootComponent { Type = ComponentType.Entity };
+
+        component.BehaviorOption = RootComponentBehavior.DoNotIncludeSubcomponents;
+
+        Assert.Equal(2, component.Behavior);
+        Assert.Equal(RootComponentBehavior.DoNotIncludeSubcomponents, component.BehaviorOption);
     }
 
     [Fact]
     public void FindRootComponent_WithNullSchemaName()
     {
         var solution = new Solution { UniqueName = "MySolution" };
-        var component = new RootComponent { TypeCode = 62, SchemaName = null };
+        var component = new RootComponent { Type = ComponentType.SiteMap, SchemaName = null };
         solution.AddRootComponent(component);
 
-        var found = solution.FindRootComponent(62, null);
+        var found = solution.FindRootComponent(ComponentType.SiteMap, null);
 
         Assert.Same(component, found);
     }

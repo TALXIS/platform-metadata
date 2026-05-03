@@ -11,6 +11,9 @@ public sealed class SolutionLayerManager
     private readonly Dictionary<string, LayerStack> _stacks = new();
     private readonly Dictionary<ComponentType, IComponentMerger> _mergers = new();
 
+    /// <summary>
+    /// Creates a layer manager preconfigured with the built-in mergers for mergeable component types.
+    /// </summary>
     public SolutionLayerManager()
     {
         RegisterMerger(new FormMerger());
@@ -19,7 +22,9 @@ public sealed class SolutionLayerManager
         RegisterMerger(new RibbonMerger());
     }
 
-    /// <summary>Gets or creates a layer stack for a component.</summary>
+    /// <summary>
+    /// Gets an existing layer stack for the component or creates a new one.
+    /// </summary>
     public LayerStack GetOrCreateStack(ComponentType componentType, string componentId)
     {
         var key = $"{(int)componentType}:{componentId}";
@@ -36,14 +41,23 @@ public sealed class SolutionLayerManager
         return stack;
     }
 
+    /// <summary>
+    /// Finds an existing layer stack without creating a new one.
+    /// </summary>
     public LayerStack? FindStack(ComponentType componentType, string componentId)
     {
         var key = $"{(int)componentType}:{componentId}";
         return _stacks.TryGetValue(key, out var stack) ? stack : null;
     }
 
+    /// <summary>
+    /// Gets all tracked component stacks.
+    /// </summary>
     public IReadOnlyCollection<LayerStack> AllStacks => _stacks.Values;
 
+    /// <summary>
+    /// Registers or replaces the merger used for a mergeable component type.
+    /// </summary>
     public void RegisterMerger(IComponentMerger merger) => _mergers[merger.ComponentType] = merger;
 
     /// <summary>
@@ -51,17 +65,17 @@ public sealed class SolutionLayerManager
     /// Each component gets a layer with the given solution name and order.
     /// </summary>
     public void ImportSolutionLayer(string solutionName, int order, bool isManaged,
-        IEnumerable<(ComponentType type, string id, MetadataBase? component)> components)
+        IEnumerable<LayerComponentDescriptor> components)
     {
-        foreach (var (type, id, component) in components)
+        foreach (var component in components)
         {
-            var stack = GetOrCreateStack(type, id);
+            var stack = GetOrCreateStack(component.Type, component.Id);
             stack.PushLayer(new ComponentLayer
             {
                 SolutionName = solutionName,
                 Order = order,
                 IsManaged = isManaged,
-                Component = component
+                Component = component.Component
             });
         }
     }

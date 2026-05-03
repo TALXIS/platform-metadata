@@ -72,19 +72,19 @@ public static class TreeMergeEngine
 
         // Ordering is best-effort; precise sibling positioning requires parent context
         // that is not tracked in the current MergeableNode model.
-        baseParent.Children.Add(clean);
+        baseParent.MutableChildren.Add(clean);
     }
 
-    private static void ApplyRemoved(MergeableNode baseParent, MergeableNode removedNode, List<MergeableNode>? removedNodeSiblings = null)
+    private static void ApplyRemoved(MergeableNode baseParent, MergeableNode removedNode, IReadOnlyList<MergeableNode>? removedNodeSiblings = null)
     {
         var match = FindMatchingChild(baseParent, removedNode, removedNodeSiblings);
         if (match != null)
         {
-            baseParent.Children.Remove(match);
+            baseParent.MutableChildren.Remove(match);
         }
     }
 
-    private static void ApplyModified(MergeableNode baseParent, MergeableNode modifiedNode, List<MergeableNode>? modifiedNodeSiblings = null)
+    private static void ApplyModified(MergeableNode baseParent, MergeableNode modifiedNode, IReadOnlyList<MergeableNode>? modifiedNodeSiblings = null)
     {
         var match = FindMatchingChild(baseParent, modifiedNode, modifiedNodeSiblings);
         if (match == null)
@@ -93,14 +93,14 @@ public static class TreeMergeEngine
         // Update attributes (action is not stored as an attribute)
         foreach (var kvp in modifiedNode.Attributes)
         {
-            match.Attributes[kvp.Key] = kvp.Value;
+            match.MutableAttributes[kvp.Key] = kvp.Value;
         }
 
         // Remove attributes that were deleted in the modified node
         var modifiedAttrNames = new HashSet<string>(modifiedNode.Attributes.Keys);
         var toRemove = match.Attributes.Keys.Where(k => !modifiedAttrNames.Contains(k)).ToList();
         foreach (var key in toRemove)
-            match.Attributes.Remove(key);
+            match.MutableAttributes.Remove(key);
 
         // Always sync TextContent (including setting to null for removal)
         match.TextContent = modifiedNode.TextContent;
@@ -109,7 +109,7 @@ public static class TreeMergeEngine
         ApplyLayer(match, modifiedNode);
     }
 
-    private static MergeableNode? FindMatchingChild(MergeableNode parent, MergeableNode target, List<MergeableNode>? targetSiblings = null)
+    private static MergeableNode? FindMatchingChild(MergeableNode parent, MergeableNode target, IReadOnlyList<MergeableNode>? targetSiblings = null)
     {
         var name = target.Name;
         var candidates = new List<MergeableNode>();
@@ -202,10 +202,10 @@ public static class TreeMergeEngine
                 var removed = new MergeableNode { Name = baseChildren[b].Name };
                 foreach (var kvp in baseChildren[b].Attributes)
                 {
-                    removed.Attributes[kvp.Key] = kvp.Value;
+                    removed.SetAttribute(kvp.Key, kvp.Value);
                 }
                 removed.Action = MergeAction.Removed;
-                diffNode.Children.Add(removed);
+                diffNode.MutableChildren.Add(removed);
             }
         }
 
@@ -244,16 +244,16 @@ public static class TreeMergeEngine
                     var removed = new MergeableNode { Name = child.Name };
                     foreach (var kvp in child.Attributes)
                     {
-                        removed.Attributes[kvp.Key] = kvp.Value;
+                        removed.SetAttribute(kvp.Key, kvp.Value);
                     }
                     removed.Action = MergeAction.Removed;
-                    dc.Children.Add(removed);
+                    dc.MutableChildren.Add(removed);
                 }
             }
         }
     }
 
-    private static int FindBestMatchIndex(List<MergeableNode> candidates, MergeableNode target, HashSet<int> excluded, List<MergeableNode>? targetParentChildren = null)
+    private static int FindBestMatchIndex(IReadOnlyList<MergeableNode> candidates, MergeableNode target, HashSet<int> excluded, IReadOnlyList<MergeableNode>? targetParentChildren = null)
     {
         var name = target.Name;
 
@@ -358,8 +358,9 @@ public static class TreeMergeEngine
             .Select(static item => item.Child)
             .ToList();
 
-        node.Children.Clear();
-        node.Children.AddRange(ordered);
+        node.MutableChildren.Clear();
+        foreach (var child in ordered)
+            node.MutableChildren.Add(child);
     }
 
     private static bool TryGetOrdinalValue(MergeableNode node, out int ordinal)
@@ -385,7 +386,7 @@ public static class TreeMergeEngine
             var child = node.Children[i];
             if (child.Action == null && !HasAnyAction(child))
             {
-                node.Children.RemoveAt(i);
+                node.MutableChildren.RemoveAt(i);
             }
         }
     }
@@ -414,12 +415,12 @@ public static class TreeMergeEngine
 
         foreach (var kvp in source.Attributes)
         {
-            clone.Attributes[kvp.Key] = kvp.Value;
+            clone.SetAttribute(kvp.Key, kvp.Value);
         }
 
         foreach (var child in source.Children)
         {
-            clone.Children.Add(DeepClone(child));
+            clone.MutableChildren.Add(DeepClone(child));
         }
 
         return clone;

@@ -42,7 +42,10 @@ public enum ComponentType
     DisplayString = 22,
     DisplayStringMap = 23,
 
-    /// <summary>Legacy form (type 24, distinct from SystemForm = 60).</summary>
+    /// <summary>
+    /// Legacy form component used by older customization formats.
+    /// Most consumers working with current model-driven app metadata will interact with <see cref="SystemForm"/> instead.
+    /// </summary>
     Form = 24,
 
     OrganizationSettings = 25,
@@ -74,7 +77,10 @@ public enum ComponentType
     RibbonDiff = 55,
     SavedQueryVisualization = 59,
 
-    /// <summary>Model-driven app form (main, quick-create, quick-view, card, etc.).</summary>
+    /// <summary>
+    /// Modern Dataverse form component (main, quick-create, quick-view, card, etc.).
+    /// This is the form type surfaced by the XML workspace reader.
+    /// </summary>
     SystemForm = 60,
 
     /// <summary>Web resource (HTML, JS, CSS, image, etc.).</summary>

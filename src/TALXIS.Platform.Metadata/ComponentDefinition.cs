@@ -7,6 +7,15 @@ namespace TALXIS.Platform.Metadata;
 /// Behavioral properties sourced from the decompiled <c>IComponentDefinition</c> interface
 /// in <c>Microsoft.Crm.Caching</c>.
 /// </summary>
+/// <param name="TypeCode">Dataverse component type code.</param>
+/// <param name="Name">Human-readable component name.</param>
+/// <param name="SerializedName">Serialized component name used by SolutionPackager manifests.</param>
+/// <param name="Directory">Workspace directory that stores the component.</param>
+/// <param name="FilePattern">File naming pattern used for the serialized component.</param>
+/// <param name="Identity">Strategy used to identify component instances.</param>
+/// <param name="SupportsMerge">Whether the component participates in layered merge workflows.</param>
+/// <param name="IsFileBacked">Whether the component owns an external content file in addition to metadata.</param>
+/// <param name="HasSubfolders">Whether the component stores related content in per-component subfolders.</param>
 public sealed record ComponentDefinition(
     ComponentType TypeCode,
     string Name,

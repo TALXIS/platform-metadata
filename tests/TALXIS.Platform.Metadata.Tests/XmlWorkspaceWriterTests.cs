@@ -844,9 +844,9 @@ public class XmlWorkspaceWriterTests
             var form = Assert.Single(workspace.Forms);
             var tabs = FindFirst(form.Body!, "tabs")!;
             var addedTab = new MergeableNode { Name = "tab" };
-            addedTab.Attributes["id"] = "added-tab";
-            addedTab.Attributes["ordinalvalue"] = "10";
-            tabs.Children.Add(addedTab);
+            addedTab.SetAttribute("id", "added-tab");
+            addedTab.SetAttribute("ordinalvalue", "10");
+            tabs.AddChild(addedTab);
 
             new XmlWorkspaceWriter().Write(workspace, outputPath);
 

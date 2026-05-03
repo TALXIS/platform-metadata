@@ -102,7 +102,7 @@ public sealed class XmlWorkspaceReader
 
                 var component = new RootComponent
                 {
-                    TypeCode = typeCode,
+                    Type = (ComponentType)typeCode,
                     SchemaName = rc.Attribute("schemaName")?.Value,
                     Behavior = ParseInt(rc.Attribute("behavior")?.Value, 0)
                 };
@@ -1072,7 +1072,7 @@ public sealed class XmlWorkspaceReader
 
                         var component = new AppModuleComponent
                         {
-                            Type = typeCode,
+                            Type = (ComponentType)typeCode,
                             SchemaName = compEl.Attribute("schemaName")?.Value,
                             Id = compEl.Attribute("id")?.Value
                         };

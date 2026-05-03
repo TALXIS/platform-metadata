@@ -157,7 +157,7 @@ public class TreeMergeEngineTests
         var baseTree = BuildBaseForm();
         var modifiedTree = TreeMergeEngine.DeepClone(baseTree);
         var tabs = FindFirst(modifiedTree, "tabs")!;
-        tabs.Children.Add(
+        tabs.AddChild(
             Tab("{00000000-0000-0000-0000-000000000002}", "newtab",
                 Node("columns", Node("column", new Dictionary<string, string> { ["width"] = "100%" }, Node("sections")))));
 
@@ -175,7 +175,7 @@ public class TreeMergeEngineTests
         var modifiedTree = TreeMergeEngine.DeepClone(baseTree);
         var sections = FindFirst(modifiedTree, "sections")!;
         var toRemove = sections.Children.First(s => s.GetAttribute("id") == "{00000000-0000-0000-0000-000000000011}");
-        sections.Children.Remove(toRemove);
+        sections.RemoveChild(toRemove);
 
         var diff = TreeMergeEngine.ComputeDiff(baseTree, modifiedTree);
 
@@ -201,7 +201,7 @@ public class TreeMergeEngineTests
         var baseTree = BuildBaseForm();
         var modifiedTree = TreeMergeEngine.DeepClone(baseTree);
         var tabs = FindFirst(modifiedTree, "tabs")!;
-        tabs.Children.Add(
+        tabs.AddChild(
             Tab("{00000000-0000-0000-0000-000000000002}", "newtab",
                 Node("columns", Node("column", new Dictionary<string, string> { ["width"] = "100%" }, Node("sections")))));
 
@@ -279,9 +279,9 @@ public class TreeMergeEngineTests
     {
         var node = new MergeableNode { Name = name };
         foreach (var kvp in attrs)
-            node.Attributes[kvp.Key] = kvp.Value;
+            node.SetAttribute(kvp.Key, kvp.Value);
         foreach (var child in children)
-            node.Children.Add(child);
+            node.AddChild(child);
         return node;
     }
 
@@ -298,8 +298,8 @@ public class TreeMergeEngineTests
     private static MergeableNode SectionShell(string id, string sectionName, MergeAction action)
     {
         var s = new MergeableNode { Name = "section", Action = action };
-        s.Attributes["id"] = id;
-        s.Attributes["name"] = sectionName;
+        s.SetAttribute("id", id);
+        s.SetAttribute("name", sectionName);
         return s;
     }
 

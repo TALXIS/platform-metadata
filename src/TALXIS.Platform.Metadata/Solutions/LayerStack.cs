@@ -9,9 +9,19 @@ public sealed class LayerStack
 {
     private readonly List<ComponentLayer> _layers = new();
 
+    /// <summary>
+    /// Gets or sets the component type represented by the stack.
+    /// </summary>
     public required ComponentType ComponentType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the component identifier within the type.
+    /// </summary>
     public required string ComponentId { get; set; }
 
+    /// <summary>
+    /// Gets the ordered layers from base to topmost.
+    /// </summary>
     public IReadOnlyList<ComponentLayer> Layers => _layers;
 
     /// <summary>The topmost (active) layer.</summary>
@@ -23,6 +33,9 @@ public sealed class LayerStack
     /// <summary>Whether this component requires merge resolution (forms, sitemaps, app modules).</summary>
     public bool RequiresMerge { get; set; }
 
+    /// <summary>
+    /// Adds a layer while keeping the stack ordered by <see cref="ComponentLayer.Order"/>.
+    /// </summary>
     public void PushLayer(ComponentLayer layer)
     {
         var index = _layers.FindIndex(l => l.Order > layer.Order);
@@ -31,8 +44,15 @@ public sealed class LayerStack
         else
             _layers.Insert(index, layer);
     }
+
+    /// <summary>
+    /// Inserts a layer at a specific position.
+    /// </summary>
     public void InsertLayer(int index, ComponentLayer layer) => _layers.Insert(index, layer);
 
+    /// <summary>
+    /// Removes the first layer belonging to the supplied solution.
+    /// </summary>
     public bool RemoveLayer(string solutionName)
     {
         var layer = _layers.FirstOrDefault(l => l.SolutionName == solutionName);

@@ -1,42 +1,89 @@
 namespace TALXIS.Platform.Metadata.Solutions;
 
+/// <summary>
+/// In-memory representation of <c>Solution.xml</c>.
+/// </summary>
 public sealed class Solution : MetadataBase, ILocalizedMetadata
 {
     private string _managedValue = "0";
 
+    /// <summary>
+    /// Gets or sets the unique solution name.
+    /// </summary>
     public required string UniqueName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the solution version.
+    /// </summary>
     public string Version { get; set; } = "1.0.0.0";
+
+    /// <summary>
+    /// Gets or sets whether the solution is managed.
+    /// This is a convenience wrapper over <see cref="ManagedValue"/>.
+    /// </summary>
     public bool IsManaged
     {
         get => !string.Equals(ManagedValue, "0", StringComparison.Ordinal);
         set => ManagedValue = value ? "1" : "0";
     }
+
+    /// <summary>
+    /// Gets or sets the raw managed-state value as stored by SolutionPackager.
+    /// <c>"0"</c> means unmanaged; other values are treated as managed.
+    /// </summary>
     public string ManagedValue
     {
         get => _managedValue;
         set => _managedValue = string.IsNullOrWhiteSpace(value) ? "0" : value;
     }
+
+    /// <summary>
+    /// Gets or sets the publisher metadata for the solution.
+    /// </summary>
     public Publisher? Publisher { get; set; }
+
+    /// <inheritdoc />
     public Label DisplayName { get; set; } = new();
+
+    /// <inheritdoc />
     public Label Description { get; set; } = new();
 
     private readonly List<RootComponent> _rootComponents = new();
+
+    /// <summary>
+    /// Gets the root components declared by the solution.
+    /// </summary>
     public IReadOnlyList<RootComponent> RootComponents => _rootComponents;
 
+    /// <summary>
+    /// Adds a root component to the solution manifest.
+    /// </summary>
+    /// <param name="component">Root component to add.</param>
     public void AddRootComponent(RootComponent component)
     {
         _rootComponents.Add(component);
     }
 
-    public void RemoveRootComponent(int typeCode, string? schemaName)
+    /// <summary>
+    /// Removes all root components matching the supplied type code and schema name.
+    /// </summary>
+    /// <param name="type">Dataverse component type.</param>
+    /// <param name="schemaName">Schema name used for name-based matching.</param>
+    public void RemoveRootComponent(ComponentType type, string? schemaName)
     {
-        _rootComponents.RemoveAll(c => c.TypeCode == typeCode
+        _rootComponents.RemoveAll(c => c.Type == type
             && string.Equals(c.SchemaName, schemaName, StringComparison.OrdinalIgnoreCase));
     }
 
-    public RootComponent? FindRootComponent(int typeCode, string? schemaName)
+    /// <summary>
+    /// Finds the first root component matching the supplied type and schema name.
+    /// </summary>
+    /// <param name="type">Dataverse component type.</param>
+    /// <param name="schemaName">Schema name used for name-based matching.</param>
+    /// <returns>The matching root component, or <see langword="null"/> when none is present.</returns>
+    public RootComponent? FindRootComponent(ComponentType type, string? schemaName)
     {
-        return _rootComponents.FirstOrDefault(c => c.TypeCode == typeCode
+        return _rootComponents.FirstOrDefault(c => c.Type == type
             && string.Equals(c.SchemaName, schemaName, StringComparison.OrdinalIgnoreCase));
     }
 }
