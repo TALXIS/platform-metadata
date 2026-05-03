@@ -303,7 +303,7 @@ The team built a functional Dataverse data platform (OData+FetchXml CRUD) but on
 
 ### Their Customization.Model.cs (~6270 lines)
 
-Comprehensive XML deserialization model for `customizations.xml`. Covers entities, attributes, forms (Tab/Section/Row/Cell/Control), views, sitemaps, app modules, ribbons, dashboards, web resources. Could serve as a reference for XML structure, but we should not adopt the approach -- our core model is format-agnostic, and XML mapping lives in Serialization.Xml.
+Comprehensive XML deserialization model for `customizations.xml`. Covers entities, attributes, forms (Tab/Section/Row/Cell/Control), views, sitemaps, app modules, ribbons, dashboards, web resources. Could serve as a reference for XML structure, but we should not adopt the approach. Our core model is format-agnostic, and XML mapping lives in Serialization.Xml.
 
 ## Package Catalog (current + planned)
 

@@ -23,7 +23,14 @@ public sealed class LayerStack
     /// <summary>Whether this component requires merge resolution (forms, sitemaps, app modules).</summary>
     public bool RequiresMerge { get; set; }
 
-    public void PushLayer(ComponentLayer layer) => _layers.Add(layer);
+    public void PushLayer(ComponentLayer layer)
+    {
+        var index = _layers.FindIndex(l => l.Order > layer.Order);
+        if (index < 0)
+            _layers.Add(layer);
+        else
+            _layers.Insert(index, layer);
+    }
     public void InsertLayer(int index, ComponentLayer layer) => _layers.Insert(index, layer);
 
     public bool RemoveLayer(string solutionName)

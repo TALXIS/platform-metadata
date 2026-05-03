@@ -598,7 +598,9 @@ public sealed class XmlWorkspaceWriter
 
         // Update existing elements by Name, preserve unknown child elements
         var existingByName = root.Elements("EntityRelationship")
-            .ToDictionary(e => e.Attribute("Name")?.Value ?? "", e => e);
+            .Where(e => !string.IsNullOrEmpty(e.Attribute("Name")?.Value))
+            .GroupBy(e => e.Attribute("Name")!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
 
         foreach (var rel in relationships)
         {
@@ -612,6 +614,17 @@ public sealed class XmlWorkspaceWriter
                 root.Add(BuildRelationshipElement(rel));
             }
         }
+
+        // Remove stale relationships not in the model
+        var modelNames = new HashSet<string>(relationships.Select(r => r.SchemaName));
+        var stale = root.Elements("EntityRelationship")
+            .Where(e =>
+            {
+                var name = e.Attribute("Name")?.Value;
+                return !string.IsNullOrEmpty(name) && !modelNames.Contains(name);
+            })
+            .ToList();
+        foreach (var s in stale) s.Remove();
     }
 
     private static void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
@@ -689,7 +702,8 @@ public sealed class XmlWorkspaceWriter
             var formType = form.FormType ?? "main";
             var entityDir = Path.Combine(outputPath, "Entities", form.EntityLogicalName ?? "Unknown", "FormXml", formType);
             Directory.CreateDirectory(entityDir);
-            var filePath = Path.Combine(entityDir, $"{{{form.FormId}}}.xml");
+            var fileName = form.FormId.StartsWith("{") ? $"{form.FormId}.xml" : $"{{{form.FormId}}}.xml";
+            var filePath = Path.Combine(entityDir, fileName);
             SaveDocument(doc, filePath);
         }
     }
@@ -729,7 +743,8 @@ public sealed class XmlWorkspaceWriter
 
             var entityDir = Path.Combine(outputPath, "Entities", view.EntityLogicalName ?? "Unknown", "SavedQueries");
             Directory.CreateDirectory(entityDir);
-            var filePath = Path.Combine(entityDir, $"{{{view.SavedQueryId}}}.xml");
+            var fileName = view.SavedQueryId.StartsWith("{") ? $"{view.SavedQueryId}.xml" : $"{{{view.SavedQueryId}}}.xml";
+            var filePath = Path.Combine(entityDir, fileName);
             SaveDocument(doc, filePath);
         }
     }
@@ -1019,8 +1034,10 @@ public sealed class XmlWorkspaceWriter
 
             var stepsDir = Path.Combine(outputPath, "SdkMessageProcessingSteps");
             Directory.CreateDirectory(stepsDir);
-            var fileName = step.Name ?? step.SdkMessageProcessingStepId;
-            var filePath = Path.Combine(stepsDir, $"{fileName}.xml");
+            var fileName = step.SdkMessageProcessingStepId.StartsWith("{")
+                ? $"{step.SdkMessageProcessingStepId}.xml"
+                : $"{{{step.SdkMessageProcessingStepId}}}.xml";
+            var filePath = Path.Combine(stepsDir, fileName);
             SaveDocument(doc, filePath);
         }
     }

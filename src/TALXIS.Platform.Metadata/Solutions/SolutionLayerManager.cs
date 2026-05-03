@@ -1,5 +1,7 @@
 namespace TALXIS.Platform.Metadata.Solutions;
 
+using TALXIS.Platform.Metadata.Merging;
+
 /// <summary>
 /// Manages component layers across a workspace.
 /// Maps component identity (type + id) to its layer stack.

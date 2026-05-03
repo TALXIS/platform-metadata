@@ -17,15 +17,31 @@ public sealed class FormMerger : IComponentMerger
         if (layers.Count == 0)
             return null;
 
-        var baseLayer = layers[0];
+        // If the topmost layer marks the component as deleted, return null
+        var topLayer = layers[layers.Count - 1];
+        if (topLayer.State != ComponentState.Published && topLayer.State != ComponentState.Unpublished)
+            return null;
+
+        // Filter to published layers only
+        var publishedLayers = new List<ComponentLayer>();
+        foreach (var layer in layers)
+        {
+            if (layer.State == ComponentState.Published)
+                publishedLayers.Add(layer);
+        }
+
+        if (publishedLayers.Count == 0)
+            return null;
+
+        var baseLayer = publishedLayers[0];
         if (baseLayer.Component is not FormMetadata baseForm || baseForm.Body == null)
             return baseLayer.Component;
 
         var current = baseForm.Body;
 
-        for (int i = 1; i < layers.Count; i++)
+        for (int i = 1; i < publishedLayers.Count; i++)
         {
-            if (layers[i].Component is FormMetadata layerForm && layerForm.Body != null)
+            if (publishedLayers[i].Component is FormMetadata layerForm && layerForm.Body != null)
             {
                 current = TreeMergeEngine.Merge(current, layerForm.Body);
             }

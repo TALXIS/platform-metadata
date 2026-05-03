@@ -54,7 +54,7 @@ public static class TreeMergeEngine
             }
             else
             {
-                // Structural node without action -- find matching element and recurse
+                // Structural node without action: find matching element and recurse
                 var match = FindMatchingChild(baseNode, layerChild);
                 if (match != null)
                 {
@@ -69,27 +69,9 @@ public static class TreeMergeEngine
         var clean = DeepClone(addedNode);
         RemoveActions(clean);
 
-        var parentName = addedNode.Name;
-        MergeableNode target = baseParent;
-
-        // If the base doesn't directly contain children of this name,
-        // try to find a container that does.
-        if (baseParent.Name != addedNode.Name)
-        {
-            // Find a container in baseParent whose children are siblings of addedNode
-            MergeableNode? container = null;
-            foreach (var child in baseParent.Children)
-            {
-                if (child.Name == addedNode.Name)
-                {
-                    container = child.Children.Count > 0 ? baseParent : null;
-                    break;
-                }
-            }
-            // Fall through: insert into baseParent (same as original logic)
-        }
-
-        target.Children.Add(clean);
+        // Ordering is best-effort; precise sibling positioning requires parent context
+        // that is not tracked in the current MergeableNode model.
+        baseParent.Children.Add(clean);
     }
 
     private static void ApplyRemoved(MergeableNode baseParent, MergeableNode removedNode)
@@ -112,6 +94,10 @@ public static class TreeMergeEngine
         {
             match.Attributes[kvp.Key] = kvp.Value;
         }
+
+        // Update text content
+        if (modifiedNode.TextContent != null)
+            match.TextContent = modifiedNode.TextContent;
 
         // Recurse into children for nested changes
         ApplyLayer(match, modifiedNode);
@@ -265,8 +251,9 @@ public static class TreeMergeEngine
             var dc = diffChildren[modIdx];
 
             bool attrsChanged = HasAttributeChanges(bc, mc);
+            bool textChanged = bc.TextContent != modifiedChildren[modIdx].TextContent;
 
-            if (attrsChanged)
+            if (attrsChanged || textChanged)
             {
                 dc.Action = MergeAction.Modified;
             }

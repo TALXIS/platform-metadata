@@ -1,6 +1,7 @@
 using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
+using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Tests;
