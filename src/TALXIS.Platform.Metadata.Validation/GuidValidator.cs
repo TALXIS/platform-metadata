@@ -14,9 +14,8 @@ public sealed class GuidValidator
         RegexOptions.Compiled);
 
     /// <summary>
-    /// Identity rules: which element names carry a component GUID, and which
-    /// file-path substring(s) the rule applies to. An element is only considered
-    /// an identity element when its local name matches AND the file path contains
+    /// Identity rules for child elements: the element's text content carries
+    /// a component GUID when its local name matches AND the file path contains
     /// at least one of the associated patterns.
     /// </summary>
     private static readonly (string ElementName, string FilePattern)[] IdentityRules =
@@ -26,30 +25,50 @@ public sealed class GuidValidator
         ("formid",                          "FormXml"),
         ("WebResourceId",                   ".data.xml"),
         ("WorkflowId",                      "Workflows"),
-        ("SdkMessageProcessingStepId",      "SdkMessageProcessingSteps"),
         ("PluginTypeId",                    "PluginAssemblies"),
         ("connectionroleid",                "ConnectionRoles"),
         ("OptionSetId",                     "OptionSets"),
         ("environmentvariabledefinitionid", "environmentvariabledefinitions"),
         ("environmentvariablevalueid",      "environmentvariabledefinitions"),
-        ("AppModuleId",                     "AppModules"),
-        ("RoleId",                          "Roles"),
+    };
+
+    /// <summary>
+    /// Identity rules for attributes on root/top-level elements: the attribute
+    /// value carries a component GUID when the attribute name matches AND the
+    /// file path contains at least one of the associated patterns.
+    /// </summary>
+    private static readonly (string AttributeName, string FilePattern)[] AttributeIdentityRules =
+    {
+        ("SdkMessageProcessingStepId",  "SdkMessageProcessingSteps"),
+        ("PluginAssemblyId",            "PluginAssemblies"),
+        ("WorkflowId",                  "Workflows"),
+        ("id",                          "Roles"),
+        ("id",                          "ConnectionRoles"),
+        ("AppModuleId",                 "AppModules"),
     };
 
     private static readonly Dictionary<string, List<string>> IdentityLookup;
+    private static readonly Dictionary<string, List<string>> AttributeIdentityLookup;
 
     static GuidValidator()
     {
-        IdentityLookup = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (elementName, filePattern) in IdentityRules)
+        IdentityLookup = BuildLookup(IdentityRules);
+        AttributeIdentityLookup = BuildLookup(AttributeIdentityRules);
+    }
+
+    private static Dictionary<string, List<string>> BuildLookup((string Name, string FilePattern)[] rules)
+    {
+        var lookup = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, filePattern) in rules)
         {
-            if (!IdentityLookup.TryGetValue(elementName, out var patterns))
+            if (!lookup.TryGetValue(name, out var patterns))
             {
                 patterns = new List<string>();
-                IdentityLookup[elementName] = patterns;
+                lookup[name] = patterns;
             }
             patterns.Add(filePattern);
         }
+        return lookup;
     }
 
     private struct GuidLocation
@@ -133,6 +152,31 @@ public sealed class GuidValidator
 
     private static void ScanElements(XElement element, string filePath, Dictionary<string, List<GuidLocation>> guidMap)
     {
+        // Scan attributes for identity GUIDs
+        foreach (var attr in element.Attributes())
+        {
+            if (IsIdentityAttribute(attr.Name.LocalName, filePath))
+            {
+                var value = attr.Value.Trim();
+                if (GuidPattern.IsMatch(value))
+                {
+                    var normalized = NormalizeGuid(value);
+                    if (normalized != null)
+                    {
+                        var lineInfo = (IXmlLineInfo)element;
+                        AddGuid(guidMap, normalized, new GuidLocation
+                        {
+                            FilePath = filePath,
+                            ElementName = $"@{attr.Name.LocalName}",
+                            Line = lineInfo.HasLineInfo() ? lineInfo.LineNumber : 0,
+                            Column = lineInfo.HasLineInfo() ? lineInfo.LinePosition : 0
+                        });
+                    }
+                }
+            }
+        }
+
+        // Scan leaf element text for identity GUIDs
         if (!element.HasElements)
         {
             var localName = element.Name.LocalName;
@@ -178,7 +222,17 @@ public sealed class GuidValidator
 
     private static bool IsIdentityElement(string elementName, string filePath)
     {
-        if (!IdentityLookup.TryGetValue(elementName, out var patterns))
+        return MatchesLookup(IdentityLookup, elementName, filePath);
+    }
+
+    private static bool IsIdentityAttribute(string attributeName, string filePath)
+    {
+        return MatchesLookup(AttributeIdentityLookup, attributeName, filePath);
+    }
+
+    private static bool MatchesLookup(Dictionary<string, List<string>> lookup, string name, string filePath)
+    {
+        if (!lookup.TryGetValue(name, out var patterns))
             return false;
 
         if (patterns.Count == 0)
