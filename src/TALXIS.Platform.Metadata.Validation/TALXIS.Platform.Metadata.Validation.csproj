@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>TALXIS.Platform.Metadata.Validation</RootNamespace>
     <PackageId>TALXIS.Platform.Metadata.Validation</PackageId>
-    <Description>XSD schema validation and structural checking for Dataverse solution workspaces. Depends on TALXIS.Platform.Metadata core model.</Description>
+    <Description>Validation for Power Platform solution workspaces: XSD schema validation, JSON validation, duplicate GUID detection, and model loading via TALXIS.Platform.Metadata.Serialization.Xml.</Description>
     <Title>TALXIS Platform Metadata Validation</Title>
   </PropertyGroup>
 
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+    <ProjectReference Include="../TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
   </ItemGroup>
 
 </Project>
