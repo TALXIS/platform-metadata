@@ -129,6 +129,41 @@ public class XmlWorkspaceReaderTests
     }
 
     [Fact]
+    public void Load_PreservesRawManagedValue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"reader-managed-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "Other"));
+            File.WriteAllText(Path.Combine(dir, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>T</UniqueName>
+                    <Version>1.0</Version>
+                    <Managed>2</Managed>
+                    <Publisher>
+                      <UniqueName>t</UniqueName>
+                      <CustomizationPrefix>t</CustomizationPrefix>
+                    </Publisher>
+                    <RootComponents />
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            Assert.Equal("2", workspace.Solution!.ManagedValue);
+            Assert.True(workspace.Solution.IsManaged);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void Load_ParsesGlobalOptionSets()
     {
         var reader = new XmlWorkspaceReader();

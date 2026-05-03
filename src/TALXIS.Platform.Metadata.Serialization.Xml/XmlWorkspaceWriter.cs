@@ -77,7 +77,7 @@ public sealed class XmlWorkspaceWriter
 
         SetElementValue(manifest, "UniqueName", solution.UniqueName);
         SetElementValue(manifest, "Version", solution.Version);
-        SetElementValue(manifest, "Managed", solution.IsManaged ? "1" : "0");
+        SetElementValue(manifest, "Managed", solution.ManagedValue);
 
         // Patch display name
         var localizedNames = manifest.Element("LocalizedNames");
@@ -104,8 +104,7 @@ public sealed class XmlWorkspaceWriter
         var rootComponents = manifest.Element("RootComponents");
         if (rootComponents != null)
         {
-            rootComponents.RemoveAll();
-            foreach (var rc in solution.RootComponents)
+            ReplaceChildElementsPreservingWhitespace(rootComponents, solution.RootComponents.Select(rc =>
             {
                 var rcEl = new XElement("RootComponent",
                     new XAttribute("type", rc.TypeCode.ToString()));
@@ -114,8 +113,8 @@ public sealed class XmlWorkspaceWriter
                 if (rc.Id.HasValue)
                     rcEl.Add(new XAttribute("id", $"{{{rc.Id.Value}}}"));
                 rcEl.Add(new XAttribute("behavior", rc.Behavior.ToString()));
-                rootComponents.Add(rcEl);
-            }
+                return rcEl;
+            }));
         }
     }
 
@@ -126,7 +125,7 @@ public sealed class XmlWorkspaceWriter
             BuildLocalizedNames("LocalizedNames", "LocalizedName", solution.DisplayName),
             new XElement("Descriptions"),
             new XElement("Version", solution.Version),
-            new XElement("Managed", solution.IsManaged ? "1" : "0"));
+            new XElement("Managed", solution.ManagedValue));
 
         if (solution.Publisher != null)
         {
@@ -493,8 +492,7 @@ public sealed class XmlWorkspaceWriter
                     existingOptions[val] = optEl;
             }
 
-            optionsEl.RemoveAll();
-            foreach (var opt in optionSet.Options)
+            ReplaceChildElementsPreservingWhitespace(optionsEl, optionSet.Options.Select(opt =>
             {
                 if (existingOptions.TryGetValue(opt.Value, out var existingEl))
                 {
@@ -505,13 +503,11 @@ public sealed class XmlWorkspaceWriter
                     var descs = existingEl.Element("Descriptions");
                     if (descs != null)
                         PatchLocalizedNames(descs, "Description", opt.Description);
-                    optionsEl.Add(existingEl);
+                    return existingEl;
                 }
-                else
-                {
-                    optionsEl.Add(BuildOptionElement(opt));
-                }
-            }
+
+                return BuildOptionElement(opt);
+            }));
         }
     }
 
@@ -1207,13 +1203,10 @@ public sealed class XmlWorkspaceWriter
         var privilegesEl = root.Element("RolePrivileges");
         if (privilegesEl != null)
         {
-            privilegesEl.RemoveAll();
-            foreach (var priv in role.Privileges)
-            {
-                privilegesEl.Add(new XElement("RolePrivilege",
+            ReplaceChildElementsPreservingWhitespace(privilegesEl, role.Privileges.Select(priv =>
+                new XElement("RolePrivilege",
                     new XAttribute("name", priv.Name),
-                    new XAttribute("level", priv.Level)));
-            }
+                    new XAttribute("level", priv.Level))));
         }
     }
 
@@ -1282,8 +1275,7 @@ public sealed class XmlWorkspaceWriter
         var componentsEl = root.Element("AppModuleComponents");
         if (componentsEl != null)
         {
-            componentsEl.RemoveAll();
-            foreach (var comp in appModule.Components)
+            ReplaceChildElementsPreservingWhitespace(componentsEl, appModule.Components.Select(comp =>
             {
                 var compEl = new XElement("AppModuleComponent",
                     new XAttribute("type", comp.Type.ToString()));
@@ -1291,20 +1283,17 @@ public sealed class XmlWorkspaceWriter
                     compEl.Add(new XAttribute("schemaName", comp.SchemaName));
                 if (comp.Id != null)
                     compEl.Add(new XAttribute("id", comp.Id));
-                componentsEl.Add(compEl);
-            }
+                return compEl;
+            }));
         }
 
         // Patch role maps
         var roleMapsEl = root.Element("AppModuleRoleMaps");
         if (roleMapsEl != null)
         {
-            roleMapsEl.RemoveAll();
-            foreach (var roleId in appModule.RoleIds)
-            {
-                roleMapsEl.Add(new XElement("Role",
-                    new XAttribute("id", roleId)));
-            }
+            ReplaceChildElementsPreservingWhitespace(roleMapsEl, appModule.RoleIds.Select(roleId =>
+                new XElement("Role",
+                    new XAttribute("id", roleId))));
         }
     }
 
@@ -1499,5 +1488,43 @@ public sealed class XmlWorkspaceWriter
         return (doc.Root?.DescendantNodesAndSelf() ?? Enumerable.Empty<XNode>())
             .OfType<XText>()
             .Any(static text => string.IsNullOrWhiteSpace(text.Value));
+    }
+
+    private static void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children)
+    {
+        var replacements = children.ToList();
+        var childIndent = parent.Nodes()
+            .OfType<XText>()
+            .Select(text => text.Value)
+            .FirstOrDefault(ContainsNewLine);
+        var closingIndent = parent.Nodes()
+            .OfType<XText>()
+            .Select(text => text.Value)
+            .LastOrDefault(ContainsNewLine);
+
+        parent.RemoveNodes();
+
+        if (childIndent == null || closingIndent == null || replacements.Count == 0)
+        {
+            foreach (var child in replacements)
+            {
+                parent.Add(child);
+            }
+
+            return;
+        }
+
+        foreach (var child in replacements)
+        {
+            parent.Add(new XText(childIndent));
+            parent.Add(child);
+        }
+
+        parent.Add(new XText(closingIndent));
+    }
+
+    private static bool ContainsNewLine(string value)
+    {
+        return value.Contains('\n') || value.Contains('\r');
     }
 }

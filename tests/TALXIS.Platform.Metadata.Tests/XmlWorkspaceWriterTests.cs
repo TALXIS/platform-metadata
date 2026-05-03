@@ -187,6 +187,12 @@ public class XmlWorkspaceWriterTests
             var writtenXml = File.ReadAllText(Path.Combine(outputPath, "OptionSets", "tp_teststatus.xml"));
             Assert.Contains(
                 """
+                  <options>
+                    <option value="100000000" ExternalValue="" IsHidden="0">
+                """.ReplaceLineEndings(),
+                writtenXml.ReplaceLineEndings());
+            Assert.Contains(
+                """
                       <labels>
                         <label description="Active" languagecode="1033" />
                       </labels>
@@ -506,15 +512,16 @@ public class XmlWorkspaceWriterTests
 
             var entityFile = Path.Combine(inputPath, "Entities", "test_entity", "Entity.xml");
             var entityDoc = XDocument.Load(entityFile);
-            var sourceRequiredLevels = entityDoc.Root!
+            var attributesByLogicalName = entityDoc.Root!
                 .Element("EntityInfo")!
                 .Element("entity")!
                 .Element("attributes")!
                 .Elements("attribute")
-                .Select(attribute => attribute.Element("RequiredLevel")!)
-                .ToList();
-            sourceRequiredLevels[0].Value = "systemrequired";
-            sourceRequiredLevels[1].Value = "applicationrequired";
+                .ToDictionary(
+                    attribute => attribute.Element("LogicalName")!.Value,
+                    attribute => attribute);
+            attributesByLogicalName["tp_name"].Element("RequiredLevel")!.Value = "systemrequired";
+            attributesByLogicalName["tp_count"].Element("RequiredLevel")!.Value = "applicationrequired";
             entityDoc.Save(entityFile);
 
             var reader = new XmlWorkspaceReader();
@@ -534,6 +541,45 @@ public class XmlWorkspaceWriterTests
 
             Assert.Contains("systemrequired", writtenRequiredLevels);
             Assert.Contains("applicationrequired", writtenRequiredLevels);
+        }
+        finally
+        {
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_PreservesNonBooleanManagedValue()
+    {
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            CopyDirectory(SamplePath, inputPath);
+
+            var solutionFile = Path.Combine(inputPath, "Other", "Solution.xml");
+            var solutionDoc = XDocument.Load(solutionFile);
+            solutionDoc.Root!
+                .Element("SolutionManifest")!
+                .Element("Managed")!
+                .Value = "2";
+            solutionDoc.Save(solutionFile);
+
+            var reader = new XmlWorkspaceReader();
+            var workspace = reader.Load(inputPath);
+
+            var writer = new XmlWorkspaceWriter();
+            writer.Write(workspace, outputPath);
+
+            var writtenManagedValue = XDocument.Load(Path.Combine(outputPath, "Other", "Solution.xml"))
+                .Root!
+                .Element("SolutionManifest")!
+                .Element("Managed")!
+                .Value;
+
+            Assert.Equal("2", writtenManagedValue);
         }
         finally
         {

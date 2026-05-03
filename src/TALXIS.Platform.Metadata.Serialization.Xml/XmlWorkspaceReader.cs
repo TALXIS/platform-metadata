@@ -54,7 +54,7 @@ public sealed class XmlWorkspaceReader
         {
             UniqueName = manifest.Element("UniqueName")?.Value ?? "Unknown",
             Version = manifest.Element("Version")?.Value ?? "1.0.0.0",
-            IsManaged = manifest.Element("Managed")?.Value == "1",
+            ManagedValue = manifest.Element("Managed")?.Value ?? "0",
             Source = new SourceLocation(solutionFile, 1, 1)
         };
 
