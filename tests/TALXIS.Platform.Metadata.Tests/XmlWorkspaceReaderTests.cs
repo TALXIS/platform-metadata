@@ -1,3 +1,4 @@
+using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.Merging;
@@ -193,6 +194,20 @@ public class XmlWorkspaceReaderTests
         Assert.Contains("Entity.xml", entity.Source.FilePath);
 
         Assert.NotNull(workspace.GlobalOptionSets[0].Source);
+    }
+
+    [Fact]
+    public void Load_SourceLocations_UseElementLineInfo()
+    {
+        var workspace = new XmlWorkspaceReader().Load(SamplePath);
+
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 3, 4), workspace.Solution!.Source);
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Other", "Solution.xml"), 11, 6), workspace.Solution.Publisher!.Source);
+
+        var entity = workspace.FindEntity("test_entity")!;
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Entities", "test_entity", "Entity.xml"), 4, 6), entity.Source);
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Entities", "test_entity", "Entity.xml"), 15, 10), entity.FindAttribute("tp_name")!.Source);
+        Assert.Equal(new SourceLocation(Path.Combine(SamplePath, "Entities", "test_entity", "Entity.xml"), 40, 10), entity.FindAttribute("tp_count")!.Source);
     }
 
     [Fact]

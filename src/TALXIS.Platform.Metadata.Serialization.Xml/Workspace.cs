@@ -60,6 +60,9 @@ public sealed class Workspace
     private readonly List<RibbonMetadata> _ribbons = new();
     public IReadOnlyList<RibbonMetadata> Ribbons => _ribbons;
 
+    private readonly List<FlowDefinitionMetadata> _flowDefinitions = new();
+    public IReadOnlyList<FlowDefinitionMetadata> FlowDefinitions => _flowDefinitions;
+
     // Generic components (no dedicated loader)
     private readonly List<GenericComponentMetadata> _genericComponents = new();
     public IReadOnlyList<GenericComponentMetadata> GenericComponents => _genericComponents;
@@ -72,8 +75,8 @@ public sealed class Workspace
     /// </summary>
     public IReadOnlyList<WorkspaceLoadError> LoadErrors => _loadErrors;
 
-    internal void AddLoadError(string filePath, string message) =>
-        _loadErrors.Add(new WorkspaceLoadError(filePath, message));
+    internal void AddLoadError(string filePath, string message, int? line = null, int? column = null) =>
+        _loadErrors.Add(new WorkspaceLoadError(filePath, message, line, column));
 
     /// <summary>
     /// Original XML documents stored by the reader for roundtrip-safe writing.
@@ -94,6 +97,7 @@ public sealed class Workspace
     public void AddWebResource(WebResourceMetadata webResource) => _webResources.Add(webResource);
     public void AddWorkflow(WorkflowMetadata workflow) => _workflows.Add(workflow);
     public void AddRibbon(RibbonMetadata ribbon) => _ribbons.Add(ribbon);
+    public void AddFlowDefinition(FlowDefinitionMetadata flowDefinition) => _flowDefinitions.Add(flowDefinition);
     public void AddGenericComponent(GenericComponentMetadata component) => _genericComponents.Add(component);
 
     public EntityMetadata? FindEntity(string logicalName) =>
@@ -133,6 +137,8 @@ public sealed class Workspace
             yield return (ComponentType.Workflow, workflow.WorkflowId, workflow);
         foreach (var ribbon in _ribbons)
             yield return (ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon);
+        foreach (var flowDefinition in _flowDefinitions)
+            yield return (ComponentType.GenericComponent, flowDefinition.Name ?? flowDefinition.FilePath ?? "flow", flowDefinition);
         foreach (var component in _genericComponents)
             yield return (ComponentType.GenericComponent, component.Id ?? component.FilePath ?? component.ComponentTypeName, component);
     }
@@ -162,12 +168,22 @@ public sealed class WorkspaceLoadError
 {
     public string FilePath { get; }
     public string Message { get; }
+    public int? Line { get; }
+    public int? Column { get; }
 
-    public WorkspaceLoadError(string filePath, string message)
+    public WorkspaceLoadError(string filePath, string message, int? line = null, int? column = null)
     {
         FilePath = filePath;
         Message = message;
+        Line = line;
+        Column = column;
     }
 
-    public override string ToString() => $"{FilePath}: {Message}";
+    public override string ToString()
+    {
+        if (Line.HasValue && Column.HasValue)
+            return $"{FilePath}({Line},{Column}): {Message}";
+
+        return $"{FilePath}: {Message}";
+    }
 }
