@@ -59,11 +59,30 @@ public sealed class FormMerger : IComponentMerger
             Body = current
         };
 
-        // Copy labels
+        // Copy labels from base
         foreach (var kvp in baseForm.DisplayName.LocalizedLabels)
             result.DisplayName[kvp.Key] = kvp.Value;
         foreach (var kvp in baseForm.Description.LocalizedLabels)
             result.Description[kvp.Key] = kvp.Value;
+
+        // Apply top-wins for scalar properties from topmost layer
+        var topForm = activeLayers[activeLayers.Count - 1].Component as FormMetadata;
+        if (topForm != null && activeLayers.Count > 1)
+        {
+            result.FormType = topForm.FormType ?? result.FormType;
+            result.Name = topForm.Name ?? result.Name;
+            result.IsCustomizable = topForm.IsCustomizable;
+            result.CanBeDeleted = topForm.CanBeDeleted;
+            result.FormPresentation = topForm.FormPresentation ?? result.FormPresentation;
+            result.FormActivationState = topForm.FormActivationState ?? result.FormActivationState;
+            result.IntroducedVersion = topForm.IntroducedVersion ?? result.IntroducedVersion;
+            result.EntityLogicalName = topForm.EntityLogicalName ?? result.EntityLogicalName;
+            // Labels: take from top layer if non-empty
+            if (topForm.DisplayName.LocalizedLabels.Count > 0)
+                result.DisplayName = topForm.DisplayName;
+            if (topForm.Description.LocalizedLabels.Count > 0)
+                result.Description = topForm.Description;
+        }
 
         return result;
     }

@@ -1053,7 +1053,7 @@ public sealed class XmlWorkspaceReader
         {
             doc = XDocument.Load(file, LoadOptions.PreserveWhitespace);
         }
-        catch
+        catch (System.Xml.XmlException)
         {
             return; // skip malformed XML
         }

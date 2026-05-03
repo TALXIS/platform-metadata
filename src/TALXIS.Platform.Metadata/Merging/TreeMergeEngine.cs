@@ -180,7 +180,7 @@ public static class TreeMergeEngine
                 if (targetSiblings[j] == target) break;
                 if (targetSiblings[j].Name == name) targetIndex++;
             }
-            return targetIndex < candidates.Count ? candidates[targetIndex] : candidates[0];
+            return targetIndex < candidates.Count ? candidates[targetIndex] : null;
         }
 
         // Last resort: first candidate
@@ -381,7 +381,7 @@ public static class TreeMergeEngine
                     if (targetParentChildren[j].Name == target.Name) targetIndex++;
                 }
             }
-            return targetIndex < sameNameIndices.Count ? sameNameIndices[targetIndex] : sameNameIndices[0];
+            return targetIndex < sameNameIndices.Count ? sameNameIndices[targetIndex] : -1;
         }
 
         return -1;

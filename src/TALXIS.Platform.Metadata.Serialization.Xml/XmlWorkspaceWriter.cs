@@ -1480,8 +1480,9 @@ public sealed class XmlWorkspaceWriter
                 {
                     doc = XDocument.Parse(component.RawXml);
                 }
-                catch
+                catch (System.Xml.XmlException)
                 {
+                    // Skip components with malformed raw XML
                     continue;
                 }
             }

@@ -83,9 +83,13 @@ public sealed class GuidValidator
             {
                 ScanFile(filePath, guidMap);
             }
-            catch
+            catch (System.Xml.XmlException)
             {
-                // Skip files that cannot be parsed (mirrors build SDK behaviour).
+                // Skip files with malformed XML (mirrors build SDK behaviour).
+            }
+            catch (IOException)
+            {
+                // Skip files that cannot be read (locked, missing, etc.).
             }
         }
 
