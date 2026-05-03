@@ -36,6 +36,7 @@
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
+		<xs:attribute name="type" type="SystemFormType" />
 	</xs:complexType>
 	<xs:complexType name="FormType">
 		<xs:all>
@@ -691,6 +692,7 @@
 		<xs:attribute name="isrequired" type="xs:boolean" />
 		<xs:attribute name="relationship" type="xs:string" />
 		<xs:attribute name="indicationOfSubgrid" type="xs:boolean" />
+		<xs:attribute name="contenttype" type="xs:string" />
 		<xs:attribute name="solutionaction" type="solutionactionType" />
 	</xs:complexType>
 	<xs:complexType name="FormXmlLibraryType">
@@ -874,6 +876,8 @@
 		<xs:attribute name="isstreamcell" type="xs:boolean" />
 		<xs:attribute name="ischartcell" type="xs:boolean" />
 		<xs:attribute name="istilecell" type="xs:boolean" />
+		<xs:attribute name="contenttype" type="xs:string" />
+		<xs:attribute name="type" type="xs:string" />
 	</xs:attributeGroup>
 	<xs:simpleType name="BehaviorInBulkEditForm">
 		<xs:restriction base="xs:string">
