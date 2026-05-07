@@ -1,0 +1,18 @@
+namespace TALXIS.Platform.Metadata.Packaging;
+
+/// <summary>
+/// Packs and unpacks Dataverse solution ZIPs using SolutionPackager.
+/// No Dataverse connection required — operates on local files only.
+/// </summary>
+public interface ISolutionPackagerService
+{
+    /// <summary>
+    /// Packs a folder structure into a solution ZIP file.
+    /// </summary>
+    void Pack(string folder, string zipPath, bool managed);
+
+    /// <summary>
+    /// Unpacks a solution ZIP file into a folder structure.
+    /// </summary>
+    void Unpack(string zipPath, string outputFolder, bool managed);
+}

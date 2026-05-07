@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/TALXIS.Platform.Metadata.Packaging/TALXIS.Platform.Metadata.Packaging.csproj" />
     <Project Path="src/TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
     <Project Path="src/TALXIS.Platform.Metadata.Validation/TALXIS.Platform.Metadata.Validation.csproj" />
     <Project Path="src/TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />

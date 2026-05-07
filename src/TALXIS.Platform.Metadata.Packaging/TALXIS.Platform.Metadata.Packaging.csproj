@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata.Packaging</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata.Packaging</PackageId>
+    <Description>Wraps SolutionPackagerLib for packing and unpacking Dataverse solution ZIPs. Provides a reusable library interface over Microsoft.Crm.Tools.SolutionPackager.</Description>
+    <Title>TALXIS Platform Metadata Packaging</Title>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SolutionPackagerLib for solution pack/unpack — the DLL is a managed .NET assembly (cross-platform). -->
+    <PackageReference Include="Microsoft.PowerApps.CLI.Core.linux-x64" Version="2.6.4" GeneratePathProperty="true" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="SolutionPackagerLib">
+      <HintPath>$(PkgMicrosoft_PowerApps_CLI_Core_linux-x64)\tools\SolutionPackagerLib.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
