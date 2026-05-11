@@ -10,11 +10,13 @@ public static class ComponentDefinitionRegistry
     private static readonly object SyncRoot = new();
     private static readonly Dictionary<ComponentType, ComponentDefinition> _byType = new();
     private static readonly Dictionary<string, ComponentDefinition> _bySerializedName = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, ComponentDefinition> _byName = new(StringComparer.OrdinalIgnoreCase);
 
     static ComponentDefinitionRegistry()
     {
         // Entity — Name-only identity, merge support, subfolders for forms/views/etc.
         Register(new ComponentDefinition(ComponentType.Entity, "Entity", "Entities", "Entities", "$(PrimaryName)/Entity.xml", IdentityStrategy.Name,
+            Aliases: new[] { "Table" },
             SupportsMerge: true, HasSubfolders: true,
             IsMergeable: false, HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
@@ -22,12 +24,14 @@ public static class ComponentDefinitionRegistry
 
         // Attribute — child of Entity
         Register(new ComponentDefinition(ComponentType.Attribute, "Attribute", "Attributes", "Entities", "$(PrimaryName)/Attributes.xml", IdentityStrategy.Name,
+            Aliases: new[] { "Column" },
             HasParent: true, RootComponent: 1,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "attributeid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "entityid"));
 
         // OptionSet — Name-only identity
         Register(new ComponentDefinition(ComponentType.OptionSet, "OptionSet", "optionsets", "OptionSets", "$(PrimaryName)", IdentityStrategy.Name,
+            Aliases: new[] { "Choice" },
             IsMergeable: false, HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "optionsetid"));
@@ -43,6 +47,7 @@ public static class ComponentDefinitionRegistry
 
         // SavedQuery — child of Entity
         Register(new ComponentDefinition(ComponentType.SavedQuery, "SavedQuery", "SavedQueries", "Entities", "$(PrimaryName)/SavedQueries.xml", IdentityStrategy.Guid,
+            Aliases: new[] { "View" },
             HasParent: true, RootComponent: 1,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "savedqueryid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "returnedtypecode"));
@@ -58,6 +63,7 @@ public static class ComponentDefinitionRegistry
 
         // Role — GUID + Name identity
         Register(new ComponentDefinition(ComponentType.Role, "Role", "Roles", "Roles", "$(PrimaryName)", IdentityStrategy.Guid,
+            Aliases: new[] { "SecurityRole" },
             IsMergeable: false, HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "roleid"));
@@ -72,6 +78,8 @@ public static class ComponentDefinitionRegistry
         Register(new ComponentDefinition(ComponentType.FieldSecurityProfile, "FieldSecurityProfile", "FieldSecurityProfiles", "Other", "$(type)s.xml", IdentityStrategy.Guid));
 
         // SystemForm (type 60) — child of Entity, mergeable
+        // Note: "Form" alias not added because ComponentType.Form (24, legacy) already has Name="Form".
+        // Users should use "SystemForm" or the type code 60.
         Register(new ComponentDefinition(ComponentType.SystemForm, "SystemForm", "SystemForms", "Entities", "$(PrimaryName)/FormXml", IdentityStrategy.Guid,
             SupportsMerge: true,
             IsMergeable: true, HasParent: true, RootComponent: 1,
@@ -87,6 +95,7 @@ public static class ComponentDefinitionRegistry
 
         // Workflow — GUID + Name identity, single collection file
         Register(new ComponentDefinition(ComponentType.Workflow, "Workflow", "Workflows", "Workflows", "Workflows.xml", IdentityStrategy.Guid,
+            Aliases: new[] { "Flow", "Process" },
             HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "workflowid"));
@@ -99,6 +108,7 @@ public static class ComponentDefinitionRegistry
 
         // SdkMessageProcessingStep — GUID-only identity, child of PluginAssembly
         Register(new ComponentDefinition(ComponentType.SdkMessageProcessingStep, "SdkMessageProcessingStep", "SdkMessageProcessingSteps", "SdkMessageProcessingSteps", "$(PrimaryName)", IdentityStrategy.Guid,
+            Aliases: new[] { "PluginStep" },
             HasParent: true, RootComponent: 91,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "sdkmessageprocessingstepid"));
@@ -173,12 +183,14 @@ public static class ComponentDefinitionRegistry
 
         // CustomControl — Qualified name identity ({namespace}.{constructor})
         Register(new ComponentDefinition(ComponentType.CustomControl, "CustomControl", "CustomControls", "Controls", "$(PrimaryName)", IdentityStrategy.Name,
+            Aliases: new[] { "PcfControl" },
             HasParent: false, RootComponent: 0,
             AllowOverwriteCustomizations: true, CanBeDeleted: true,
             PrimaryKeyName: "customcontrolid"));
 
         // EnvironmentVariableDefinition — Singleton wrapper
-        Register(new ComponentDefinition(ComponentType.EnvironmentVariableDefinition, "EnvironmentVariableDefinition", "EnvironmentVariables", "EnvironmentVariables", "$(PrimaryName).xml", IdentityStrategy.Singleton));
+        Register(new ComponentDefinition(ComponentType.EnvironmentVariableDefinition, "EnvironmentVariableDefinition", "EnvironmentVariables", "EnvironmentVariables", "$(PrimaryName).xml", IdentityStrategy.Singleton,
+            Aliases: new[] { "EnvironmentVariable" }));
 
         // Connector — dynamic root directory
         Register(new ComponentDefinition(ComponentType.Connector, "Connector", "Connectors", "$(ComponentsRootName)", "$(PrimaryName).xml", IdentityStrategy.Name,
@@ -245,6 +257,34 @@ public static class ComponentDefinitionRegistry
     }
 
     /// <summary>
+    /// Resolves a component definition by name, alias, enum name, or integer type code string.
+    /// Lookup order: Name → Aliases → <see cref="ComponentType"/> enum parse → integer parse + GetByType.
+    /// All string comparisons are case-insensitive.
+    /// </summary>
+    public static ComponentDefinition? GetByName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        lock (SyncRoot)
+        {
+            // Direct match on Name or Alias
+            if (_byName.TryGetValue(name, out var def))
+                return def;
+        }
+
+        // Enum name match (covers names not registered as definitions)
+        if (Enum.TryParse<ComponentType>(name, ignoreCase: true, out var enumType))
+            return GetByType(enumType);
+
+        // Integer type code
+        if (int.TryParse(name, out var code) && Enum.IsDefined(typeof(ComponentType), code))
+            return GetByType((ComponentType)code);
+
+        return null;
+    }
+
+    /// <summary>
     /// Registers a component definition in the global registry.
     /// </summary>
     /// <param name="def">Definition to register.</param>
@@ -276,18 +316,43 @@ public static class ComponentDefinitionRegistry
                 if (_bySerializedName.TryGetValue(def.SerializedName, out var existing))
                     throw new InvalidOperationException(
                         $"A component definition with serialized name '{def.SerializedName}' is already registered for type '{existing.TypeCode}'.");
+
+                if (_byName.TryGetValue(def.Name, out var existingByNameDef))
+                    throw new InvalidOperationException(
+                        $"A component definition with name '{def.Name}' is already registered for type '{existingByNameDef.TypeCode}'.");
+
+                if (def.Aliases != null)
+                {
+                    foreach (var alias in def.Aliases)
+                    {
+                        if (_byName.TryGetValue(alias, out var existingByAlias))
+                            throw new InvalidOperationException(
+                                $"Alias '{alias}' for type '{def.TypeCode}' conflicts with existing name/alias for type '{existingByAlias.TypeCode}'.");
+                    }
+                }
             }
             else
             {
+                // Clean up old lookups before replacement
                 if (_byType.TryGetValue(def.TypeCode, out var existingByType))
+                {
                     _bySerializedName.Remove(existingByType.SerializedName);
+                    _byName.Remove(existingByType.Name);
+                    if (existingByType.Aliases != null)
+                        foreach (var alias in existingByType.Aliases)
+                            _byName.Remove(alias);
+                }
 
-                if (_bySerializedName.TryGetValue(def.SerializedName, out var existingByName))
-                    _byType.Remove(existingByName.TypeCode);
+                if (_bySerializedName.TryGetValue(def.SerializedName, out var existingBySerName))
+                    _byType.Remove(existingBySerName.TypeCode);
             }
 
             _byType[def.TypeCode] = def;
             _bySerializedName[def.SerializedName] = def;
+            _byName[def.Name] = def;
+            if (def.Aliases != null)
+                foreach (var alias in def.Aliases)
+                    _byName[alias] = def;
         }
     }
 }
