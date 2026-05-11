@@ -336,7 +336,7 @@ public class ComponentDefinitionRegistryTests
     [InlineData("99999999")]
     public void GetByName_InvalidInput_ReturnsNull(string? name)
     {
-        var def = ComponentDefinitionRegistry.GetByName(name!);
+        var def = ComponentDefinitionRegistry.GetByName(name);
         Assert.Null(def);
     }
 

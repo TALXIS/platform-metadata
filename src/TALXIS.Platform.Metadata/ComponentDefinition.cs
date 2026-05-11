@@ -13,7 +13,7 @@ namespace TALXIS.Platform.Metadata;
 /// <param name="Directory">Workspace directory that stores the component.</param>
 /// <param name="FilePattern">File naming pattern used for the serialized component.</param>
 /// <param name="Identity">Strategy used to identify component instances.</param>
-/// <param name="Aliases">Alternative developer-friendly names for this component type (e.g. "Table" for Entity, "Form" for SystemForm).</param>
+/// <param name="Aliases">Alternative developer-friendly names for this component type (e.g. "Table" for Entity, "View" for SavedQuery, "Flow" for Workflow).</param>
 /// <param name="SupportsMerge">Whether the component participates in layered merge workflows.</param>
 /// <param name="IsFileBacked">Whether the component owns an external content file in addition to metadata.</param>
 /// <param name="HasSubfolders">Whether the component stores related content in per-component subfolders.</param>

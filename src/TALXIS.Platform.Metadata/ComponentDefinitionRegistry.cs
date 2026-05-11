@@ -258,28 +258,23 @@ public static class ComponentDefinitionRegistry
 
     /// <summary>
     /// Resolves a component definition by name, alias, enum name, or integer type code string.
-    /// Lookup order: Name → Aliases → <see cref="ComponentType"/> enum parse → integer parse + GetByType.
-    /// All string comparisons are case-insensitive.
+    /// Lookup order: Name → Aliases → <see cref="ComponentType"/> enum parse (covers both named and numeric strings).
+    /// All string comparisons are case-insensitive. Returns <c>null</c> for null, whitespace, or unrecognized input.
     /// </summary>
-    public static ComponentDefinition? GetByName(string name)
+    public static ComponentDefinition? GetByName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
         lock (SyncRoot)
         {
-            // Direct match on Name or Alias
             if (_byName.TryGetValue(name, out var def))
                 return def;
         }
 
-        // Enum name match (covers names not registered as definitions)
+        // Enum parse covers both named values ("Entity") and numeric strings ("60")
         if (Enum.TryParse<ComponentType>(name, ignoreCase: true, out var enumType))
             return GetByType(enumType);
-
-        // Integer type code
-        if (int.TryParse(name, out var code) && Enum.IsDefined(typeof(ComponentType), code))
-            return GetByType((ComponentType)code);
 
         return null;
     }
@@ -305,6 +300,16 @@ public static class ComponentDefinitionRegistry
 
         if (string.IsNullOrWhiteSpace(def.FilePattern))
             throw new ArgumentException("Component definition file pattern cannot be null or whitespace.", nameof(def));
+
+        // Validate aliases: reject null/whitespace entries
+        if (def.Aliases != null)
+        {
+            foreach (var alias in def.Aliases)
+            {
+                if (string.IsNullOrWhiteSpace(alias))
+                    throw new ArgumentException($"Component definition '{def.Name}' contains a null or whitespace alias.", nameof(def));
+            }
+        }
 
         lock (SyncRoot)
         {
@@ -333,18 +338,19 @@ public static class ComponentDefinitionRegistry
             }
             else
             {
-                // Clean up old lookups before replacement
+                // Clean up old lookups before replacement (by type code)
                 if (_byType.TryGetValue(def.TypeCode, out var existingByType))
                 {
                     _bySerializedName.Remove(existingByType.SerializedName);
-                    _byName.Remove(existingByType.Name);
-                    if (existingByType.Aliases != null)
-                        foreach (var alias in existingByType.Aliases)
-                            _byName.Remove(alias);
+                    RemoveNameEntries(existingByType);
                 }
 
+                // Clean up old lookups before replacement (by serialized name)
                 if (_bySerializedName.TryGetValue(def.SerializedName, out var existingBySerName))
+                {
                     _byType.Remove(existingBySerName.TypeCode);
+                    RemoveNameEntries(existingBySerName);
+                }
             }
 
             _byType[def.TypeCode] = def;
@@ -354,5 +360,14 @@ public static class ComponentDefinitionRegistry
                 foreach (var alias in def.Aliases)
                     _byName[alias] = def;
         }
+    }
+
+    /// <summary>Removes a definition's Name and Aliases entries from <c>_byName</c>.</summary>
+    private static void RemoveNameEntries(ComponentDefinition def)
+    {
+        _byName.Remove(def.Name);
+        if (def.Aliases != null)
+            foreach (var alias in def.Aliases)
+                _byName.Remove(alias);
     }
 }
