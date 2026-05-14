@@ -1,10 +1,22 @@
 # TALXIS Platform Metadata
 
-Typed C# metadata model, SolutionPackager XML serialization, and workspace validation for Dataverse and Power Platform solution projects.
+An open-source metadata model for model-driven platforms. It provides typed C# representations of entities, attributes, forms, views, option sets, solutions, and solution layers, with SolutionPackager XML serialization and validation for Dataverse and Power Platform solution projects.
 
-This repository provides the shared metadata kernel used by TALXIS tooling. It defines what platform components are, how they are loaded from source-controlled solution projects, how they are validated, and how Dataverse-style solution layers are represented in memory. It does not store business data, execute plugins, run workflows, or require the Dataverse SDK.
+## Why this exists
 
-## What this is for
+Dataverse solution projects contain the source of truth for platform metadata, but most tools still have to work with raw XML, environment-specific APIs, or ad-hoc scripts. TALXIS Platform Metadata provides a shared kernel that defines **what platform components are and how they behave** so build tools, CLIs, templates, language servers, and future runtime services can reason about the same model.
+
+It does not store business data, execute plugins, run workflows, or require the Dataverse SDK. It is the type system and workspace model that those higher-level tools can build on.
+
+## What this is
+
+- A typed metadata model for source-controlled Dataverse and Power Platform solution projects.
+- A roundtrip-safe SolutionPackager XML reader/writer.
+- A validation layer for XML schemas, JSON payloads, duplicate GUIDs, and typed model loading.
+- A Dataverse-aligned solution model that separates solution membership, source ownership, and effective layer state.
+- A foundation for future metadata runtime, import/export, dependency analysis, language server, and live synchronization work.
+
+## Who uses it
 
 | Consumer | Usage |
 | --- | --- |
@@ -14,6 +26,20 @@ This repository provides the shared metadata kernel used by TALXIS tooling. It d
 | Runtime and synchronization services | Future live Dataverse/source-control synchronization and metadata runtime scenarios. |
 
 Use it when you need to inspect, validate, transform, or export unpacked Dataverse solution metadata without taking a dependency on live environment APIs.
+
+## Where this is going
+
+The long-term plan is to make this a lightweight, embeddable metadata runtime that can replicate the important parts of the Dataverse solution framework outside Dataverse:
+
+- Load one or more managed and unmanaged solution projects into a single workspace.
+- Resolve effective component state from Dataverse-style layer stacks.
+- Import and uninstall solutions against an in-memory metadata runtime.
+- Build a dependency graph for validation, uninstall safety, and impact analysis.
+- Provide type-safe workspace manipulation APIs for CLI and template scenarios.
+- Power editor and language-server diagnostics from the same model used by builds.
+- Support future live Dataverse/source-control synchronization.
+
+See [docs/roadmap.md](docs/roadmap.md) and [docs/runtime-architecture.md](docs/runtime-architecture.md) for the detailed plan.
 
 ## Packages
 
