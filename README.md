@@ -1,8 +1,45 @@
 # TALXIS Platform Metadata
 
-Typed metadata model, SolutionPackager XML serialization, and workspace validation for Dataverse and Power Platform solution projects.
+An open-source metadata model for model-driven platforms. It provides typed C# representations of entities, attributes, forms, views, option sets, solutions, and solution layers, with SolutionPackager XML serialization and validation for Dataverse and Power Platform solution projects.
 
-This library is the shared metadata kernel used by TALXIS tooling. It models solution components, validates unpacked solution workspaces, preserves source ownership, and calculates Dataverse-style solution layers without depending on the Dataverse SDK.
+## Why this exists
+
+Dataverse solution projects contain the source of truth for platform metadata, but most tools still have to work with raw XML, environment-specific APIs, or ad-hoc scripts. TALXIS Platform Metadata provides a shared kernel that defines **what platform components are and how they behave** so build tools, CLIs, templates, language servers, and future runtime services can reason about the same model.
+
+It does not store business data, execute plugins, run workflows, or require the Dataverse SDK. It is the type system and workspace model that those higher-level tools can build on.
+
+## What this is
+
+- A typed metadata model for source-controlled Dataverse and Power Platform solution projects.
+- A roundtrip-safe SolutionPackager XML reader/writer.
+- A validation layer for XML schemas, JSON payloads, duplicate GUIDs, and typed model loading.
+- A Dataverse-aligned solution model that separates solution membership, source ownership, and effective layer state.
+- A foundation for future metadata runtime, import/export, dependency analysis, language server, and live synchronization work.
+
+## Who uses it
+
+| Consumer | Usage |
+| --- | --- |
+| [TALXIS CLI](https://github.com/TALXIS/tools-cli) | Workspace validation, component scaffolding, and language server integration. |
+| [TALXIS Build SDK](https://github.com/TALXIS/tools-devkit-build) | Build-time validation, packaging checks, and version stamping. |
+| [TALXIS Templates](https://github.com/TALXIS/tools-devkit-templates) | Safe workspace manipulation from template post-actions. |
+| Runtime and synchronization services | Future live Dataverse/source-control synchronization and metadata runtime scenarios. |
+
+Use it when you need to inspect, validate, transform, or export unpacked Dataverse solution metadata without taking a dependency on live environment APIs.
+
+## Where this is going
+
+The long-term plan is to make this a lightweight, embeddable metadata runtime that can replicate the important parts of the Dataverse solution framework outside Dataverse:
+
+- Load one or more managed and unmanaged solution projects into a single workspace.
+- Resolve effective component state from Dataverse-style layer stacks.
+- Import and uninstall solutions against an in-memory metadata runtime.
+- Build a dependency graph for validation, uninstall safety, and impact analysis.
+- Provide type-safe workspace manipulation APIs for CLI and template scenarios.
+- Power editor and language-server diagnostics from the same model used by builds.
+- Support future live Dataverse/source-control synchronization.
+
+See [docs/roadmap.md](docs/roadmap.md) and [docs/runtime-architecture.md](docs/runtime-architecture.md) for the detailed plan.
 
 ## Packages
 
@@ -10,11 +47,9 @@ This library is the shared metadata kernel used by TALXIS tooling. It models sol
 | --- | --- |
 | `TALXIS.Platform.Metadata` | Core in-memory metadata model for entities, attributes, relationships, forms, views, apps, roles, workflows, solution manifests, component definitions, and solution layers. |
 | `TALXIS.Platform.Metadata.Serialization.Xml` | Roundtrip-safe reader/writer for unpacked SolutionPackager XML workspaces, including Power Automate flow JSON and generic component passthrough. |
-| `TALXIS.Platform.Metadata.Validation` | Unified workspace validation: XSD validation, JSON validation, duplicate GUID checks, model loading, and load diagnostics with file/line/column locations where available. |
+| `TALXIS.Platform.Metadata.Validation` | Workspace validation: XSD validation, JSON validation, duplicate GUID checks, typed model loading, and load diagnostics with file/line/column locations where available. |
 
 All packages target `netstandard2.0`.
-
-## Install
 
 ```bash
 dotnet add package TALXIS.Platform.Metadata
@@ -24,13 +59,50 @@ dotnet add package TALXIS.Platform.Metadata.Validation
 
 Add only the packages you need. The core model package has no Dataverse SDK, HTTP, SQL, or runtime service dependency.
 
-## What it is for
+## Capabilities
 
-- Build tools that need to inspect or transform unpacked Dataverse solution projects.
-- Language servers and editors that need typed model loading plus diagnostics with source locations.
-- CLI validation and scaffolding workflows.
-- Release pipelines that need deterministic solution metadata checks before packaging/import.
-- Future Dataverse/source-control synchronization where one in-memory workspace contains multiple managed and unmanaged solutions.
+### Metadata model
+
+Typed representations of common Dataverse solution metadata:
+
+- **Entity** - table definitions with ownership, activity type, attributes, relationships, keys, and audit settings.
+- **Attribute** - column definitions with types, constraints, option sets, and localized labels.
+- **Relationship** - one-to-many, many-to-one, and many-to-many metadata with cascade behavior.
+- **Option set** - global and local choices with localized labels.
+- **Form** - form XML metadata and mergeable form structure.
+- **View** - saved query metadata with FetchXML and layout XML.
+- **Security role** - role and privilege metadata.
+- **Workflow and flow definition** - classic workflow metadata and Power Automate flow payloads.
+- **App, site map, plugin, web resource, and generic components** - typed or passthrough metadata for source-controlled solution contents.
+
+### Solution model
+
+The model separates concepts that Dataverse treats differently:
+
+- **Solutions** - loaded solution manifests.
+- **Solution component memberships** - which solution contains or root-owns a component.
+- **Source snapshots** - source-owned payloads loaded from individual solution projects for diagnostics and write-back.
+- **Layers** - Dataverse-style component layer stacks used for effective-state calculation.
+- **Component definitions** - per-type behavior such as identity, merge behavior, overwrite behavior, and dependency metadata.
+
+### Serialization
+
+`TALXIS.Platform.Metadata.Serialization.Xml` reads and writes unpacked SolutionPackager projects. It is designed for source-controlled workspaces where unnecessary diffs are costly:
+
+- Preserves original XML documents and unknown elements where possible.
+- Loads single-solution and multi-solution workspaces.
+- Tracks source ownership so one solution can be exported from a combined workspace.
+- Handles generic components that do not yet have a dedicated typed model.
+
+### Validation
+
+`TALXIS.Platform.Metadata.Validation` validates a workspace as files on disk and as a typed model:
+
+- XML schema validation for embedded SolutionPackager schemas.
+- JSON validation for flow definition payloads.
+- Duplicate GUID detection.
+- Reader/load diagnostics for malformed component files.
+- File, line, and column information where available.
 
 ## Core concepts
 
@@ -38,24 +110,28 @@ Add only the packages you need. The core model package has no Dataverse SDK, HTT
 
 `Workspace` is the in-memory representation of one or more unpacked solution projects. It contains typed component collections such as `Entities`, `Forms`, `Views`, `Workflows`, `FlowDefinitions`, and `GenericComponents`.
 
-It also tracks release-critical solution state separately:
+It also contains solution-layer state needed for ALM scenarios:
 
-- `Solutions` - loaded solution manifests.
-- `SolutionComponentMemberships` - which solution contains or root-owns a component, mirroring Dataverse `solutioncomponent` membership.
-- `ComponentSourceSnapshots` - source-owned payloads loaded from solution projects for diagnostics and write-back.
-- `Layers` - Dataverse-style component layer stacks used for effective-state calculation.
+- `Solutions`
+- `SolutionComponentMemberships`
+- `ComponentSourceSnapshots`
+- `Layers`
 
 ### Solution layers
 
 The model follows Dataverse ALM terminology:
 
-- Managed solution projects contribute ordered managed layers.
-- Unmanaged solution projects contribute source-owned snapshots of the shared `Active` layer.
-- The Active/unmanaged layer sits above managed layers.
-- Most component types use top-wins resolution.
-- Model-driven apps, forms, and site maps are mergeable component types in Dataverse; the library also includes a merge strategy for ribbon customization payloads.
+```text
+Active (unmanaged)       maker customizations, one shared layer
+Managed solution N       installed in import order
+Managed solution 2
+Managed solution 1
+System                   platform baseline
+```
 
-Layer membership, source ownership, and effective state are intentionally separate. This is important because multiple unmanaged solutions can contain the same component while Dataverse still exposes a single Active layer.
+Managed solution projects contribute ordered managed layers. Unmanaged solution projects contribute source-owned snapshots of the shared `Active` layer. Most component types use top-wins resolution; mergeable component types can combine layer payloads.
+
+Layer membership, source ownership, and effective state are intentionally separate. This matters because multiple unmanaged solutions can contain the same component while Dataverse still exposes a single Active layer.
 
 ## Validate a workspace
 
@@ -76,7 +152,7 @@ if (report.LoadedComponents != null)
 }
 ```
 
-Validation includes XML schema checks, JSON checks for flow definitions, duplicate GUID detection, typed model loading, and load diagnostics. Consumers should use the returned file path, line, and column to place editor squiggles where the problem was found.
+Consumers should use the returned file path, line, and column to place editor squiggles or produce build diagnostics at the source of the problem.
 
 ## Load and write one solution project
 
@@ -93,7 +169,7 @@ var writer = new XmlWorkspaceWriter();
 writer.Write(workspace, "artifacts/Core");
 ```
 
-`XmlWorkspaceWriter` preserves unknown XML and original formatting where possible. If a workspace contains multiple solutions, `Write(...)` throws so callers must choose which solution project to export.
+`XmlWorkspaceWriter.Write(...)` preserves unknown XML and original formatting where possible. If a workspace contains multiple solutions, it throws so callers must choose which solution project to export.
 
 ## Load multiple solutions into one workspace
 
@@ -173,11 +249,11 @@ Use `ImportManagedLayer(...)` for managed solution imports and `ImportActiveLaye
 
 ## Design principles
 
-1. **Roundtrip safe** - preserve unknown XML and source documents where possible.
+1. **Roundtrip safe** - preserve original documents, unknown XML, and source-owned payloads where possible.
 2. **Dataverse-aligned** - model solution manifests, memberships, source snapshots, and component layers as distinct concepts.
-3. **Diagnostics-friendly** - keep file paths and source locations for validators, language servers, and CLI output.
-4. **Explicit export intent** - multi-solution workspaces require `WriteSolution(...)`.
-5. **Dependency-light** - the core model is pure `netstandard2.0`; XML and validation packages add only the dependencies they need.
+3. **Diagnostics-friendly** - keep file paths and source locations for validators, language servers, CLI output, and build errors.
+4. **Explicit export intent** - multi-solution workspaces require callers to choose the solution they are writing.
+5. **Dependency-light** - the core model is pure `netstandard2.0`; XML serialization and validation add only the dependencies they need.
 
 ## Current scope
 
@@ -199,13 +275,7 @@ Tracked follow-up work:
 - Complete solution component type parity.
 - Live Dataverse provider/source-control synchronization.
 
-## Related projects
-
-| Consumer | Usage |
-| --- | --- |
-| [TALXIS CLI](https://github.com/TALXIS/tools-cli) | Workspace validation, component scaffolding, language server integration. |
-| [TALXIS Build SDK](https://github.com/TALXIS/tools-devkit-build) | Build-time validation, packaging, and version stamping. |
-| [TALXIS Templates](https://github.com/TALXIS/tools-devkit-templates) | Safe workspace manipulation from template post-actions. |
+See [docs/](docs/) for architecture notes, runtime design, and the roadmap.
 
 ## Contributing
 
