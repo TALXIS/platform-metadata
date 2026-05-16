@@ -38,12 +38,32 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 
 **Goal:** Type-safe component manipulation for CLI and template engine.
 
-- [ ] `IWorkspaceContext` interface (FileSystem, Transactional, InMemory)
-- [ ] `SolutionXml.AddRootComponent()` - replace raw XML manipulation
-- [ ] `EntityBuilder` - fluent API for entity + attribute creation
-- [ ] `FormBuilder` - fluent API for form construction
+### IWorkspaceContext interface
+Abstraction layer for I/O — model never touches filesystem directly.
+
+- [ ] Define `IWorkspaceContext` (read/write/delete/list/exists)
+- [ ] `FileSystemContext` implementation (scripts, `dotnet new`, direct disk)
+- [ ] `InMemoryContext` implementation (language server, tests — no disk)
+- [ ] `TransactionalContext` implementation (CLI — buffered writes, rollback on failure)
+- [ ] Migrate `XmlWorkspaceReader` / `XmlWorkspaceWriter` to `IWorkspaceContext`
+
+### Dirty tracking
+Write only modified files. `Load → Save` with no changes = zero git diff.
+
+- [ ] Dirty flag per component
+- [ ] `Workspace.GetModifiedFiles()` — list files to write
+- [ ] Writer respects dirty flag — skips unmodified
+
+### Component builders (fluent API)
+- [ ] `EntityBuilder` — fluent API for entity + attribute creation
+- [ ] `FormBuilder` — fluent API for form construction (add/remove/move control, add tab/section)
 - [ ] Migrate template post-action scripts to typed API
-- [ ] Dirty tracking (only write modified files)
+
+### MergeableNode manipulation API
+Extended API for editing the form body tree.
+
+- [ ] `AddControl(sectionId, control)`, `RemoveControl(controlId)`, `MoveControl(controlId, targetSectionId, position)`
+- [ ] `FindNode(predicate)`, `FindNodesByAttribute(attrName, pattern)` — tree search
 
 ## Milestone 5: CDN Snapshot Format
 
@@ -70,12 +90,42 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 
 **Goal:** Real-time diagnostics and completions in VS Code.
 
-- [ ] LSP server using core model + validation
-- [ ] Diagnostics from SchemaValidator + StructuralValidator
-- [ ] Completions from loaded workspace (entity/attribute/option set names)
-- [ ] Go-to-definition for cross-file references
-- [ ] File watching + incremental reload via InMemoryContext
-- [ ] Uses SourceLocation from core model
+### LSP server scaffold
+- [ ] New project `TALXIS.Platform.Metadata.LanguageServer`
+- [ ] LSP framework (OmniSharp or `Microsoft.VisualStudio.LanguageServer.Protocol`)
+- [ ] Initialize: `textDocument/didOpen`, `textDocument/didChange`, `textDocument/didClose`
+- [ ] Workspace load at startup (via `InMemoryContext`)
+
+### Diagnostics
+- [ ] XSD validation errors → LSP diagnostics with source location
+- [ ] Duplicate GUID detection → diagnostics
+- [ ] Dangling references (control → non-existent attribute) → warning
+- [ ] Model-load errors from `Workspace.LoadErrors` → diagnostics
+- [ ] Leverage `SourceLocation` from core model for precise positions
+
+### Completions
+- [ ] Entity logical names in lookups and references
+- [ ] Attribute logical names in `datafieldname` attributes
+- [ ] FormId / ViewId reference completions
+- [ ] OptionSet values
+- [ ] ClassId completions for control types
+
+### Go-to-definition
+- [ ] `datafieldname="ntg_vatvalue"` → jump to attribute definition in Entity.xml
+- [ ] Lookup reference → target entity
+- [ ] FormId reference → form file
+- [ ] OptionSet reference → global/local option set definition
+
+### File watching + incremental reload
+- [ ] `workspace/didChangeWatchedFiles` handler
+- [ ] Incremental reload — only changed files, not full workspace
+- [ ] Leverage `InMemoryContext` for fast model update
+- [ ] Invalidate diagnostics for changed files
+
+### VS Code extension
+- [ ] Extension manifest (`package.json`) — language ID for `.xml` in `Declarations/` context
+- [ ] LSP client configuration
+- [ ] Activation on `Solution.xml` detection in workspace
 
 ## Milestone 8: Code Generation
 
