@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.Crm.Tools.SolutionPackager;
 
 namespace TALXIS.Platform.Metadata.Packaging;
