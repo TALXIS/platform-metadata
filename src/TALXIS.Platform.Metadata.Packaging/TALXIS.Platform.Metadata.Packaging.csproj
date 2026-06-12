@@ -23,4 +23,13 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="$(PkgMicrosoft_PowerApps_CLI_Core_linux-x64)\tools\*.dll"
+          Pack="true"
+          PackagePath="lib\$(TargetFramework)\"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+
 </Project>
