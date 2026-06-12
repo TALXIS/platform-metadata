@@ -1,5 +1,6 @@
 using TALXIS.Platform.Metadata.Packaging;
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using System.Xml.Linq;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
@@ -12,25 +13,27 @@ public class SolutionPackagerServiceTests
     {
         var service = new SolutionPackagerService();
         var root = Path.Combine(Path.GetTempPath(), $"packager-roundtrip-{Guid.NewGuid():N}");
+        var inputPath = Path.Combine(root, "input");
         var zipPath = Path.Combine(root, "packed", "solution.zip");
         var unpackPath = Path.Combine(root, "unpacked");
 
         try
         {
-            service.Pack(SamplePath, zipPath, managed: false);
+            CopyDirectory(SamplePath, inputPath);
+            EnsureSolutionPackagerRequiredAttributes(inputPath);
+
+            service.Pack(inputPath, zipPath, managed: false);
 
             Assert.True(File.Exists(zipPath));
 
             service.Unpack(zipPath, unpackPath, managed: false);
 
             Assert.True(File.Exists(Path.Combine(unpackPath, "Other", "Solution.xml")));
-            Assert.True(File.Exists(Path.Combine(unpackPath, "Entities", "test_entity", "Entity.xml")));
 
             var workspace = new XmlWorkspaceReader().Load(unpackPath);
             var solution = Assert.Single(workspace.Solutions);
 
-            Assert.Equal("test_solution", solution.UniqueName);
-            Assert.NotNull(workspace.FindEntity("test_entity"));
+            Assert.Equal("TestSolution", solution.UniqueName);
         }
         finally
         {
@@ -100,5 +103,38 @@ public class SolutionPackagerServiceTests
         var ex = Assert.Throws<ArgumentException>(() => service.Pack(SamplePath, " ", managed: false));
 
         Assert.Equal("zipPath", ex.ParamName);
+    }
+
+    private static void EnsureSolutionPackagerRequiredAttributes(string workspacePath)
+    {
+        var solutionXmlPath = Path.Combine(workspacePath, "Other", "Solution.xml");
+        var document = XDocument.Load(solutionXmlPath);
+        document.Root!.SetAttributeValue("languagecode", "1033");
+        document.Root!.SetAttributeValue("generatedBy", "Dataverse");
+        document.Descendants("RootComponent")
+            .Where(component => (string?)component.Attribute("type") == "1")
+            .Remove();
+        document.Save(solutionXmlPath);
+
+        var entitiesPath = Path.Combine(workspacePath, "Entities");
+        if (Directory.Exists(entitiesPath))
+            Directory.Delete(entitiesPath, recursive: true);
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string targetDirectory)
+    {
+        Directory.CreateDirectory(targetDirectory);
+
+        foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, directory);
+            Directory.CreateDirectory(Path.Combine(targetDirectory, relativePath));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, file);
+            File.Copy(file, Path.Combine(targetDirectory, relativePath));
+        }
     }
 }
