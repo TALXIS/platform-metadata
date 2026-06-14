@@ -99,9 +99,11 @@ public sealed class GuidValidator
 
         foreach (var filePath in Directory.EnumerateFiles(workspacePath, "*.xml", SearchOption.AllDirectories))
         {
+            var relativePath = filePath.Substring(workspacePath.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             try
             {
-                ScanFile(filePath, guidMap);
+                ScanFile(filePath, relativePath, guidMap);
             }
             catch (System.Xml.XmlException ex)
             {
@@ -143,19 +145,19 @@ public sealed class GuidValidator
         return results;
     }
 
-    private static void ScanFile(string filePath, Dictionary<string, List<GuidLocation>> guidMap)
+    private static void ScanFile(string filePath, string relativePath, Dictionary<string, List<GuidLocation>> guidMap)
     {
         var doc = XDocument.Load(filePath, LoadOptions.SetLineInfo);
         if (doc.Root != null)
-            ScanElements(doc.Root, filePath, guidMap);
+            ScanElements(doc.Root, filePath, relativePath, guidMap);
     }
 
-    private static void ScanElements(XElement element, string filePath, Dictionary<string, List<GuidLocation>> guidMap)
+    private static void ScanElements(XElement element, string filePath, string relativePath, Dictionary<string, List<GuidLocation>> guidMap)
     {
         // Scan attributes for identity GUIDs
         foreach (var attr in element.Attributes())
         {
-            if (IsIdentityAttribute(attr.Name.LocalName, filePath))
+            if (IsIdentityAttribute(attr.Name.LocalName, relativePath))
             {
                 var value = attr.Value.Trim();
                 if (GuidPattern.IsMatch(value))
@@ -181,7 +183,7 @@ public sealed class GuidValidator
         {
             var localName = element.Name.LocalName;
 
-            if (!IsInsideParameters(element) && IsIdentityElement(localName, filePath))
+            if (!IsInsideParameters(element) && IsIdentityElement(localName, relativePath))
             {
                 var value = element.Value.Trim();
                 if (GuidPattern.IsMatch(value))
@@ -204,7 +206,7 @@ public sealed class GuidValidator
 
         foreach (var child in element.Elements())
         {
-            ScanElements(child, filePath, guidMap);
+            ScanElements(child, filePath, relativePath, guidMap);
         }
     }
 

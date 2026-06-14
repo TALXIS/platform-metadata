@@ -116,6 +116,59 @@ public class GuidValidatorTests : IDisposable
     }
 
     [Fact]
+    public void RootComponentReference_InProjectFolderNamedRoles_NotFlaggedAsDuplicate()
+    {
+
+        var workspace = Path.Combine(_tempDir, "Security.Roles");
+
+        var roleGuid = "{1bbf5210-5833-4b95-a38e-9f771ee3481e}";
+
+        var rolesDir = Path.Combine(workspace, "Roles");
+        Directory.CreateDirectory(rolesDir);
+        File.WriteAllText(Path.Combine(rolesDir, "role.xml"), $"""
+            <Role id="{roleGuid}" name="Some Role" />
+            """);
+
+        var otherDir = Path.Combine(workspace, "Other");
+        Directory.CreateDirectory(otherDir);
+        File.WriteAllText(Path.Combine(otherDir, "Solution.xml"), $"""
+            <ImportExportXml>
+              <SolutionManifest>
+                <RootComponents>
+                  <RootComponent type="20" id="{roleGuid}" behavior="0" />
+                </RootComponents>
+              </SolutionManifest>
+            </ImportExportXml>
+            """);
+
+        var results = _validator.ValidateDirectory(workspace);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void DuplicateRoleDeclarations_StillDetected()
+    {
+        var rolesDir = Path.Combine(_tempDir, "Roles");
+        Directory.CreateDirectory(rolesDir);
+
+        var duplicateGuid = "{1bbf5210-5833-4b95-a38e-9f771ee3481e}";
+
+        File.WriteAllText(Path.Combine(rolesDir, "role1.xml"), $"""
+            <Role id="{duplicateGuid}" name="Role One" />
+            """);
+        File.WriteAllText(Path.Combine(rolesDir, "role2.xml"), $"""
+            <Role id="{duplicateGuid}" name="Role Two" />
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.NotEmpty(results);
+        Assert.True(results.Count >= 2, "Expected at least 2 results (one per occurrence)");
+        Assert.All(results, r => Assert.Equal(ValidationSeverity.Error, r.Severity));
+    }
+
+    [Fact]
     public void DifferentComponentTypes_DontConflict()
     {
         var sameGuid = "{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}";
