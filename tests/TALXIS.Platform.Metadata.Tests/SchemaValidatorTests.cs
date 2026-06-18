@@ -326,40 +326,88 @@ public class SchemaValidatorTests
         Assert.Empty(errors);
     }
 
+    // Mirrors the customapi.xml emitted by the pp-api-endpoint template / SolutionPackager.
     [Fact]
-    public void CustomApi_RootElement_PassesValidation()
+    public void CustomApi_GeneratedFormat_ProducesNoErrorsOrWarnings()
     {
         var xml = """
             <?xml version="1.0" encoding="utf-8"?>
-            <customapi>
-              <name>test_CustomApi</name>
-              <displayname>Test Custom API</displayname>
+            <customapi uniquename="example_customapiexamplename">
+              <allowedcustomprocessingsteptype>0</allowedcustomprocessingsteptype>
+              <bindingtype>0</bindingtype>
+              <boundentitylogicalname />
+              <description default="customapiexampledescription">
+                <label description="customapiexampledescription" languagecode="1033" />
+              </description>
+              <displayname default="customapiexampledisplayname">
+                <label description="customapiexampledisplayname" languagecode="1033" />
+              </displayname>
+              <executeprivilegename />
+              <iscustomizable>1</iscustomizable>
+              <isfunction>0</isfunction>
+              <isprivate>0</isprivate>
+              <name>example_customapiexamplename</name>
+              <plugintypeid />
+              <workflowsdkstepenabled>0</workflowsdkstepenabled>
             </customapi>
             """;
 
         var doc = XDocument.Parse(xml);
-        var results = _validator.ValidateXml(doc, "CustomApi.xml");
+        var results = _validator.ValidateXml(doc, "customapi.xml");
 
-        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
-        Assert.Empty(errors);
+        // Issue #77: generated Custom API metadata must validate without schema-info noise.
+        Assert.Empty(results);
     }
 
     [Fact]
-    public void CustomApiRequestParameter_RootElement_PassesValidation()
+    public void CustomApiRequestParameter_GeneratedFormat_ProducesNoErrorsOrWarnings()
     {
         var xml = """
             <?xml version="1.0" encoding="utf-8"?>
-            <customapirequestparameter>
-              <uniquename>Target</uniquename>
+            <customapirequestparameter uniquename="StringParameter">
+              <description default="The StringParameter request parameter for customapiexampledisplayname">
+                <label description="The StringParameter request parameter for customapiexampledisplayname" languagecode="1033" />
+              </description>
+              <displayname default="StringParameter">
+                <label description="StringParameter" languagecode="1033" />
+              </displayname>
+              <iscustomizable>0</iscustomizable>
+              <isoptional>0</isoptional>
+              <logicalentityname />
+              <name>example_customapiexamplename.StringParameter</name>
               <type>10</type>
             </customapirequestparameter>
             """;
 
         var doc = XDocument.Parse(xml);
-        var results = _validator.ValidateXml(doc, "CustomApiRequestParameter.xml");
+        var results = _validator.ValidateXml(doc, "customapirequestparameter.xml");
 
-        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
-        Assert.Empty(errors);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void CustomApiResponseProperty_GeneratedFormat_ProducesNoErrorsOrWarnings()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <customapiresponseproperty uniquename="StringProperty">
+              <description default="The StringProperty response property for customapiexampledisplayname">
+                <label description="The StringProperty response property for customapiexampledisplayname" languagecode="1033" />
+              </description>
+              <displayname default="StringProperty">
+                <label description="StringProperty" languagecode="1033" />
+              </displayname>
+              <iscustomizable>0</iscustomizable>
+              <logicalentityname />
+              <name>example_customapiexamplename.StringProperty</name>
+              <type>10</type>
+            </customapiresponseproperty>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "customapiresponseproperty.xml");
+
+        Assert.Empty(results);
     }
 
     [Fact]

@@ -1,27 +1,66 @@
 <?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <!--
+        Schema for Custom API metadata as unpacked by SolutionPackager / the
+        pp-api-endpoint template. Children are modelled as an unordered, all-optional
+        set so reordering and minimal exports validate cleanly without emitting
+        "no schema information" warnings (see tools-cli issue #77).
+    -->
+    <xs:complexType name="CustomApiLocalizedLabelType">
+        <xs:sequence>
+            <xs:element name="label" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:attribute name="description" type="xs:string" use="required" />
+                    <xs:attribute name="languagecode" type="xs:nonNegativeInteger" use="required" />
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="default" type="xs:string" />
+    </xs:complexType>
     <xs:element name="customapi">
         <xs:complexType>
-            <xs:sequence>
-                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
-            </xs:sequence>
-            <xs:anyAttribute processContents="lax" />
+            <xs:all>
+                <xs:element name="allowedcustomprocessingsteptype" type="xs:integer" minOccurs="0" />
+                <xs:element name="bindingtype" type="xs:integer" minOccurs="0" />
+                <xs:element name="boundentitylogicalname" type="xs:string" minOccurs="0" />
+                <xs:element name="description" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="displayname" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="executeprivilegename" type="xs:string" minOccurs="0" />
+                <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="isfunction" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="isprivate" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="name" type="xs:string" minOccurs="0" />
+                <xs:element name="plugintypeid" type="xs:string" minOccurs="0" />
+                <xs:element name="workflowsdkstepenabled" type="TrueFalse01Type" minOccurs="0" />
+            </xs:all>
+            <xs:attribute name="uniquename" type="xs:string" use="required" />
         </xs:complexType>
     </xs:element>
     <xs:element name="customapirequestparameter">
         <xs:complexType>
-            <xs:sequence>
-                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
-            </xs:sequence>
-            <xs:anyAttribute processContents="lax" />
+            <xs:all>
+                <xs:element name="description" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="displayname" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="isoptional" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="logicalentityname" type="xs:string" minOccurs="0" />
+                <xs:element name="name" type="xs:string" minOccurs="0" />
+                <xs:element name="type" type="xs:integer" minOccurs="0" />
+            </xs:all>
+            <xs:attribute name="uniquename" type="xs:string" use="required" />
         </xs:complexType>
     </xs:element>
     <xs:element name="customapiresponseproperty">
         <xs:complexType>
-            <xs:sequence>
-                <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
-            </xs:sequence>
-            <xs:anyAttribute processContents="lax" />
+            <xs:all>
+                <xs:element name="description" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="displayname" type="CustomApiLocalizedLabelType" minOccurs="0" />
+                <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+                <xs:element name="logicalentityname" type="xs:string" minOccurs="0" />
+                <xs:element name="name" type="xs:string" minOccurs="0" />
+                <xs:element name="type" type="xs:integer" minOccurs="0" />
+            </xs:all>
+            <xs:attribute name="uniquename" type="xs:string" use="required" />
         </xs:complexType>
     </xs:element>
 </xs:schema>
