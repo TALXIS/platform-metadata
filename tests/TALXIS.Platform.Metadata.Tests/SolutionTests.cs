@@ -170,7 +170,7 @@ public class SolutionTests
         Assert.Equal(ComponentType.WebResource, component.Type);
         Assert.Equal(id, component.Id);
         Assert.Equal(1, component.Behavior);
-        Assert.Equal(RootComponentBehavior.IncludeSubcomponents, component.BehaviorOption);
+        Assert.Equal(RootComponentBehavior.DoNotIncludeSubcomponents, component.BehaviorOption);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class SolutionTests
 
         component.BehaviorOption = RootComponentBehavior.DoNotIncludeSubcomponents;
 
-        Assert.Equal(2, component.Behavior);
+        Assert.Equal(1, component.Behavior);
         Assert.Equal(RootComponentBehavior.DoNotIncludeSubcomponents, component.BehaviorOption);
     }
 

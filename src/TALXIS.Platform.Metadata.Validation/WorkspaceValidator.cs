@@ -119,6 +119,10 @@ public sealed class WorkspaceValidator
                     diagnostic.Line,
                     diagnostic.Column));
             }
+
+            // Layer 3: Referential integrity across the loaded model.
+            var relationshipValidator = new RelationshipValidator();
+            results.AddRange(relationshipValidator.Validate(workspace));
         }
         catch (Exception ex)
         {

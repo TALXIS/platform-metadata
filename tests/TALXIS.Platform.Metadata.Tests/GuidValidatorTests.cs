@@ -199,4 +199,86 @@ public class GuidValidatorTests : IDisposable
         Assert.True(results.Count >= 2, "Expected at least 2 results (one per occurrence)");
         Assert.All(results, r => Assert.Equal(ValidationSeverity.Error, r.Severity));
     }
+
+    [Fact]
+    public void ManagedAndUnmanagedTwins_SharingFormId_NotFlaggedAsDuplicate()
+    {
+        // {id}.xml (unmanaged) and {id}_managed.xml (managed) are two layers of
+        // the SAME component and legitimately share their formid. They must
+        // never be reported as duplicates of each other.
+        var formsDir = Path.Combine(_tempDir, "FormXml");
+        Directory.CreateDirectory(formsDir);
+
+        var sharedGuid = "{2fc2021f-8b2a-48ad-946c-06c3b250fa25}";
+
+        File.WriteAllText(Path.Combine(formsDir, "form.xml"), $"""
+            <form>
+              <formid>{sharedGuid}</formid>
+            </form>
+            """);
+        File.WriteAllText(Path.Combine(formsDir, "form_managed.xml"), $"""
+            <form>
+              <formid>{sharedGuid}</formid>
+            </form>
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void RealDuplicate_NotMaskedByPresenceOfManagedTwin()
+    {
+        // A genuine collision with a third, unrelated file must still be
+        // reported even when a managed/unmanaged twin pair is present.
+        var formsDir = Path.Combine(_tempDir, "FormXml");
+        Directory.CreateDirectory(formsDir);
+
+        var sharedGuid = "{2fc2021f-8b2a-48ad-946c-06c3b250fa25}";
+
+        File.WriteAllText(Path.Combine(formsDir, "form.xml"), $"""
+            <form><formid>{sharedGuid}</formid></form>
+            """);
+        File.WriteAllText(Path.Combine(formsDir, "form_managed.xml"), $"""
+            <form><formid>{sharedGuid}</formid></form>
+            """);
+        File.WriteAllText(Path.Combine(formsDir, "other.xml"), $"""
+            <form><formid>{sharedGuid}</formid></form>
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        // The real collision (against other.xml) is still reported...
+        Assert.Contains(results, r =>
+            r.FilePath != null && Path.GetFileName(r.FilePath) == "other.xml");
+        // ...but the twins never point at each other.
+        Assert.DoesNotContain(results, r =>
+            r.FilePath != null && Path.GetFileName(r.FilePath) == "form.xml"
+            && r.Message.Contains("form_managed.xml"));
+    }
+
+    [Fact]
+    public void BuildOutputCopiesInObjFolder_NotScanned()
+    {
+        // After a build, obj/.../Metadata holds copies of the source metadata.
+        // Those copies must never collide with the originals.
+        var sharedGuid = "{79c46cbc-5506-419a-9ab7-f603ad1d6ff6}";
+
+        var sourceDir = Path.Combine(_tempDir, "Entities", "pba_test", "FormXml", "main");
+        Directory.CreateDirectory(sourceDir);
+        File.WriteAllText(Path.Combine(sourceDir, "form.xml"), $"""
+            <form><formid>{sharedGuid}</formid></form>
+            """);
+
+        var objCopyDir = Path.Combine(_tempDir, "obj", "Debug", "net462", "Metadata", "Entities", "pba_test", "FormXml", "main");
+        Directory.CreateDirectory(objCopyDir);
+        File.WriteAllText(Path.Combine(objCopyDir, "form.xml"), $"""
+            <form><formid>{sharedGuid}</formid></form>
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.Empty(results);
+    }
 }

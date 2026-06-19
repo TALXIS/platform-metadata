@@ -13,6 +13,15 @@ public sealed class GuidValidator
         @"\{?[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\}?",
         RegexOptions.Compiled);
 
+    // Filename suffix of a component's managed-layer counterpart ({id}_managed.xml).
+    private const string ManagedLayerSuffix = "_managed";
+
+    // Never scanned for GUIDds
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin", "obj", ".vs", ".git", ".github", "node_modules", "packages", "TestResults"
+    };
+
     /// <summary>
     /// Identity rules for child elements: the element's text content carries
     /// a component GUID when its local name matches AND the file path contains
@@ -101,6 +110,11 @@ public sealed class GuidValidator
         {
             var relativePath = filePath.Substring(workspacePath.Length)
                 .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            var segments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (segments.Any(s => IgnoredDirectories.Contains(s)))
+                continue;
+
             try
             {
                 ScanFile(filePath, relativePath, guidMap);
@@ -128,10 +142,16 @@ public sealed class GuidValidator
             for (int i = 0; i < locations.Count; i++)
             {
                 var loc = locations[i];
+                var locComponent = GetComponentKey(loc.FilePath);
+
                 var otherFiles = locations
-                    .Where((_, idx) => idx != i)
+                    .Where((l, idx) => idx != i &&
+                        !string.Equals(GetComponentKey(l.FilePath), locComponent, StringComparison.OrdinalIgnoreCase))
                     .Select(l => Path.GetFileName(l.FilePath))
                     .ToArray();
+
+                if (otherFiles.Length == 0)
+                    continue;
 
                 results.Add(new ValidationResult(
                     ValidationSeverity.Error,
@@ -255,6 +275,20 @@ public sealed class GuidValidator
         if (Guid.TryParse(stripped, out var parsed))
             return parsed.ToString("D");
         return null;
+    }
+
+    // Identity key = path with the managed-layer suffix stripped, so {name}.xml and
+    // {name}_managed.xml map to the same component (never flagged as duplicates).
+    private static string GetComponentKey(string filePath)
+    {
+        var directory = Path.GetDirectoryName(filePath) ?? string.Empty;
+        var nameNoExt = Path.GetFileNameWithoutExtension(filePath);
+        var ext = Path.GetExtension(filePath);
+
+        if (nameNoExt.EndsWith(ManagedLayerSuffix, StringComparison.OrdinalIgnoreCase))
+            nameNoExt = nameNoExt.Substring(0, nameNoExt.Length - ManagedLayerSuffix.Length);
+
+        return Path.Combine(directory, nameNoExt + ext);
     }
 
     private static void AddGuid(Dictionary<string, List<GuidLocation>> map, string guid, GuidLocation location)

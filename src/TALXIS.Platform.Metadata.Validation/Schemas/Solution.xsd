@@ -232,6 +232,38 @@
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
+                <!-- Image column configuration. Present when an entity has an image/file column. -->
+                <xs:element name="EntityImageConfigs" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="EntityImageConfig" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:all>
+                                        <xs:element name="entityimageconfigid" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                        <xs:element name="parententitylogicalname" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                        <xs:element name="primaryimageattribute" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                    </xs:all>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="AttributeImageConfigs" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="AttributeImageConfig" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:all>
+                                        <xs:element name="attributeimageconfigid" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                        <xs:element name="attributelogicalname" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                        <xs:element name="parententitylogicalname" type="xs:string" minOccurs="0" maxOccurs="1" />
+                                        <xs:element name="canstorefullimage" type="xs:integer" minOccurs="0" maxOccurs="1" />
+                                    </xs:all>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
                 <xs:element name="EntityMaps" minOccurs="0" maxOccurs="1">
                     <xs:complexType>
                         <xs:sequence>

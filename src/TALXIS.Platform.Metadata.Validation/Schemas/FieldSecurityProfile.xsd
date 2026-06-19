@@ -26,6 +26,8 @@
                         <xs:element name="CanRead" type="xs:integer" minOccurs="1" maxOccurs="1" />
                         <xs:element name="CanUpdate" type="xs:integer" minOccurs="1" maxOccurs="1" />
                         <xs:element name="CanCreate" type="xs:integer" minOccurs="1" maxOccurs="1" />
+                        <!-- Optional: column masking feature. Absent in solutions that don't use masking. -->
+                        <xs:element name="CanReadUnmasked" type="xs:integer" minOccurs="0" maxOccurs="1" />
                     </xs:sequence>
                 </xs:complexType>
             </xs:element>

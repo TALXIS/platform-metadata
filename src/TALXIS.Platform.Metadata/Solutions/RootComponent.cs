@@ -6,19 +6,19 @@ namespace TALXIS.Platform.Metadata.Solutions;
 public enum RootComponentBehavior
 {
     /// <summary>
-    /// Include the root component without automatically adding subcomponents.
+    /// Include the root component and all its subcomponents.
     /// </summary>
-    IncludeAsShell = 0,
+    IncludeSubcomponents = 0,
 
     /// <summary>
-    /// Include the root component together with its subcomponents.
+    /// Include the root component but not its subcomponents.
     /// </summary>
-    IncludeSubcomponents = 1,
+    DoNotIncludeSubcomponents = 1,
 
     /// <summary>
-    /// Include the root component but explicitly avoid adding subcomponents.
+    /// Include the root component as a shell only.
     /// </summary>
-    DoNotIncludeSubcomponents = 2
+    IncludeAsShellOnly = 2
 }
 
 /// <summary>
@@ -54,7 +54,7 @@ public sealed class RootComponent
     {
         get => Enum.IsDefined(typeof(RootComponentBehavior), Behavior)
             ? (RootComponentBehavior)Behavior
-            : RootComponentBehavior.IncludeAsShell;
+            : RootComponentBehavior.IncludeSubcomponents;
         set => Behavior = (int)value;
     }
 }
