@@ -652,4 +652,106 @@ public class SchemaValidatorTests
         var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void FieldSecurityProfile_WithCanReadUnmasked_PassesValidation()
+    {
+        // CanReadUnmasked is a valid FieldPermission element (column masking feature).
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <FieldSecurityProfiles xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <FieldSecurityProfile name="Test" fieldsecurityprofileid="{67560be0-fd60-ee11-8df0-000d3adf7d8e}">
+                <FieldPermissions>
+                  <FieldPermission>
+                    <EntityName>pba_projekt</EntityName>
+                    <AttributeName>pba_field</AttributeName>
+                    <CanRead>4</CanRead>
+                    <CanUpdate>0</CanUpdate>
+                    <CanCreate>0</CanCreate>
+                    <CanReadUnmasked>0</CanReadUnmasked>
+                  </FieldPermission>
+                </FieldPermissions>
+              </FieldSecurityProfile>
+            </FieldSecurityProfiles>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "FieldSecurityProfiles.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Customizations_WithImageConfigs_PassesValidation()
+    {
+        // EntityImageConfigs / AttributeImageConfigs appear when an entity has an image/file column.
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Entities />
+              <EntityImageConfigs>
+                <EntityImageConfig>
+                  <parententitylogicalname>pba_nahlasenechyby</parententitylogicalname>
+                  <primaryimageattribute>pba_screenshot</primaryimageattribute>
+                </EntityImageConfig>
+              </EntityImageConfigs>
+              <AttributeImageConfigs>
+                <AttributeImageConfig>
+                  <attributelogicalname>pba_screenshot</attributelogicalname>
+                  <parententitylogicalname>pba_nahlasenechyby</parententitylogicalname>
+                  <canstorefullimage>1</canstorefullimage>
+                </AttributeImageConfig>
+              </AttributeImageConfigs>
+              <Languages>
+                <Language>1033</Language>
+              </Languages>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+        // The image-config elements must be fully modeled — no "could not find
+        // schema information" warnings for them or their children.
+        Assert.DoesNotContain(results, r =>
+            r.Severity == ValidationSeverity.Warning &&
+            (r.Message.Contains("ImageConfig") || r.Message.Contains("primaryimageattribute")
+             || r.Message.Contains("attributelogicalname") || r.Message.Contains("canstorefullimage")
+             || r.Message.Contains("parententitylogicalname")));
+    }
+
+    [Fact]
+    public void OptionSet_StateAndStatus_WithIsHidden_PassesValidation()
+    {
+        // IsHidden is valid on statecode <state> and statuscode <status> values.
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <optionset Name="pba_test_statecode">
+              <OptionSetType>state</OptionSetType>
+              <states>
+                <state value="0" defaultstatus="1" invariantname="Active" IsHidden="0">
+                  <labels>
+                    <label description="Active" languagecode="1033" />
+                  </labels>
+                </state>
+              </states>
+              <statuses>
+                <status value="1" state="0" IsHidden="0">
+                  <labels>
+                    <label description="Active" languagecode="1033" />
+                  </labels>
+                </status>
+              </statuses>
+            </optionset>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "OptionSet.xml");
+
+        var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
 }
