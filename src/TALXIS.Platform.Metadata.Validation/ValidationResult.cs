@@ -14,7 +14,10 @@ public sealed record ValidationResult(
     string? FilePath,
     int? Line,
     int? Column
-);
+)
+{
+    public ValidationStage Stage { get; init; } = ValidationStage.Workspace;
+}
 
 /// <summary>
 /// Severity level for a <see cref="ValidationResult"/>.
@@ -30,4 +33,29 @@ public enum ValidationSeverity
     /// Validation detected a non-fatal problem that should be surfaced to the user.
     /// </summary>
     Warning
+}
+
+public enum ValidationStage
+{
+    Workspace,
+    Schema,
+    Json,
+    DuplicateGuid,
+    ModelLoad,
+    Flow,
+    Relationship
+}
+
+public static class ValidationStageExtensions
+{
+    public static string Label(this ValidationStage stage) => stage switch
+    {
+        ValidationStage.Schema => "Schema",
+        ValidationStage.Json => "JSON",
+        ValidationStage.DuplicateGuid => "GUID",
+        ValidationStage.ModelLoad => "Model",
+        ValidationStage.Flow => "Flow",
+        ValidationStage.Relationship => "Relationship",
+        _ => "Workspace"
+    };
 }

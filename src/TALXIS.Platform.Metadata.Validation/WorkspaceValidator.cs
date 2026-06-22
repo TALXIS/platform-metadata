@@ -44,8 +44,8 @@ public sealed class WorkspaceValidator
         if (!Directory.Exists(workspacePath))
         {
             results.Add(new ValidationResult(ValidationSeverity.Error,
-                $"Directory not found: {workspacePath}", null, null, null));
-            return new WorkspaceValidationReport(results, null);
+                $"Directory not found: {workspacePath}", null, null, null) { Stage = ValidationStage.Workspace });
+            return BuildReport(results, null);
         }
 
         // Layer 1: Schema validation
@@ -54,17 +54,17 @@ public sealed class WorkspaceValidator
         {
             try
             {
-                results.AddRange(schemaValidator.ValidateFile(xmlFile));
+                results.AddRange(WithStage(schemaValidator.ValidateFile(xmlFile), ValidationStage.Schema));
             }
             catch (IOException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Cannot read file: {ex.Message}", xmlFile, null, null));
+                    $"Cannot read file: {ex.Message}", xmlFile, null, null) { Stage = ValidationStage.Schema });
             }
             catch (UnauthorizedAccessException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Access denied: {ex.Message}", xmlFile, null, null));
+                    $"Access denied: {ex.Message}", xmlFile, null, null) { Stage = ValidationStage.Schema });
             }
         }
 
@@ -74,23 +74,23 @@ public sealed class WorkspaceValidator
         {
             try
             {
-                results.AddRange(jsonValidator.ValidateFile(jsonFile));
+                results.AddRange(WithStage(jsonValidator.ValidateFile(jsonFile), ValidationStage.Json));
             }
             catch (IOException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Cannot read file: {ex.Message}", jsonFile, null, null));
+                    $"Cannot read file: {ex.Message}", jsonFile, null, null) { Stage = ValidationStage.Json });
             }
             catch (UnauthorizedAccessException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Access denied: {ex.Message}", jsonFile, null, null));
+                    $"Access denied: {ex.Message}", jsonFile, null, null) { Stage = ValidationStage.Json });
             }
         }
 
         // Layer 1: GUID duplicate detection
         var guidValidator = new GuidValidator();
-        results.AddRange(guidValidator.ValidateDirectory(workspacePath));
+        results.AddRange(WithStage(guidValidator.ValidateDirectory(workspacePath), ValidationStage.DuplicateGuid));
 
         // Layer 2: Model loading
         Workspace? workspace = null;
@@ -107,7 +107,7 @@ public sealed class WorkspaceValidator
                     $"Load error: {loadError.Message}",
                     loadError.FilePath,
                     loadError.Line,
-                    loadError.Column));
+                    loadError.Column) { Stage = ValidationStage.ModelLoad });
             }
 
             foreach (var diagnostic in workspace.FlowDefinitions.SelectMany(f => f.Diagnostics))
@@ -117,22 +117,33 @@ public sealed class WorkspaceValidator
                     $"Flow {diagnostic.Code}: {diagnostic.Message}",
                     diagnostic.FilePath,
                     diagnostic.Line,
-                    diagnostic.Column));
+                    diagnostic.Column) { Stage = ValidationStage.Flow });
             }
 
             // Layer 3: Referential integrity across the loaded model.
             var relationshipValidator = new RelationshipValidator();
-            results.AddRange(relationshipValidator.Validate(workspace));
+            results.AddRange(WithStage(relationshipValidator.Validate(workspace), ValidationStage.Relationship));
         }
         catch (Exception ex)
         {
             results.Add(new ValidationResult(
                 ValidationSeverity.Error,
                 $"Failed to load workspace into model: {ex.Message}",
-                workspacePath, null, null));
+                workspacePath, null, null) { Stage = ValidationStage.ModelLoad });
         }
 
-        return new WorkspaceValidationReport(results, workspace);
+        return BuildReport(results, workspace);
+    }
+
+    private static IEnumerable<ValidationResult> WithStage(IEnumerable<ValidationResult> results, ValidationStage stage) =>
+        results.Select(r => r with { Stage = stage });
+
+    private static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)
+    {
+        var labeled = results
+            .Select(r => r with { Message = $"[{r.Stage.Label()}] {r.Message}" })
+            .ToList();
+        return new WorkspaceValidationReport(labeled, workspace);
     }
 
     private static ValidationSeverity MapFlowSeverity(FlowDiagnosticSeverity severity) =>
