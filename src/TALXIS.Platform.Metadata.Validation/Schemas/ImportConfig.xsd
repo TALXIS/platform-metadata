@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="configdatastorage" type="ImportConfigStorageType" />
+
+    <xs:complexType name="ImportConfigStorageType">
+        <xs:all>
+            <xs:element name="solutions" type="ImportConfigSolutionsType" minOccurs="0" />
+            <xs:element name="externalpackages" type="ImportConfigExternalPackagesType" minOccurs="0" />
+            <xs:element name="filestoimport" type="ImportConfigFilesToImportType" minOccurs="0" />
+            <xs:element name="filesmapstoimport" type="ImportConfigFilesMapsToImportType" minOccurs="0" />
+            <xs:element name="cmtdatafiles" type="ImportConfigCmtDataFilesType" minOccurs="0" />
+        </xs:all>
+        <xs:attribute name="installsampledata" type="xs:string" use="optional" />
+        <xs:attribute name="waitforsampledatatoinstall" type="xs:string" use="optional" />
+        <xs:attribute name="agentdesktopzipfile" type="xs:string" use="optional" />
+        <xs:attribute name="agentdesktopexename" type="xs:string" use="optional" />
+        <xs:attribute name="crmmigdataimportfile" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigSolutionsType">
+        <xs:sequence>
+            <xs:element name="configsolutionfile" type="ImportConfigSolutionFileType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigSolutionFileType">
+        <xs:attribute name="solutionpackagefilename" type="xs:string" use="required" />
+        <xs:attribute name="overwriteunmanagedcustomizations" type="xs:string" use="optional" />
+        <xs:attribute name="publishworkflowsandactivateplugins" type="xs:string" use="optional" />
+        <xs:attribute name="holdingsolution" type="xs:string" use="optional" />
+        <xs:attribute name="requiredimportmode" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigExternalPackagesType">
+        <xs:sequence>
+            <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip" />
+        </xs:sequence>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigFilesToImportType">
+        <xs:sequence>
+            <xs:element name="configimportfile" type="ImportConfigImportFileType" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="zipimportdetails" type="ImportConfigZipImportDetailsType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigImportFileType">
+        <xs:attribute name="filename" type="xs:string" use="required" />
+        <xs:attribute name="filetype" type="xs:string" use="optional" />
+        <xs:attribute name="associatedmap" type="xs:string" use="optional" />
+        <xs:attribute name="importtoentity" type="xs:string" use="optional" />
+        <xs:attribute name="datadelimiter" type="xs:string" use="optional" />
+        <xs:attribute name="fielddelimiter" type="xs:string" use="optional" />
+        <xs:attribute name="enableduplicatedetection" type="xs:string" use="optional" />
+        <xs:attribute name="isfirstrowheader" type="xs:string" use="optional" />
+        <xs:attribute name="isrecordownerateam" type="xs:string" use="optional" />
+        <xs:attribute name="owneruser" type="xs:string" use="optional" />
+        <xs:attribute name="waitforimporttocomplete" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigZipImportDetailsType">
+        <xs:sequence>
+            <xs:element name="zipimportdetail" type="ImportConfigZipImportDetailType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigZipImportDetailType">
+        <xs:attribute name="filename" type="xs:string" use="required" />
+        <xs:attribute name="filetype" type="xs:string" use="optional" />
+        <xs:attribute name="importtoentity" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigFilesMapsToImportType">
+        <xs:sequence>
+            <xs:element name="configimportmapfile" type="ImportConfigImportMapFileType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigImportMapFileType">
+        <xs:attribute name="filename" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigCmtDataFilesType">
+        <xs:sequence>
+            <xs:element name="cmtdatafile" type="ImportConfigCmtDataFileType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ImportConfigCmtDataFileType">
+        <xs:attribute name="filename" type="xs:string" use="required" />
+        <xs:attribute name="lcid" type="xs:string" use="optional" />
+        <xs:attribute name="usermapfilename" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+</xs:schema>
