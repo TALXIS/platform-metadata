@@ -1,0 +1,161 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="manifest" type="PcfManifestType" />
+
+    <xs:complexType name="PcfManifestType">
+        <xs:sequence>
+            <xs:element name="control" type="PcfControlType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfControlType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="external-service-usage" type="PcfExternalServiceUsageType" />
+            <xs:element name="property" type="PcfPropertyType" />
+            <xs:element name="type-group" type="PcfTypeGroupType" />
+            <xs:element name="data-set" type="PcfDataSetType" />
+            <xs:element name="resources" type="PcfResourcesType" />
+            <xs:element name="feature-usage" type="PcfFeatureUsageType" />
+            <xs:element name="built-by" type="PcfBuiltByType" />
+            <xs:element name="subscribed-functionalities" type="PcfSubscribedFunctionalitiesType" />
+        </xs:choice>
+        <xs:attribute name="namespace" type="xs:string" use="required" />
+        <xs:attribute name="constructor" type="xs:string" />
+        <xs:attribute name="version" type="xs:string" />
+        <xs:attribute name="display-name-key" type="xs:string" />
+        <xs:attribute name="description-key" type="xs:string" />
+        <xs:attribute name="control-type" type="xs:string" />
+        <xs:attribute name="preview-image" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfPropertyType">
+        <xs:sequence>
+            <xs:element name="value" type="PcfValueType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="display-name-key" type="xs:string" />
+        <xs:attribute name="description-key" type="xs:string" />
+        <xs:attribute name="of-type" type="xs:string" />
+        <xs:attribute name="of-type-group" type="xs:string" />
+        <xs:attribute name="usage" type="xs:string" />
+        <xs:attribute name="required" type="xs:string" />
+        <xs:attribute name="default-value" type="xs:string" />
+        <xs:attribute name="hidden" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfValueType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="name" type="xs:string" />
+                <xs:attribute name="display-name-key" type="xs:string" />
+                <xs:attribute name="description-key" type="xs:string" />
+                <xs:attribute name="default" type="xs:string" />
+                <xs:anyAttribute processContents="skip" />
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <xs:complexType name="PcfTypeGroupType">
+        <xs:sequence>
+            <xs:element name="type" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfDataSetType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="property-set" type="PcfPropertySetType" />
+            <xs:element name="property" type="PcfPropertyType" />
+        </xs:choice>
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="display-name-key" type="xs:string" />
+        <xs:attribute name="description-key" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfPropertySetType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="display-name-key" type="xs:string" />
+        <xs:attribute name="description-key" type="xs:string" />
+        <xs:attribute name="of-type" type="xs:string" />
+        <xs:attribute name="usage" type="xs:string" />
+        <xs:attribute name="required" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfResourcesType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="code" type="PcfResourceFileType" />
+            <xs:element name="css" type="PcfResourceFileType" />
+            <xs:element name="html" type="PcfResourceFileType" />
+            <xs:element name="img" type="PcfResourceFileType" />
+            <xs:element name="resx" type="PcfResxType" />
+            <xs:element name="platform-library" type="PcfPlatformLibraryType" />
+        </xs:choice>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfResourceFileType">
+        <xs:attribute name="path" type="xs:string" use="required" />
+        <xs:attribute name="order" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfResxType">
+        <xs:attribute name="path" type="xs:string" use="required" />
+        <xs:attribute name="version" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfPlatformLibraryType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="version" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfFeatureUsageType">
+        <xs:sequence>
+            <xs:element name="uses-feature" type="PcfUsesFeatureType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfUsesFeatureType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="required" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfExternalServiceUsageType">
+        <xs:sequence>
+            <xs:element name="domain" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="enabled" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfBuiltByType">
+        <xs:attribute name="name" type="xs:string" />
+        <xs:attribute name="version" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfSubscribedFunctionalitiesType">
+        <xs:sequence>
+            <xs:element name="subscribed-functionality" type="PcfSubscribedFunctionalityType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="PcfSubscribedFunctionalityType">
+        <xs:attribute name="name" type="xs:string" />
+        <xs:attribute name="value" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+</xs:schema>
