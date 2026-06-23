@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="catalog" type="CatalogType" />
+    <xs:element name="catalogassignments" type="CatalogAssignmentsType" />
+
+    <xs:complexType name="CatalogType">
+        <xs:all>
+            <xs:element name="description" type="CatalogLabelType" minOccurs="0" />
+            <xs:element name="displayname" type="CatalogLabelType" minOccurs="0" />
+            <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+            <xs:element name="name" type="xs:string" minOccurs="0" />
+            <xs:element name="parentcatalogid" minOccurs="0">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="uniquename" type="xs:string" minOccurs="0" />
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:all>
+        <xs:attribute name="uniquename" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CatalogLabelType">
+        <xs:sequence>
+            <xs:element name="label" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:attribute name="description" type="xs:string" use="required" />
+                    <xs:attribute name="languagecode" type="xs:positiveInteger" use="required" />
+                    <xs:anyAttribute processContents="skip" />
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="default" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CatalogAssignmentsType">
+        <xs:sequence>
+            <xs:element name="catalogassignment" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+                    </xs:sequence>
+                    <xs:attribute name="catalogid.uniquename" type="xs:string" />
+                    <xs:attribute name="object.uniquename" type="xs:string" />
+                    <xs:attribute name="objectidtype" type="xs:string" />
+                    <xs:anyAttribute processContents="skip" />
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+</xs:schema>
