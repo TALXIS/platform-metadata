@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using TALXIS.Platform.Metadata;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
@@ -57,8 +58,11 @@ public sealed class GuidValidator
     };
 
     private static readonly Dictionary<string, List<string>> IdentityLookup;
+
     private static readonly Dictionary<string, List<string>> AttributeIdentityLookup;
 
+    private static readonly HashSet<string> ComponentRootDirectories = new(ComponentDefinitionRegistry.GetAll().Select(d => d.Directory), StringComparer.OrdinalIgnoreCase);
+        
     static GuidValidator()
     {
         IdentityLookup = BuildLookup(IdentityRules);
@@ -83,6 +87,7 @@ public sealed class GuidValidator
     private struct GuidLocation
     {
         public string FilePath;
+        public string RelativePath;
         public string ElementName;
         public int Line;
         public int Column;
@@ -142,12 +147,13 @@ public sealed class GuidValidator
             for (int i = 0; i < locations.Count; i++)
             {
                 var loc = locations[i];
-                var locComponent = GetComponentKey(loc.FilePath);
+                var locComponent = GetComponentIdentity(loc.RelativePath);
 
                 var otherFiles = locations
                     .Where((l, idx) => idx != i &&
-                        !string.Equals(GetComponentKey(l.FilePath), locComponent, StringComparison.OrdinalIgnoreCase))
-                    .Select(l => Path.GetFileName(l.FilePath))
+                        !string.Equals(GetComponentIdentity(l.RelativePath), locComponent, StringComparison.OrdinalIgnoreCase))
+                    .Select(l => l.RelativePath)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
 
                 if (otherFiles.Length == 0)
@@ -189,6 +195,7 @@ public sealed class GuidValidator
                         AddGuid(guidMap, normalized, new GuidLocation
                         {
                             FilePath = filePath,
+                            RelativePath = relativePath,
                             ElementName = $"@{attr.Name.LocalName}",
                             Line = lineInfo.HasLineInfo() ? lineInfo.LineNumber : 0,
                             Column = lineInfo.HasLineInfo() ? lineInfo.LinePosition : 0
@@ -215,6 +222,7 @@ public sealed class GuidValidator
                         AddGuid(guidMap, normalized, new GuidLocation
                         {
                             FilePath = filePath,
+                            RelativePath = relativePath,
                             ElementName = localName,
                             Line = lineInfo.HasLineInfo() ? lineInfo.LineNumber : 0,
                             Column = lineInfo.HasLineInfo() ? lineInfo.LinePosition : 0
@@ -277,18 +285,28 @@ public sealed class GuidValidator
         return null;
     }
 
-    // Identity key = path with the managed-layer suffix stripped, so {name}.xml and
-    // {name}_managed.xml map to the same component (never flagged as duplicates).
-    private static string GetComponentKey(string filePath)
+    private static string GetComponentIdentity(string relativePath)
     {
-        var directory = Path.GetDirectoryName(filePath) ?? string.Empty;
-        var nameNoExt = Path.GetFileNameWithoutExtension(filePath);
-        var ext = Path.GetExtension(filePath);
+        var segments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        if (nameNoExt.EndsWith(ManagedLayerSuffix, StringComparison.OrdinalIgnoreCase))
-            nameNoExt = nameNoExt.Substring(0, nameNoExt.Length - ManagedLayerSuffix.Length);
+        var anchor = Array.FindIndex(segments, s => ComponentRootDirectories.Contains(s));
+        var scoped = anchor >= 0 ? segments.Skip(anchor).ToArray() : segments;
 
-        return Path.Combine(directory, nameNoExt + ext);
+        if (scoped.Length > 0)
+        {
+            var file = scoped[scoped.Length - 1];
+            var ext = Path.GetExtension(file);
+            var name = Path.GetFileNameWithoutExtension(file);
+
+            if (name.EndsWith(ManagedLayerSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                name = name.Substring(0, name.Length - ManagedLayerSuffix.Length);
+            }
+            
+            scoped[scoped.Length - 1] = name + ext;
+        }
+
+        return string.Join(Path.DirectorySeparatorChar.ToString(), scoped);
     }
 
     private static void AddGuid(Dictionary<string, List<GuidLocation>> map, string guid, GuidLocation location)
