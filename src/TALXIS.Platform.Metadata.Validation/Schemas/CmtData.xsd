@@ -15,7 +15,10 @@
         <xs:choice minOccurs="0">
             <xs:sequence>
                 <xs:element name="records" type="CmtRecordsType" minOccurs="0" />
-                <xs:element name="m2mrelationships" type="CmtM2mRelationshipsType" minOccurs="0" />
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element name="m2mrelationships" type="CmtM2mRelationshipsType" />
+                    <xs:element name="m2mrelationship" type="CmtM2mRelationshipType" />
+                </xs:choice>
             </xs:sequence>
             <xs:sequence>
                 <xs:element name="fields" type="CmtFieldsType" />

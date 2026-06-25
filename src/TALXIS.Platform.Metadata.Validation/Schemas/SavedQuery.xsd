@@ -127,6 +127,25 @@
                                 </xs:sequence>
                             </xs:complexType>
                         </xs:element>
+                        <xs:element name="roledisplayconditionsxml" minOccurs="0" maxOccurs="1">
+                            <xs:complexType>
+                                <xs:sequence>
+                                    <xs:element name="DisplayConditions" minOccurs="0" maxOccurs="1">
+                                        <xs:complexType>
+                                            <xs:sequence>
+                                                <xs:element name="Role" minOccurs="0" maxOccurs="unbounded">
+                                                    <xs:complexType>
+                                                        <xs:attribute name="Id" type="xs:string" />
+                                                        <xs:anyAttribute processContents="skip" />
+                                                    </xs:complexType>
+                                                </xs:element>
+                                            </xs:sequence>
+                                            <xs:anyAttribute processContents="skip" />
+                                        </xs:complexType>
+                                    </xs:element>
+                                </xs:sequence>
+                            </xs:complexType>
+                        </xs:element>
                     </xs:all>
                     <xs:attribute name="unmodified" use="optional" type="TrueFalse01Type" />
                     <xs:anyAttribute processContents="lax" />

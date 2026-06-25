@@ -268,10 +268,18 @@ public sealed class GuidValidator
         if (patterns.Count == 0)
             return true;
 
+        var segments = filePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
         foreach (var pattern in patterns)
         {
-            if (filePath.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
+            var isFilePattern = pattern.IndexOf('.') >= 0;
+            foreach (var segment in segments)
+            {
+                if (isFilePattern
+                    ? segment.EndsWith(pattern, StringComparison.OrdinalIgnoreCase)
+                    : segment.Equals(pattern, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
         }
 
         return false;

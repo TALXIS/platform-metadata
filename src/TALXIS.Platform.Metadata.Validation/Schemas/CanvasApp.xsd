@@ -32,6 +32,9 @@
             <xs:element name="CdsDependencies" type="xs:string" minOccurs="0" />
             <xs:element name="IsCustomizable" type="xs:string" minOccurs="0" />
             <xs:element name="CodeAppPackageUris" type="CodeAppPackageUrisType" minOccurs="0" />
+            <xs:element name="BackgroundImageUri" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="DocumentUri" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="AdditionalUris" type="AdditionalUrisType" minOccurs="0" />
         </xs:all>
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
@@ -39,6 +42,12 @@
     <xs:complexType name="CodeAppPackageUrisType">
         <xs:sequence>
             <xs:element name="CodeAppPackageUri" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="AdditionalUrisType">
+        <xs:sequence>
+            <xs:element name="AdditionalUri" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
     </xs:complexType>
 

@@ -37,6 +37,13 @@
                 <xs:element name="type" type="xs:integer" />
                 <xs:element name="apiid" type="xs:string" minOccurs="0" />
                 <xs:element name="parameterkey" type="xs:string" minOccurs="0" />
+                <xs:element name="parentdefinitionid" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="schemaname" type="xs:string" minOccurs="0" />
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
             </xs:all>
             <xs:attribute name="schemaname" type="xs:string" use="required" />
         </xs:complexType>
