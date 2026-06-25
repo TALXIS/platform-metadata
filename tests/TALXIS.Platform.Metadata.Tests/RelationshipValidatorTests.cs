@@ -112,6 +112,24 @@ public class RelationshipValidatorTests
     }
 
     [Fact]
+    public void UnresolvedRelationship_NameOnly_ReportsError()
+    {
+        var ws = new Workspace("test");
+        ws.AddRelationship(new OneToManyRelationshipMetadata
+        {
+            SchemaName = "udpp_udpp_111warehouseitem_udpp_warehousetransaction_itemid",
+            ReferencingEntity = "",
+            ReferencingAttribute = "",
+            ReferencedEntity = "",
+            ReferencedAttribute = "",
+        });
+
+        var error = Assert.Single(Errors(ws));
+        Assert.Contains("udpp_udpp_111warehouseitem_udpp_warehousetransaction_itemid", error.Message);
+        Assert.Contains("no definition", error.Message);
+    }
+
+    [Fact]
     public void MultipleDanglingRelationships_AllReportedAsErrors()
     {
         var ws = new Workspace("test");

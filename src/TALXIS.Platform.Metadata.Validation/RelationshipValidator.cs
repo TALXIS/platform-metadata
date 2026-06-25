@@ -38,6 +38,7 @@ public sealed class RelationshipValidator
         var manyToMany = workspace.Relationships.OfType<ManyToManyRelationshipMetadata>().ToList();
         var shellEntities = BuildShellEntitySet(workspace);
 
+        ValidateRelationshipResolves(oneToMany, results);
         ValidateOneToMany(workspace, oneToMany, shellEntities, results);
         ValidateManyToMany(manyToMany, results);
         ValidateOrphanLookupColumns(workspace, oneToMany, results);
@@ -67,6 +68,30 @@ public sealed class RelationshipValidator
         shell.ExceptWith(full); 
 
         return shell;
+    }
+
+    private static void ValidateRelationshipResolves(
+        IReadOnlyList<OneToManyRelationshipMetadata> relationships,
+        List<ValidationResult> results)
+    {
+        foreach (var relationship in relationships)
+        {
+            var unresolved =
+                string.IsNullOrWhiteSpace(relationship.ReferencingEntity) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencingAttribute) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencedEntity) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencedAttribute);
+
+            if (unresolved)
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Error,
+                    $"Relationship '{relationship.SchemaName}' is declared but has no definition " +
+                    "(no referencing or referenced entity/column). Its full definition is missing, or the name in " +
+                    "Other/Relationships.xml does not match the relationship definition in Other/Relationships/.",
+                    null, null, null));
+            }
+        }
     }
 
     private static void ValidateOneToMany(
