@@ -308,6 +308,7 @@
                                             </xs:attribute>
                                             <xs:attribute name="ordinalvalue" type="xs:nonNegativeInteger" />
                                             <xs:attribute name="solutionaction" type="solutionactionType" />
+                                            <xs:anyAttribute processContents="skip" />
                                         </xs:complexType>
                                     </xs:element>
                                 </xs:sequence>
