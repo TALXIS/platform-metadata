@@ -363,6 +363,30 @@ public class RelationshipValidatorTests
     }
 
     [Fact]
+    public void MissingColumn_DefinedInAnotherWorkspaceSolution_ReportsWarning()
+    {
+        // The entity is full here (behavior 0), so locally the column is missing. But the
+        // same entity's copy in another solution of the workspace defines it, so this is a
+        // layering artifact: warning, not error.
+        var ws = new Workspace("test");
+        ws.AddEntity(Entity("pba_child"));
+        Include(ws, "pba_child", behavior: 0);
+        ws.AddRelationship(Rel("rel", "pba_child", "pba_missing"));
+
+        var workspaceColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "pba_child|pba_missing"
+        };
+
+        var results = _validator.Validate(ws, workspaceColumns);
+
+        Assert.Empty(results.Where(r => r.Severity == ValidationSeverity.Error));
+        var warning = Assert.Single(results.Where(r => r.Severity == ValidationSeverity.Warning));
+        Assert.Contains("pba_missing", warning.Message);
+        Assert.Contains("another solution", warning.Message);
+    }
+
+    [Fact]
     public void OrphanLookupColumn_OnShellEntity_StillWarned()
     {
         // Even on a shell entity the missing relationship is a real fact we cannot

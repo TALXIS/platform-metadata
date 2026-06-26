@@ -101,8 +101,9 @@ public sealed class WorkspaceValidator
                 solutionRoots = new[] { workspacePath };
 
             var loaded = solutionRoots.Select(reader.Load).ToList();
+            var workspaceColumns = BuildWorkspaceColumnSet(loaded);
             foreach (var ws in loaded)
-                CollectModelFindings(ws, results);
+                CollectModelFindings(ws, workspaceColumns, results);
 
             return loaded.Count == 1
                 ? loaded[0]
@@ -120,7 +121,17 @@ public sealed class WorkspaceValidator
 
 
 
-    private static void CollectModelFindings(Workspace workspace, List<ValidationResult> results)
+    private static HashSet<string> BuildWorkspaceColumnSet(IEnumerable<Workspace> workspaces)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var workspace in workspaces)
+            foreach (var entity in workspace.Entities)
+                foreach (var attribute in entity.Attributes)
+                    columns.Add($"{entity.LogicalName}|{attribute.LogicalName}");
+        return columns;
+    }
+
+    private static void CollectModelFindings(Workspace workspace, HashSet<string> workspaceColumns, List<ValidationResult> results)
     {
         foreach (var loadError in workspace.LoadErrors)
         {
@@ -142,7 +153,7 @@ public sealed class WorkspaceValidator
                 diagnostic.Column) { Stage = ValidationStage.Flow });
         }
 
-        results.AddRange(WithStage(new RelationshipValidator().Validate(workspace), ValidationStage.Relationship));
+        results.AddRange(WithStage(new RelationshipValidator().Validate(workspace, workspaceColumns), ValidationStage.Relationship));
     }
 
     private static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)
