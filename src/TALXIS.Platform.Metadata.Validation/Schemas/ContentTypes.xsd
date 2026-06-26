@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://schemas.openxmlformats.org/package/2006/content-types"
+           xmlns="http://schemas.openxmlformats.org/package/2006/content-types"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+    <xs:element name="Types">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="Default" type="CT_Default" />
+                <xs:element name="Override" type="CT_Override" />
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="CT_Default">
+        <xs:attribute name="Extension" type="xs:string" use="required" />
+        <xs:attribute name="ContentType" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CT_Override">
+        <xs:attribute name="PartName" type="xs:string" use="required" />
+        <xs:attribute name="ContentType" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+</xs:schema>

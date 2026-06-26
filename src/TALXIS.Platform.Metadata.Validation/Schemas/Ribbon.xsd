@@ -14,21 +14,17 @@
 
 	<!-- Element Types -->
 	<xs:complexType name="RibbonEntityDiffXmlType">
-		<xs:choice minOccurs="1" maxOccurs="1">
-			<xs:sequence>
-				<xs:element name="CustomActions" minOccurs="0" maxOccurs="1" type="CustomActionsType" />
-				<xs:element name="Templates" type="TemplatesType" minOccurs="0" maxOccurs="1" />
-				<xs:element name="CommandDefinitions" minOccurs="0" maxOccurs="1" type="CommandDefinitionsType" />
-				<xs:element name="RuleDefinitions" minOccurs="0" maxOccurs="1" type="RuleDefinitionsEntityType" />
-				<xs:element name="LocLabels" minOccurs="0" maxOccurs="1" type="RibbonLocLabelsType" />
-			</xs:sequence>
-			<xs:sequence>
-				<xs:element name="RibbonNotSupported" minOccurs="1" maxOccurs="1">
-					<xs:complexType>
-						<xs:sequence />
-					</xs:complexType>
-				</xs:element>
-			</xs:sequence>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="CustomActions" type="CustomActionsType" />
+			<xs:element name="Templates" type="TemplatesType" />
+			<xs:element name="CommandDefinitions" type="CommandDefinitionsType" />
+			<xs:element name="RuleDefinitions" type="RuleDefinitionsEntityType" />
+			<xs:element name="LocLabels" type="RibbonLocLabelsType" />
+			<xs:element name="RibbonNotSupported">
+				<xs:complexType>
+					<xs:sequence />
+				</xs:complexType>
+			</xs:element>
 		</xs:choice>
 	</xs:complexType>
 
@@ -117,12 +113,13 @@
 		</xs:sequence>
 	</xs:complexType>
 	<xs:complexType name="CommandDefinitionType">
-		<xs:all>
-			<xs:element name="EnableRules" type="ReferenceEnableRulesType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="DisplayRules" type="ReferenceDisplayRulesType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="Actions" type="ActionsType" minOccurs="0" maxOccurs="1" />
-		</xs:all>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="EnableRules" type="ReferenceEnableRulesType" />
+			<xs:element name="DisplayRules" type="ReferenceDisplayRulesType" />
+			<xs:element name="Actions" type="ActionsType" />
+		</xs:choice>
 		<xs:attribute name="Id" type="xs:string" use="required" />
+		<xs:attribute name="SolutionAction" type="xs:string" use="optional" />
 	</xs:complexType>
 	<xs:complexType name="JavaScriptFunctionType">
 		<xs:sequence>
@@ -141,9 +138,10 @@
 		</xs:sequence>
 	</xs:complexType>
 	<xs:complexType name="ReferenceDisplayRulesType">
-		<xs:sequence>
-			<xs:element name="DisplayRule" type="ReferenceDisplayRuleType" minOccurs="0" maxOccurs="unbounded" />
-		</xs:sequence>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="DisplayRule" type="ReferenceDisplayRuleType" />
+			<xs:element name="EnableRule" type="ReferenceEnableRuleType" />
+		</xs:choice>
 	</xs:complexType>
 	<xs:complexType name="ReferenceEnableRuleType">
 		<xs:attribute name="Id" type="xs:string" use="required" />
@@ -193,29 +191,30 @@
 
 	<!-- Rule Container Types -->
 	<xs:complexType name="RuleDefinitionsEntityType">
-		<xs:all>
-			<xs:element name="TabDisplayRules" type="TabDisplayRulesEntityType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="DisplayRules" type="DisplayRulesType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="EnableRules" type="EnableRulesType" minOccurs="0" maxOccurs="1" />
-		</xs:all>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="TabDisplayRules" type="TabDisplayRulesEntityType" />
+			<xs:element name="DisplayRules" type="DisplayRulesType" />
+			<xs:element name="EnableRules" type="EnableRulesType" />
+		</xs:choice>
 	</xs:complexType>
 	<xs:complexType name="RuleDefinitionsGlobalType">
-		<xs:all>
-			<xs:element name="TabDisplayRules" type="TabDisplayRulesGlobalType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="DisplayRules" type="DisplayRulesType" minOccurs="0" maxOccurs="1" />
-			<xs:element name="EnableRules" type="EnableRulesType" minOccurs="0" maxOccurs="1" />
-		</xs:all>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="TabDisplayRules" type="TabDisplayRulesGlobalType" />
+			<xs:element name="DisplayRules" type="DisplayRulesType" />
+			<xs:element name="EnableRules" type="EnableRulesType" />
+		</xs:choice>
 	</xs:complexType>
 
 	<xs:complexType name="EnableRulesType">
 		<xs:sequence minOccurs="0" maxOccurs="unbounded">
 			<xs:element name="EnableRule">
 				<xs:complexType>
-					<xs:choice minOccurs="1" maxOccurs="unbounded">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
 						<xs:group ref="EnableRulesGroup" />
 						<xs:element name="OrRule" type="OrEnableRuleType" />
 					</xs:choice>
 					<xs:attribute name="Id" type="xs:string" use="required" />
+					<xs:attribute name="SolutionAction" type="xs:string" use="optional" />
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
@@ -225,7 +224,7 @@
 		<xs:sequence minOccurs="2" maxOccurs="unbounded">
 			<xs:element name="Or">
 				<xs:complexType>
-					<xs:choice minOccurs="1" maxOccurs="unbounded">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
 						<xs:group ref="EnableRulesGroup" />
 					</xs:choice>
 				</xs:complexType>
@@ -298,7 +297,7 @@
 		<xs:sequence minOccurs="2" maxOccurs="unbounded">
 			<xs:element name="Or">
 				<xs:complexType>
-					<xs:choice minOccurs="1" maxOccurs="unbounded">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
 						<xs:group ref="DisplayRulesGroup" />
 					</xs:choice>
 				</xs:complexType>

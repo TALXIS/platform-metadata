@@ -15,6 +15,7 @@ public sealed class WorkspaceValidator
         "bin", "obj", ".vs", ".git", ".github", "node_modules", "packages", "TestResults"
     };
 
+
     private static IEnumerable<string> EnumerateWorkspaceFiles(string directory, string pattern)
     {
         var fullDir = Path.GetFullPath(directory);
@@ -44,99 +45,154 @@ public sealed class WorkspaceValidator
         if (!Directory.Exists(workspacePath))
         {
             results.Add(new ValidationResult(ValidationSeverity.Error,
-                $"Directory not found: {workspacePath}", null, null, null));
-            return new WorkspaceValidationReport(results, null);
+                $"Directory not found: {workspacePath}", null, null, null) { Stage = ValidationStage.Workspace });
+
+            return BuildReport(results, null);
         }
 
-        // Layer 1: Schema validation
-        var schemaValidator = new SchemaValidator();
-        foreach (var xmlFile in EnumerateWorkspaceFiles(workspacePath, "*.xml"))
+        // Layer 1: XSD schema validation, one file at a time.
+        ValidateFiles(workspacePath, "*.xml", ValidationStage.Schema, new SchemaValidator().ValidateFile, results);
+
+        // Layer 2: JSON schema validation, one file at a time.
+        ValidateFiles(workspacePath, "*.json", ValidationStage.Json, new JsonValidator().ValidateFile, results);
+
+        // Layer 3: duplicate GUID detection across the whole tree.
+        results.AddRange(WithStage(new GuidValidator().ValidateDirectory(workspacePath), ValidationStage.DuplicateGuid));
+
+        // Layer 4: load each solution into the model and validate it (load errors, flows, relationships).
+        var workspace = ValidateModel(workspacePath, results);
+
+        return BuildReport(results, workspace);
+    }
+
+    private static void ValidateFiles(
+        string workspacePath,
+        string pattern,
+        ValidationStage stage,
+        Func<string, IReadOnlyList<ValidationResult>> validate,
+        List<ValidationResult> results)
+    {
+        foreach (var file in EnumerateWorkspaceFiles(workspacePath, pattern))
         {
             try
             {
-                results.AddRange(schemaValidator.ValidateFile(xmlFile));
+                results.AddRange(WithStage(validate(file), stage));
             }
             catch (IOException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Cannot read file: {ex.Message}", xmlFile, null, null));
+                    $"Cannot read file: {ex.Message}", file, null, null) { Stage = stage });
             }
             catch (UnauthorizedAccessException ex)
             {
                 results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Access denied: {ex.Message}", xmlFile, null, null));
+                    $"Access denied: {ex.Message}", file, null, null) { Stage = stage });
             }
         }
+    }
 
-        // Layer 1: JSON validation
-        var jsonValidator = new JsonValidator();
-        foreach (var jsonFile in EnumerateWorkspaceFiles(workspacePath, "*.json"))
-        {
-            try
-            {
-                results.AddRange(jsonValidator.ValidateFile(jsonFile));
-            }
-            catch (IOException ex)
-            {
-                results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Cannot read file: {ex.Message}", jsonFile, null, null));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Access denied: {ex.Message}", jsonFile, null, null));
-            }
-        }
-
-        // Layer 1: GUID duplicate detection
-        var guidValidator = new GuidValidator();
-        results.AddRange(guidValidator.ValidateDirectory(workspacePath));
-
-        // Layer 2: Model loading
-        Workspace? workspace = null;
+    private static Workspace? ValidateModel(string workspacePath, List<ValidationResult> results)
+    {
         try
         {
             var reader = new XmlWorkspaceReader();
-            workspace = reader.Load(workspacePath);
+            var solutionRoots = DiscoverSolutionRoots(workspacePath);
+            if (solutionRoots.Count == 0)
+                solutionRoots = new[] { workspacePath };
 
-            // Report load errors as validation errors (malformed XML is not recoverable)
-            foreach (var loadError in workspace.LoadErrors)
-            {
-                results.Add(new ValidationResult(
-                    ValidationSeverity.Error,
-                    $"Load error: {loadError.Message}",
-                    loadError.FilePath,
-                    loadError.Line,
-                    loadError.Column));
-            }
+            var loaded = solutionRoots.Select(reader.Load).ToList();
+            var workspaceColumns = BuildWorkspaceColumnSet(loaded);
+            foreach (var ws in loaded)
+                CollectModelFindings(ws, workspaceColumns, results);
 
-            foreach (var diagnostic in workspace.FlowDefinitions.SelectMany(f => f.Diagnostics))
-            {
-                results.Add(new ValidationResult(
-                    MapFlowSeverity(diagnostic.Severity),
-                    $"Flow {diagnostic.Code}: {diagnostic.Message}",
-                    diagnostic.FilePath,
-                    diagnostic.Line,
-                    diagnostic.Column));
-            }
-
-            // Layer 3: Referential integrity across the loaded model.
-            var relationshipValidator = new RelationshipValidator();
-            results.AddRange(relationshipValidator.Validate(workspace));
+            return loaded.Count == 1
+                ? loaded[0]
+                : reader.LoadMany(solutionRoots.Select((path, index) => new SolutionWorkspaceSource(path, index)));
         }
         catch (Exception ex)
         {
             results.Add(new ValidationResult(
                 ValidationSeverity.Error,
                 $"Failed to load workspace into model: {ex.Message}",
-                workspacePath, null, null));
+                workspacePath, null, null) { Stage = ValidationStage.ModelLoad });
+            return null;
         }
-
-        return new WorkspaceValidationReport(results, workspace);
     }
 
-    private static ValidationSeverity MapFlowSeverity(FlowDiagnosticSeverity severity) =>
-        severity == FlowDiagnosticSeverity.Error ? ValidationSeverity.Error : ValidationSeverity.Warning;
+
+
+    private static HashSet<string> BuildWorkspaceColumnSet(IEnumerable<Workspace> workspaces)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var workspace in workspaces)
+            foreach (var entity in workspace.Entities)
+                foreach (var attribute in entity.Attributes)
+                    columns.Add($"{entity.LogicalName}|{attribute.LogicalName}");
+        return columns;
+    }
+
+    private static void CollectModelFindings(Workspace workspace, HashSet<string> workspaceColumns, List<ValidationResult> results)
+    {
+        foreach (var loadError in workspace.LoadErrors)
+        {
+            results.Add(new ValidationResult(
+                ValidationSeverity.Error,
+                $"Load error: {loadError.Message}",
+                loadError.FilePath,
+                loadError.Line,
+                loadError.Column) { Stage = ValidationStage.ModelLoad });
+        }
+
+        foreach (var diagnostic in workspace.FlowDefinitions.SelectMany(f => f.Diagnostics))
+        {
+            results.Add(new ValidationResult(
+                MapFlowSeverity(diagnostic.Severity),
+                $"Flow {diagnostic.Code}: {diagnostic.Message}",
+                diagnostic.FilePath,
+                diagnostic.Line,
+                diagnostic.Column) { Stage = ValidationStage.Flow });
+        }
+
+        results.AddRange(WithStage(new RelationshipValidator().Validate(workspace, workspaceColumns), ValidationStage.Relationship));
+    }
+
+    private static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)
+    {
+        var labeled = results
+            .Select(r => r with { Message = $"[{r.Stage.Label()}] {r.Message}" })
+            .ToList();
+        return new WorkspaceValidationReport(labeled, workspace);
+    }
+
+    private static IReadOnlyList<string> DiscoverSolutionRoots(string workspacePath)
+    {
+        if (File.Exists(Path.Combine(workspacePath, "Other", "Solution.xml")))
+            return System.Array.Empty<string>();
+
+        var roots = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(workspacePath);
+
+        while (pending.Count > 0)
+        {
+            var dir = pending.Pop();
+            foreach (var child in Directory.EnumerateDirectories(dir))
+            {
+                if (IgnoredDirectories.Contains(Path.GetFileName(child)))
+                    continue;
+
+                if (File.Exists(Path.Combine(child, "Other", "Solution.xml")))
+                    roots.Add(child);
+                else
+                    pending.Push(child);
+            }
+        }
+
+        return roots;
+    }
+
+    private static IEnumerable<ValidationResult> WithStage(IEnumerable<ValidationResult> results, ValidationStage stage) => results.Select(r => r with { Stage = stage });
+    private static ValidationSeverity MapFlowSeverity(FlowDiagnosticSeverity severity) => severity == FlowDiagnosticSeverity.Error ? ValidationSeverity.Error : ValidationSeverity.Warning;
 }
 
 /// <summary>

@@ -117,6 +117,7 @@
 		<xs:attribute name="attribute" type="xs:string"></xs:attribute>
 		<xs:attribute name="alias" type="xs:string"></xs:attribute>
 		<xs:attribute name="descending" default="false" type="xs:boolean"></xs:attribute>
+		<xs:attribute name="entityname" type="xs:string"></xs:attribute>
 	</xs:complexType>
 	<!--
 	
@@ -212,6 +213,8 @@
 		</xs:attribute>
 		<xs:attribute name="returntotalrecordcount" type="xs:boolean" use="optional" default="false" />
 		<xs:attribute name="no-lock" type="xs:boolean" use="optional" default="false" />
+		<xs:attribute name="savedqueryid" type="xs:string" use="optional" />
+		<xs:attribute name="userqueryid" type="xs:string" use="optional" />
 	</xs:complexType>
 	<!-- [XDR-XSD] XDR datatype derivations -->
 	<xs:element name="savedquery">

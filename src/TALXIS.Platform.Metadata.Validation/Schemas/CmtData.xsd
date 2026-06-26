@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="entities" type="CmtEntitiesType" />
+
+    <xs:complexType name="CmtEntitiesType">
+        <xs:sequence>
+            <xs:element name="entity" type="CmtEntityType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="timestamp" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtEntityType">
+        <xs:choice minOccurs="0">
+            <xs:sequence>
+                <xs:element name="records" type="CmtRecordsType" minOccurs="0" />
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element name="m2mrelationships" type="CmtM2mRelationshipsType" />
+                    <xs:element name="m2mrelationship" type="CmtM2mRelationshipType" />
+                </xs:choice>
+            </xs:sequence>
+            <xs:sequence>
+                <xs:element name="fields" type="CmtFieldsType" />
+                <xs:element name="relationships" type="CmtRelationshipsType" minOccurs="0" />
+            </xs:sequence>
+        </xs:choice>
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="displayname" type="xs:string" use="optional" />
+        <xs:attribute name="primaryidfield" type="xs:string" use="optional" />
+        <xs:attribute name="primarynamefield" type="xs:string" use="optional" />
+        <xs:attribute name="disableplugins" type="xs:string" use="optional" />
+        <xs:attribute name="skipupdate" type="xs:string" use="optional" />
+        <xs:attribute name="renderliquid" type="xs:string" use="optional" />
+        <xs:attribute name="guidswap" type="xs:string" use="optional" />
+        <xs:attribute name="etc" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtRecordsType">
+        <xs:sequence>
+            <xs:element name="record" type="CmtRecordType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CmtRecordType">
+        <xs:sequence>
+            <xs:element name="field" type="CmtDataFieldType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="id" type="GuidType" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtDataFieldType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="value" type="xs:string" use="optional" />
+        <xs:attribute name="lookupentity" type="xs:string" use="optional" />
+        <xs:attribute name="lookupentityname" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtM2mRelationshipsType">
+        <xs:sequence>
+            <xs:element name="m2mrelationship" type="CmtM2mRelationshipType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CmtM2mRelationshipType">
+        <xs:sequence>
+            <xs:element name="targetids" type="CmtTargetIdsType" />
+        </xs:sequence>
+        <xs:attribute name="sourceid" type="GuidType" use="required" />
+        <xs:attribute name="targetentityname" type="xs:string" use="required" />
+        <xs:attribute name="targetentitynameidfield" type="xs:string" use="optional" />
+        <xs:attribute name="m2mrelationshipname" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtTargetIdsType">
+        <xs:sequence>
+            <xs:element name="targetid" type="GuidType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CmtFieldsType">
+        <xs:sequence>
+            <xs:element name="field" type="CmtSchemaFieldType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CmtSchemaFieldType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="displayname" type="xs:string" use="optional" />
+        <xs:attribute name="type" type="xs:string" use="optional" />
+        <xs:attribute name="primaryKey" type="xs:string" use="optional" />
+        <xs:attribute name="updateCompare" type="xs:string" use="optional" />
+        <xs:attribute name="customfield" type="xs:string" use="optional" />
+        <xs:attribute name="lookupType" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtRelationshipsType">
+        <xs:sequence>
+            <xs:element name="relationship" type="CmtRelationshipType" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CmtRelationshipType">
+        <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:attribute name="manyToMany" type="xs:string" use="optional" />
+        <xs:attribute name="isreflexive" type="xs:string" use="optional" />
+        <xs:attribute name="relatedEntityName" type="xs:string" use="optional" />
+        <xs:attribute name="m2mTargetEntity" type="xs:string" use="optional" />
+        <xs:attribute name="m2mTargetEntityPrimaryKey" type="xs:string" use="optional" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+</xs:schema>

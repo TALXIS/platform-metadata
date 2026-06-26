@@ -7,7 +7,7 @@
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="WorkflowType">
-        <xs:all>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
             <xs:element name="XamlFileName" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="JsonFileName" type="xs:string" minOccurs="0" maxOccurs="1" />
             <xs:element name="ImageFileName" type="xs:string" minOccurs="0" maxOccurs="1" />
@@ -79,7 +79,7 @@
                     </xs:sequence>
                 </xs:complexType>
             </xs:element>
-        </xs:all>
+        </xs:choice>
         <xs:attribute name="Name" use="required" type="xs:string" />
         <xs:attribute name="Description" use="optional" type="xs:string" />
         <xs:attribute name="WorkflowId" use="required" type="GuidType" />

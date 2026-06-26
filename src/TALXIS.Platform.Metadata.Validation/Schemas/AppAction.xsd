@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="appaction" type="AppActionType" />
+
+    <xs:complexType name="AppActionType">
+        <xs:all>
+            <xs:element name="appmoduleid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="buttonlabeltext" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="buttontooltiptitle" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="buttontooltipdescription" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="buttonaccessibilitytext" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="grouptitle" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="context" type="xs:string" minOccurs="0" />
+            <xs:element name="contextentity" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="contextvalue" type="xs:string" minOccurs="0" />
+            <xs:element name="fonticon" type="xs:string" minOccurs="0" />
+            <xs:element name="hidden" type="xs:string" minOccurs="0" />
+            <xs:element name="iscustomizable" type="xs:string" minOccurs="0" />
+            <xs:element name="isdisabled" type="xs:string" minOccurs="0" />
+            <xs:element name="isgrouptitlehidden" type="xs:string" minOccurs="0" />
+            <xs:element name="location" type="xs:string" minOccurs="0" />
+            <xs:element name="name" type="xs:string" minOccurs="0" />
+            <xs:element name="onclickeventformulacomponentlibraryid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="onclickeventformulacomponentname" type="xs:string" minOccurs="0" />
+            <xs:element name="onclickeventformulafunctionname" type="xs:string" minOccurs="0" />
+            <xs:element name="onclickeventtype" type="xs:string" minOccurs="0" />
+            <xs:element name="onclickeventjavascriptwebresourceid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="onclickeventjavascriptparameters" type="xs:string" minOccurs="0" />
+            <xs:element name="onclickeventjavascriptfunctionname" type="xs:string" minOccurs="0" />
+            <xs:element name="origin" type="xs:string" minOccurs="0" />
+            <xs:element name="parentappactionid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="sequence" type="xs:string" minOccurs="0" />
+            <xs:element name="statecode" type="xs:string" minOccurs="0" />
+            <xs:element name="statuscode" type="xs:string" minOccurs="0" />
+            <xs:element name="type" type="xs:string" minOccurs="0" />
+            <xs:element name="webresourceid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="iconwebresourceid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="visibilityformulacomponentlibraryid" type="AppActionNodeType" minOccurs="0" />
+            <xs:element name="visibilityformulacomponentname" type="xs:string" minOccurs="0" />
+            <xs:element name="visibilityformulafunctionname" type="xs:string" minOccurs="0" />
+            <xs:element name="visibilitytype" type="xs:string" minOccurs="0" />
+        </xs:all>
+        <xs:attribute name="uniquename" type="xs:string" />
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="AppActionNodeType" mixed="true">
+        <xs:sequence>
+            <xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+</xs:schema>

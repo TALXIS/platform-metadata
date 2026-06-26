@@ -578,19 +578,24 @@ public sealed class XmlWorkspaceReader
         var name = relEl.Attribute("Name")?.Value;
         if (string.IsNullOrEmpty(name)) return null;
 
-        var entity1 = relEl.Element("Entity1LogicalName")?.Value;
-        var entity2 = relEl.Element("Entity2LogicalName")?.Value;
+        var typeName = relEl.Element("EntityRelationshipType")?.Value;
+        var entity1 = relEl.Element("FirstEntityName")?.Value ?? relEl.Element("Entity1LogicalName")?.Value;
+        var entity2 = relEl.Element("SecondEntityName")?.Value ?? relEl.Element("Entity2LogicalName")?.Value;
         var intersect = relEl.Element("IntersectEntityName")?.Value;
 
+        var isManyToMany =
+            string.Equals(typeName, "ManyToMany", StringComparison.OrdinalIgnoreCase) ||
+            (entity1 != null && entity2 != null && intersect != null);
+
         RelationshipMetadata relationship;
-        if (entity1 != null && entity2 != null && intersect != null)
+        if (isManyToMany)
         {
             relationship = new ManyToManyRelationshipMetadata
             {
                 SchemaName = name,
-                Entity1LogicalName = entity1,
-                Entity2LogicalName = entity2,
-                IntersectEntityName = intersect
+                Entity1LogicalName = entity1 ?? "",
+                Entity2LogicalName = entity2 ?? "",
+                IntersectEntityName = intersect ?? ""
             };
         }
         else

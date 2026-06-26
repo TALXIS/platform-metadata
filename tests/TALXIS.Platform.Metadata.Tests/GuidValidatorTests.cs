@@ -147,6 +147,36 @@ public class GuidValidatorTests : IDisposable
     }
 
     [Fact]
+    public void RootComponentReference_ModuleFolderNameContainingRoles_NotFlaggedAsDuplicate()
+    {
+        var roleGuid = "{ffca9a2a-db15-f011-9989-000d3ab911a5}";
+
+        var module = Path.Combine(_tempDir, "PVSecurityRoles", "Declarations");
+
+        var rolesDir = Path.Combine(module, "Roles");
+        Directory.CreateDirectory(rolesDir);
+        File.WriteAllText(Path.Combine(rolesDir, "role.xml"), $"""
+            <Role id="{roleGuid}" name="Some Role" />
+            """);
+
+        var otherDir = Path.Combine(module, "Other");
+        Directory.CreateDirectory(otherDir);
+        File.WriteAllText(Path.Combine(otherDir, "Solution.xml"), $"""
+            <ImportExportXml>
+              <SolutionManifest>
+                <RootComponents>
+                  <RootComponent type="20" id="{roleGuid}" behavior="0" />
+                </RootComponents>
+              </SolutionManifest>
+            </ImportExportXml>
+            """);
+
+        var results = _validator.ValidateDirectory(_tempDir);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void DuplicateRoleDeclarations_StillDetected()
     {
         var rolesDir = Path.Combine(_tempDir, "Roles");

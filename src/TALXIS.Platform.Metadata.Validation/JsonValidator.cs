@@ -12,10 +12,14 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class JsonValidator
 {
-    private readonly List<JSchema> _schemas = new();
+    private readonly Dictionary<string, JSchema> _routedSchemas = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<JSchema> _explicitSchemas = new();
+    private readonly bool _useRouting;
 
     /// <summary>
-    /// Creates a validator pre-loaded with all embedded JSON schemas.
+    /// Creates a validator pre-loaded with all embedded JSON schemas. Each file is
+    /// validated only against the schema that applies to it (resolved by file name
+    /// and location); files that match no schema are left untouched.
     /// </summary>
     public JsonValidator()
     {
@@ -23,8 +27,12 @@ public sealed class JsonValidator
         {
             using var stream = SchemaResourceLoader.OpenSchema(name);
             using var reader = new StreamReader(stream);
-            _schemas.Add(JSchema.Parse(reader.ReadToEnd()));
+            var dotIndex = name.IndexOf('.');
+            var stem = dotIndex > 0 ? name.Substring(0, dotIndex) : name;
+            _routedSchemas[stem] = JSchema.Parse(reader.ReadToEnd());
         }
+
+        _useRouting = true;
     }
 
     internal JsonValidator(IEnumerable<JSchema> schemas)
@@ -32,17 +40,21 @@ public sealed class JsonValidator
         if (schemas is null)
             throw new ArgumentNullException(nameof(schemas));
 
-        _schemas.AddRange(schemas);
+        _explicitSchemas.AddRange(schemas);
+        _useRouting = false;
     }
 
     /// <summary>
-    /// Validates a JSON file against all loaded schemas.
-    /// A file passes if it is valid against at least one schema.
+    /// Validates a JSON file against the schema that applies to it.
     /// </summary>
     public IReadOnlyList<ValidationResult> ValidateFile(string filePath)
     {
         if (!File.Exists(filePath))
             return new[] { new ValidationResult(ValidationSeverity.Error, $"File not found: {filePath}", filePath, null, null) };
+
+        var schemas = _useRouting ? ResolveSchemas(filePath) : _explicitSchemas;
+        if (schemas.Count == 0)
+            return System.Array.Empty<ValidationResult>();
 
         JToken token;
         try
@@ -62,12 +74,9 @@ public sealed class JsonValidator
             };
         }
 
-        if (_schemas.Count == 0)
-            return System.Array.Empty<ValidationResult>();
-
-        // File passes if valid against ANY schema
+        // File passes if valid against ANY of the applicable schemas.
         var allErrors = new List<ValidationResult>();
-        foreach (var schema in _schemas)
+        foreach (var schema in schemas)
         {
             var schemaErrors = ValidateAgainstSchema(token, schema, filePath);
             if (schemaErrors.Count == 0)
@@ -77,6 +86,25 @@ public sealed class JsonValidator
         }
 
         return allErrors;
+    }
+
+    /// <summary>
+    /// Returns the embedded schemas that apply to <paramref name="filePath"/> based on
+    /// its name and location. Returns an empty list for files no schema targets, so
+    /// non-metadata JSON (package.json, tsconfig.json, settings.json, ...) is skipped.
+    /// </summary>
+    private IReadOnlyList<JSchema> ResolveSchemas(string filePath)
+    {
+        if (_routedSchemas.TryGetValue("Flow", out var flow) && IsFlowDefinition(filePath))
+            return new[] { flow };
+
+        return System.Array.Empty<JSchema>();
+    }
+
+    private static bool IsFlowDefinition(string filePath)
+    {
+        var segments = filePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return segments.Any(s => s.Equals("Workflows", StringComparison.OrdinalIgnoreCase));
     }
 
     private static JToken LoadToken(string filePath)

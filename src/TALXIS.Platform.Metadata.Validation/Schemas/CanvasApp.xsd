@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+
+    <xs:element name="CanvasApp" type="CanvasAppMetaType" />
+
+    <xs:complexType name="CanvasAppMetaType">
+        <xs:all>
+            <xs:element name="Name" type="xs:string" minOccurs="0" />
+            <xs:element name="AppVersion" type="xs:string" minOccurs="0" />
+            <xs:element name="Status" type="xs:string" minOccurs="0" />
+            <xs:element name="CreatedByClientVersion" type="xs:string" minOccurs="0" />
+            <xs:element name="MinClientVersion" type="xs:string" minOccurs="0" />
+            <xs:element name="Tags" type="xs:string" minOccurs="0" />
+            <xs:element name="IsCdsUpgraded" type="xs:string" minOccurs="0" />
+            <xs:element name="GalleryItemId" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="BackgroundColor" type="xs:string" minOccurs="0" />
+            <xs:element name="DisplayName" type="xs:string" minOccurs="0" />
+            <xs:element name="Description" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="CommitMessage" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="Publisher" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="AuthorizationReferences" type="xs:string" minOccurs="0" />
+            <xs:element name="ConnectionReferences" type="xs:string" minOccurs="0" />
+            <xs:element name="DatabaseReferences" type="xs:string" minOccurs="0" />
+            <xs:element name="AppComponents" type="xs:string" minOccurs="0" />
+            <xs:element name="AppComponentDependencies" type="xs:string" minOccurs="0" />
+            <xs:element name="CanConsumeAppPass" type="xs:string" minOccurs="0" />
+            <xs:element name="CanvasAppType" type="xs:string" minOccurs="0" />
+            <xs:element name="BypassConsent" type="xs:string" minOccurs="0" />
+            <xs:element name="AdminControlBypassConsent" type="xs:string" minOccurs="0" />
+            <xs:element name="EmbeddedApp" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="IntroducedVersion" type="xs:string" minOccurs="0" />
+            <xs:element name="CdsDependencies" type="xs:string" minOccurs="0" />
+            <xs:element name="IsCustomizable" type="xs:string" minOccurs="0" />
+            <xs:element name="CodeAppPackageUris" type="CodeAppPackageUrisType" minOccurs="0" />
+            <xs:element name="BackgroundImageUri" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="DocumentUri" type="xs:string" nillable="true" minOccurs="0" />
+            <xs:element name="AdditionalUris" type="AdditionalUrisType" minOccurs="0" />
+        </xs:all>
+        <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CodeAppPackageUrisType">
+        <xs:sequence>
+            <xs:element name="CodeAppPackageUri" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="AdditionalUrisType">
+        <xs:sequence>
+            <xs:element name="AdditionalUri" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+    </xs:complexType>
+
+</xs:schema>

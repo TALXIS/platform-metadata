@@ -112,6 +112,24 @@ public class RelationshipValidatorTests
     }
 
     [Fact]
+    public void UnresolvedRelationship_NameOnly_ReportsError()
+    {
+        var ws = new Workspace("test");
+        ws.AddRelationship(new OneToManyRelationshipMetadata
+        {
+            SchemaName = "udpp_udpp_111warehouseitem_udpp_warehousetransaction_itemid",
+            ReferencingEntity = "",
+            ReferencingAttribute = "",
+            ReferencedEntity = "",
+            ReferencedAttribute = "",
+        });
+
+        var error = Assert.Single(Errors(ws));
+        Assert.Contains("udpp_udpp_111warehouseitem_udpp_warehousetransaction_itemid", error.Message);
+        Assert.Contains("no definition", error.Message);
+    }
+
+    [Fact]
     public void MultipleDanglingRelationships_AllReportedAsErrors()
     {
         var ws = new Workspace("test");
@@ -342,6 +360,30 @@ public class RelationshipValidatorTests
 
         Assert.Empty(Errors(ws));
         Assert.Single(Warnings(ws));
+    }
+
+    [Fact]
+    public void MissingColumn_DefinedInAnotherWorkspaceSolution_ReportsWarning()
+    {
+        // The entity is full here (behavior 0), so locally the column is missing. But the
+        // same entity's copy in another solution of the workspace defines it, so this is a
+        // layering artifact: warning, not error.
+        var ws = new Workspace("test");
+        ws.AddEntity(Entity("pba_child"));
+        Include(ws, "pba_child", behavior: 0);
+        ws.AddRelationship(Rel("rel", "pba_child", "pba_missing"));
+
+        var workspaceColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "pba_child|pba_missing"
+        };
+
+        var results = _validator.Validate(ws, workspaceColumns);
+
+        Assert.Empty(results.Where(r => r.Severity == ValidationSeverity.Error));
+        var warning = Assert.Single(results.Where(r => r.Severity == ValidationSeverity.Warning));
+        Assert.Contains("pba_missing", warning.Message);
+        Assert.Contains("another solution", warning.Message);
     }
 
     [Fact]

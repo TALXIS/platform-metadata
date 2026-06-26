@@ -29,7 +29,7 @@ public sealed class RelationshipValidator
         AttributeType.Lookup, AttributeType.Customer
     };
 
-    public IReadOnlyList<ValidationResult> Validate(Workspace workspace)
+    public IReadOnlyList<ValidationResult> Validate(Workspace workspace, HashSet<string>? workspaceColumns = null)
     {
         if (workspace == null) throw new ArgumentNullException(nameof(workspace));
 
@@ -38,7 +38,8 @@ public sealed class RelationshipValidator
         var manyToMany = workspace.Relationships.OfType<ManyToManyRelationshipMetadata>().ToList();
         var shellEntities = BuildShellEntitySet(workspace);
 
-        ValidateOneToMany(workspace, oneToMany, shellEntities, results);
+        ValidateRelationshipResolves(oneToMany, results);
+        ValidateOneToMany(workspace, oneToMany, shellEntities, workspaceColumns, results);
         ValidateManyToMany(manyToMany, results);
         ValidateOrphanLookupColumns(workspace, oneToMany, results);
 
@@ -69,10 +70,35 @@ public sealed class RelationshipValidator
         return shell;
     }
 
+    private static void ValidateRelationshipResolves(
+        IReadOnlyList<OneToManyRelationshipMetadata> relationships,
+        List<ValidationResult> results)
+    {
+        foreach (var relationship in relationships)
+        {
+            var unresolved =
+                string.IsNullOrWhiteSpace(relationship.ReferencingEntity) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencingAttribute) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencedEntity) &&
+                string.IsNullOrWhiteSpace(relationship.ReferencedAttribute);
+
+            if (unresolved)
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Error,
+                    $"Relationship '{relationship.SchemaName}' is declared but has no definition " +
+                    "(no referencing or referenced entity/column). Its full definition is missing, or the name in " +
+                    "Other/Relationships.xml does not match the relationship definition in Other/Relationships/.",
+                    null, null, null));
+            }
+        }
+    }
+
     private static void ValidateOneToMany(
         Workspace workspace,
         IReadOnlyList<OneToManyRelationshipMetadata> relationships,
         HashSet<string> shellEntities,
+        HashSet<string>? workspaceColumns,
         List<ValidationResult> results)
     {
         foreach (var relationship in relationships)
@@ -80,12 +106,12 @@ public sealed class RelationshipValidator
             // Referencing (many) side carries the lookup column...
             ValidateColumnExists(workspace, relationship.SchemaName,
                 relationship.ReferencingEntity, relationship.ReferencingAttribute,
-                requireLookupType: true, shellEntities, results);
+                requireLookupType: true, shellEntities, workspaceColumns, results);
 
             // ...referenced (one) side carries the key it points at.
             ValidateColumnExists(workspace, relationship.SchemaName,
                 relationship.ReferencedEntity, relationship.ReferencedAttribute,
-                requireLookupType: false, shellEntities, results);
+                requireLookupType: false, shellEntities, workspaceColumns, results);
         }
     }
 
@@ -96,6 +122,7 @@ public sealed class RelationshipValidator
         string columnName,
         bool requireLookupType,
         HashSet<string> shellEntities,
+        HashSet<string>? workspaceColumns,
         List<ValidationResult> results)
     {
         if (string.IsNullOrWhiteSpace(entityName) || string.IsNullOrWhiteSpace(columnName))
@@ -112,14 +139,33 @@ public sealed class RelationshipValidator
         if (attribute == null)
         {
             var isShell = shellEntities.Contains(entityName);
-            results.Add(new ValidationResult(
-                isShell ? ValidationSeverity.Warning : ValidationSeverity.Error,
-                isShell
-                    ? $"Relationship '{relationshipName}' references column '{columnName}' on entity '{entityName}', " +
-                      "which is included as a shell in this solution (behavior 1 or 2); the column is likely defined in the solution that owns the entity. Verify it across the full set of solutions."
-                    : $"Relationship '{relationshipName}' references column '{columnName}' on entity '{entityName}', " +
-                      "but that column is not defined on the entity.",
-                null, null, null));
+            var definedElsewhere = workspaceColumns != null &&
+                workspaceColumns.Contains($"{entityName}|{columnName}");
+
+            if (isShell)
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Warning,
+                    $"Relationship '{relationshipName}' references column '{columnName}' on entity '{entityName}', " +
+                    "which is included as a shell in this solution (behavior 1 or 2); the column is likely defined in the solution that owns the entity. Verify it across the full set of solutions.",
+                    null, null, null));
+            }
+            else if (definedElsewhere)
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Warning,
+                    $"Relationship '{relationshipName}' references column '{columnName}' on entity '{entityName}', " +
+                    "which is not defined on this solution's copy of the entity but is defined in another solution in the workspace. Verify the solution layering.",
+                    null, null, null));
+            }
+            else
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Error,
+                    $"Relationship '{relationshipName}' references column '{columnName}' on entity '{entityName}', " +
+                    "but that column is not defined on the entity.",
+                    null, null, null));
+            }
             return;
         }
 

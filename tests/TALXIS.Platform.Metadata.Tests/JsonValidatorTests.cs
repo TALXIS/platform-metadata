@@ -9,7 +9,7 @@ public class JsonValidatorTests
     [Fact]
     public void ValidateFile_InvalidJson_ReturnsLineAndColumn()
     {
-        WithJsonFile("broken.json", "{\n  \"properties\": {\n", file =>
+        WithJsonFile("Workflows/broken.json", "{\n  \"properties\": {\n", file =>
         {
             var result = new ValidationJsonValidator().ValidateFile(file).Single();
 
@@ -23,7 +23,7 @@ public class JsonValidatorTests
     [Fact]
     public void ValidateFile_ValidFlowSchema_ReturnsNoErrors()
     {
-        WithJsonFile("flow.json", """
+        WithJsonFile("Workflows/flow.json", """
             {
               "properties": {
                 "connectionReferences": {},
@@ -126,7 +126,7 @@ public class JsonValidatorTests
     [Fact]
     public void ValidateFile_InvalidFlowSchema_ReturnsLineAndColumn()
     {
-        WithJsonFile("flow.json", """
+        WithJsonFile("Workflows/flow.json", """
             {
               "properties": {
                 "connectionReferences": {}
@@ -152,6 +152,7 @@ public class JsonValidatorTests
         {
             Directory.CreateDirectory(dir);
             var file = Path.Combine(dir, fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             File.WriteAllText(file, content);
             assertion(file);
         }
