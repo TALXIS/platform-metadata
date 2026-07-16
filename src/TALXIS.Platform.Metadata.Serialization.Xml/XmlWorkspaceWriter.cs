@@ -163,6 +163,25 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
+    /// <summary>
+    /// Writes only the Solution.xml manifest of one solution to the output path,
+    /// patching the original document when the workspace holds one.
+    /// </summary>
+    /// <param name="workspace">Workspace holding the solution and its roundtrip documents.</param>
+    /// <param name="solutionUniqueName">Unique name of the solution to write.</param>
+    /// <param name="outputPath">Root directory of the target SolutionPackager project.</param>
+    public void WriteSolutionManifest(Workspace workspace, string solutionUniqueName, string outputPath)
+    {
+        if (workspace == null) throw new ArgumentNullException(nameof(workspace));
+        if (string.IsNullOrWhiteSpace(solutionUniqueName)) throw new ArgumentException("Solution unique name is required.", nameof(solutionUniqueName));
+        if (outputPath == null) throw new ArgumentNullException(nameof(outputPath));
+
+        var solution = workspace.FindSolution(solutionUniqueName)
+            ?? throw new InvalidOperationException($"Solution '{solutionUniqueName}' is not loaded in the workspace.");
+
+        WriteSolutionManifest(solution, outputPath, workspace);
+    }
+
     private void WriteSolutionManifest(Solution solution, string outputPath, Workspace workspace)
     {
         var otherDir = Path.Combine(outputPath, "Other");
@@ -669,31 +688,46 @@ public sealed class XmlWorkspaceWriter
 
     private void WriteRelationships(Workspace workspace, string outputPath)
     {
-        if (workspace.Relationships.Count == 0) return;
-
-        var otherDir = Path.Combine(outputPath, "Other");
-        Directory.CreateDirectory(otherDir);
-        var filePath = Path.Combine(otherDir, "Relationships.xml");
-
         var original = workspace.OriginalDocuments.TryGetValue("Relationships.xml", out var origDoc)
             ? origDoc
             : null;
 
+        // An original document with an empty model means every relationship was removed —
+        // drop the file instead of leaving stale elements or an empty shell on disk.
+        if (workspace.Relationships.Count == 0)
+        {
+            if (original != null) DeleteFileIfExists(Path.Combine(outputPath, "Other", "Relationships.xml"));
+            return;
+        }
+
+        // The main file holds full definitions only for relationships not homed in a per-entity
+        // file; per-entity-homed relationships appear here at most as skeletal name-only stubs.
+        var mainRelationships = workspace.Relationships
+            .Where(rel => GetPerEntityRelationshipHome(rel) == null)
+            .ToArray();
+        var allModelNames = new HashSet<string>(workspace.Relationships.Select(r => r.SchemaName));
+
+        var filePath = Path.Combine(outputPath, "Other", "Relationships.xml");
         XDocument doc;
         if (original != null)
         {
             doc = new XDocument(original);
-            PatchRelationships(doc, workspace.Relationships);
+            PatchRelationships(doc, mainRelationships, allModelNames);
+        }
+        else if (mainRelationships.Length > 0)
+        {
+            doc = BuildRelationshipsFromScratch(mainRelationships);
         }
         else
         {
-            doc = BuildRelationshipsFromScratch(workspace.Relationships);
+            return;
         }
 
+        Directory.CreateDirectory(Path.Combine(outputPath, "Other"));
         SaveDocument(doc, filePath);
     }
 
-    private static void PatchRelationships(XDocument doc, IReadOnlyList<RelationshipMetadata> relationships)
+    private static void PatchRelationships(XDocument doc, IReadOnlyList<RelationshipMetadata> relationships, IReadOnlyCollection<string>? preservedNames = null)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -713,25 +747,48 @@ public sealed class XmlWorkspaceWriter
             }
             else
             {
-                root.Add(BuildRelationshipElement(rel));
+                AddChildElementPreservingWhitespace(root, BuildRelationshipElement(rel));
             }
         }
 
-        // Remove stale relationships not in the model
-        var modelNames = new HashSet<string>(relationships.Select(r => r.SchemaName));
+        // Remove stale relationships not in the model, together with their leading indentation
+        var keepNames = new HashSet<string>(relationships.Select(r => r.SchemaName));
+        if (preservedNames != null) keepNames.UnionWith(preservedNames);
         var stale = root.Elements("EntityRelationship")
             .Where(e =>
             {
                 var name = e.Attribute("Name")?.Value;
-                return !string.IsNullOrEmpty(name) && !modelNames.Contains(name);
+                return !string.IsNullOrEmpty(name) && !keepNames.Contains(name);
             })
             .ToList();
-        foreach (var s in stale) s.Remove();
+        foreach (var s in stale)
+        {
+            if (s.PreviousNode is XText leadingWhitespace && string.IsNullOrWhiteSpace(leadingWhitespace.Value))
+                leadingWhitespace.Remove();
+            s.Remove();
+        }
+    }
+
+    private static void AddChildElementPreservingWhitespace(XElement parent, XElement child)
+    {
+        var childIndent = parent.Nodes()
+            .OfType<XText>()
+            .Select(text => text.Value)
+            .FirstOrDefault(ContainsNewLine);
+
+        if (childIndent != null && parent.LastNode is XText closingIndent && ContainsNewLine(closingIndent.Value))
+        {
+            closingIndent.AddBeforeSelf(new XText(childIndent), child);
+            return;
+        }
+
+        parent.Add(child);
     }
 
     private static void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
     {
-        SetElementValue(relEl, "EntityRelationshipType", rel is ManyToManyRelationshipMetadata ? "ManyToMany" : "OneToMany");
+        // If-exists: bare <EntityRelationship Name="..."/> stubs must stay bare on roundtrip
+        SetElementValueIfExists(relEl, "EntityRelationshipType", rel is ManyToManyRelationshipMetadata ? "ManyToMany" : "OneToMany");
         SetElementValueIfExists(relEl, "IsCustomizable", rel.IsCustomizable ? "1" : "0");
         if (rel.IntroducedVersion != null)
             SetElementValueIfExists(relEl, "IntroducedVersion", rel.IntroducedVersion);
@@ -855,63 +912,92 @@ public sealed class XmlWorkspaceWriter
     private void WritePerEntityRelationshipFiles(Workspace workspace, string outputPath)
     {
         var grouped = GroupRelationshipsByEntity(workspace.Relationships);
-        if (grouped.Count == 0) return;
+        var staleKeys = workspace.OriginalDocuments.Keys
+            .Where(key => key.StartsWith("Relationships:", StringComparison.Ordinal))
+            .Where(key => !grouped.ContainsKey(GetPerEntityRelationshipFileEntityName(key)))
+            .ToArray();
+
+        if (grouped.Count == 0 && staleKeys.Length == 0) return;
 
         var relationshipsDir = Path.Combine(outputPath, "Other", "Relationships");
-        Directory.CreateDirectory(relationshipsDir);
 
-        foreach (var group in grouped)
+        if (grouped.Count > 0)
         {
-            var relativePath = Path.Combine("Other", "Relationships", $"{group.Key}.xml");
-            var key = $"Relationships:{relativePath}";
-            XDocument doc;
-            if (workspace.OriginalDocuments.TryGetValue(key, out var original))
-            {
-                doc = new XDocument(original);
-                PatchRelationships(doc, group.Value);
-            }
-            else
-            {
-                doc = BuildRelationshipsFromScratch(group.Value);
-            }
+            Directory.CreateDirectory(relationshipsDir);
 
-            SaveDocument(doc, Path.Combine(outputPath, relativePath));
+            foreach (var group in grouped)
+            {
+                var relativePath = Path.Combine("Other", "Relationships", $"{group.Key}.xml");
+                var key = $"Relationships:{relativePath}";
+                XDocument doc;
+                if (workspace.OriginalDocuments.TryGetValue(key, out var original))
+                {
+                    doc = new XDocument(original);
+                    PatchRelationships(doc, group.Value);
+                }
+                else
+                {
+                    doc = BuildRelationshipsFromScratch(group.Value);
+                }
+
+                SaveDocument(doc, Path.Combine(outputPath, relativePath));
+            }
         }
+
+        // Per-entity files whose relationships were all removed are deleted rather than left as empty shells.
+        foreach (var key in staleKeys)
+        {
+            DeleteFileIfExists(Path.Combine(outputPath, key.Substring("Relationships:".Length)));
+        }
+
+        if (Directory.Exists(relationshipsDir) && !Directory.EnumerateFileSystemEntries(relationshipsDir).Any())
+            Directory.Delete(relationshipsDir);
     }
 
+    private static string GetPerEntityRelationshipFileEntityName(string documentKey) =>
+        Path.GetFileNameWithoutExtension(documentKey.Substring("Relationships:".Length));
+
+    private static void DeleteFileIfExists(string path)
+    {
+        if (File.Exists(path)) File.Delete(path);
+    }
+
+    // A relationship's full definition must live in exactly one file, otherwise SolutionPackager
+    // pack fails with a duplicate-name error. Each relationship stays in the per-entity file it
+    // was loaded from; relationships without a per-entity home belong to the main Relationships.xml.
     private static Dictionary<string, IReadOnlyList<RelationshipMetadata>> GroupRelationshipsByEntity(IReadOnlyList<RelationshipMetadata> relationships)
     {
         var grouped = new Dictionary<string, List<RelationshipMetadata>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var relationship in relationships)
         {
-            foreach (var entityName in GetRelationshipEntityNames(relationship).Distinct(StringComparer.OrdinalIgnoreCase))
+            var home = GetPerEntityRelationshipHome(relationship);
+            if (home == null) continue;
+
+            if (!grouped.TryGetValue(home, out var list))
             {
-                if (string.IsNullOrWhiteSpace(entityName)) continue;
-                if (!grouped.TryGetValue(entityName, out var list))
-                {
-                    list = new List<RelationshipMetadata>();
-                    grouped[entityName] = list;
-                }
-                list.Add(relationship);
+                list = new List<RelationshipMetadata>();
+                grouped[home] = list;
             }
+            list.Add(relationship);
         }
 
         return grouped.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyList<RelationshipMetadata>)kvp.Value, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IEnumerable<string> GetRelationshipEntityNames(RelationshipMetadata relationship)
+    private static string? GetPerEntityRelationshipHome(RelationshipMetadata relationship)
     {
-        if (relationship is OneToManyRelationshipMetadata oneToMany)
-        {
-            yield return oneToMany.ReferencedEntity;
-            yield return oneToMany.ReferencingEntity;
-        }
-        else if (relationship is ManyToManyRelationshipMetadata manyToMany)
-        {
-            yield return manyToMany.Entity1LogicalName;
-            yield return manyToMany.Entity2LogicalName;
-        }
+        var filePath = relationship.Source?.FilePath;
+        if (string.IsNullOrEmpty(filePath)) return null;
+
+        var directory = Path.GetDirectoryName(filePath);
+        if (directory == null) return null;
+        if (!string.Equals(Path.GetFileName(directory), "Relationships", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var parent = Path.GetDirectoryName(directory);
+        if (parent == null || !string.Equals(Path.GetFileName(parent), "Other", StringComparison.OrdinalIgnoreCase)) return null;
+
+        return Path.GetFileNameWithoutExtension(filePath);
     }
 
     // --- New component types ---
