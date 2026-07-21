@@ -32,6 +32,11 @@ public enum ExportNormalizationRule
     ServerVersionAttribute,
 
     /// <summary>
+    /// A server-owned entity attribute absent from the source entity was removed.
+    /// </summary>
+    ServerOwnedAttribute,
+
+    /// <summary>
     /// The Managed flag was aligned with the source solution.
     /// </summary>
     ManagedFlag,

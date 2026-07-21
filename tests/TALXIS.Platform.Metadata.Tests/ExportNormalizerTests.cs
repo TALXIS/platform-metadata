@@ -473,6 +473,123 @@ public class ExportNormalizerTests
     }
 
     [Fact]
+    public void StripsServerOwnedAttributesMissingFromSource()
+    {
+        var exportedDir = Path.Combine(Path.GetTempPath(), $"normalizer-exported-{Guid.NewGuid():N}");
+        var sourceDir = Path.Combine(Path.GetTempPath(), $"normalizer-source-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolutionProject(exportedDir, managed: "0", version: "1.0.0.0", serverAttributes: false);
+            WriteSolutionProject(sourceDir, managed: "0", version: "1.0.0.0", serverAttributes: false);
+            WriteEntityWithAttributes(exportedDir, "tp_min",
+                ("CreatedBy", "createdby", false),
+                ("CreatedOn", "createdon", false),
+                ("tp_alpha", "tp_alpha", true),
+                ("tp_new", "tp_new", true));
+            WriteEntityWithAttributes(sourceDir, "tp_min",
+                ("CreatedOn", "createdon", false),
+                ("tp_alpha", "tp_alpha", true));
+
+            var reader = new XmlWorkspaceReader();
+            var exported = reader.Load(exportedDir);
+            var source = reader.Load(sourceDir);
+
+            var result = new ExportNormalizer().Normalize(exported, source, OnlyRule(o => o.StripServerOwnedAttributes = true));
+
+            var change = Assert.Single(result.Changes);
+            Assert.Equal(ExportNormalizationRule.ServerOwnedAttribute, change.Rule);
+            Assert.Equal("tp_min.createdby", change.Target);
+            Assert.Equal(ComponentType.Attribute, change.ComponentType);
+            Assert.Null(exported.FindEntity("tp_min")!.FindAttribute("createdby"));
+
+            new XmlWorkspaceWriter().Write(exported, exportedDir);
+
+            var written = File.ReadAllText(Path.Combine(exportedDir, "Entities", "tp_min", "Entity.xml"));
+            Assert.DoesNotContain("CreatedBy", written);
+            Assert.Contains("CreatedOn", written);
+            Assert.Contains("tp_alpha", written);
+            Assert.Contains("tp_new", written);
+            var lines = written.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+            Assert.DoesNotContain(lines, line => line.Length > 0 && line.Trim().Length == 0);
+        }
+        finally
+        {
+            foreach (var dir in new[] { exportedDir, sourceDir })
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void KeepsAllAttributesWhenEntityIsNotInSource()
+    {
+        var exportedDir = Path.Combine(Path.GetTempPath(), $"normalizer-exported-{Guid.NewGuid():N}");
+        var sourceDir = Path.Combine(Path.GetTempPath(), $"normalizer-source-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolutionProject(exportedDir, managed: "0", version: "1.0.0.0", serverAttributes: false);
+            WriteSolutionProject(sourceDir, managed: "0", version: "1.0.0.0", serverAttributes: false);
+            WriteEntityWithAttributes(exportedDir, "tp_fresh",
+                ("CreatedBy", "createdby", false),
+                ("tp_alpha", "tp_alpha", true));
+
+            var reader = new XmlWorkspaceReader();
+            var exported = reader.Load(exportedDir);
+            var source = reader.Load(sourceDir);
+
+            var result = new ExportNormalizer().Normalize(exported, source, OnlyRule(o => o.StripServerOwnedAttributes = true));
+
+            Assert.False(result.HasChanges);
+            Assert.NotNull(exported.FindEntity("tp_fresh")!.FindAttribute("createdby"));
+        }
+        finally
+        {
+            foreach (var dir in new[] { exportedDir, sourceDir })
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+    }
+
+    private static void WriteEntityWithAttributes(string projectDir, string logicalName, params (string PhysicalName, string LogicalName, bool IsCustom)[] attributes)
+    {
+        var entityDir = Path.Combine(projectDir, "Entities", logicalName);
+        Directory.CreateDirectory(entityDir);
+
+        var attributeXml = string.Join("\n", attributes.Select(a =>
+            $"""
+                    <attribute PhysicalName="{a.PhysicalName}">
+                      <Type>nvarchar</Type>
+                      <Name>{a.PhysicalName}</Name>
+                      <LogicalName>{a.LogicalName}</LogicalName>
+                      <RequiredLevel>none</RequiredLevel>
+                      <IsCustomField>{(a.IsCustom ? 1 : 0)}</IsCustomField>
+                      <displaynames>
+                        <displayname description="{a.PhysicalName}" languagecode="1033" />
+                      </displaynames>
+                    </attribute>
+            """));
+
+        File.WriteAllText(Path.Combine(entityDir, "Entity.xml"),
+            $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <EntityInfo>
+                <entity Name="{logicalName}">
+                  <LocalizedNames>
+                    <LocalizedName description="{logicalName}" languagecode="1033" />
+                  </LocalizedNames>
+                  <attributes>
+            {attributeXml}
+                  </attributes>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """);
+    }
+
+    [Fact]
     public void DisabledRulesDoNothing()
     {
         var exported = CreateWorkspaceWithSolution("TestSolution", solution => solution.ManagedValue = "1");
@@ -486,6 +603,7 @@ public class ExportNormalizerTests
             StripSystemRelationships = false,
             StripComponentsNotInSource = false,
             EnforceRootComponentBehavior = false,
+            StripServerOwnedAttributes = false,
             StripComponentsOwnedByOtherSolutions = false,
             StripServerVersionAttributes = false,
             NormalizeManagedFlag = false,
@@ -507,6 +625,7 @@ public class ExportNormalizerTests
             StripSystemRelationships = false,
             StripComponentsNotInSource = false,
             EnforceRootComponentBehavior = false,
+            StripServerOwnedAttributes = false,
             StripComponentsOwnedByOtherSolutions = false,
             StripServerVersionAttributes = false,
             NormalizeManagedFlag = false,

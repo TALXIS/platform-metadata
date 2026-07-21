@@ -26,6 +26,13 @@ public sealed class ExportNormalizationOptions
     public bool EnforceRootComponentBehavior { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether server-owned entity attributes are removed: attributes that are not
+    /// custom fields and are absent from the source entity. Entities not present in the source
+    /// are left untouched. Keeps minimal Entity.xml files minimal across roundtrips.
+    /// </summary>
+    public bool StripServerOwnedAttributes { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets whether forms and views owned by a different source solution are removed.
     /// This targets cross-solution subcomponent leaks and requires a multi-solution source workspace to have effect.
     /// </summary>

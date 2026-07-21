@@ -50,6 +50,7 @@ public sealed class ExportNormalizer
 
         if (options.StripComponentsNotInSource) StripComponentsNotInSource(exported, exportedSolution, source, sourceSolution, changes);
         if (options.EnforceRootComponentBehavior) EnforceRootComponentBehavior(exported, source, sourceSolution, changes);
+        if (options.StripServerOwnedAttributes) StripServerOwnedAttributes(exported, source, changes);
         if (options.StripComponentsOwnedByOtherSolutions) StripComponentsOwnedByOtherSolutions(exported, exportedSolution, source, sourceSolution, changes);
         if (options.StripSystemRelationships) StripSystemRelationships(exported, source, changes);
         if (options.StripServerVersionAttributes) StripServerVersionAttributes(exported, exportedSolution, changes);
@@ -201,6 +202,66 @@ public sealed class ExportNormalizer
                 RecordExcludedSubcomponent(changes, "ribbon customization", entityName, entityName, ComponentType.RibbonCustomization, entityName);
             }
         }
+    }
+
+    private static void StripServerOwnedAttributes(Workspace exported, Workspace source, List<ExportNormalizationChange> changes)
+    {
+        foreach (var entity in exported.Entities)
+        {
+            var sourceEntity = source.FindEntity(entity.LogicalName);
+            if (sourceEntity == null) continue;
+            if (!exported.OriginalDocuments.TryGetValue($"Entity:{entity.LogicalName}", out var document)) continue;
+
+            var attributesElement = document.Root?.Element("EntityInfo")?.Element("entity")?.Element("attributes");
+            if (attributesElement == null) continue;
+
+            var sourceAttributeNames = GetSourceAttributeNames(source, sourceEntity);
+
+            foreach (var attributeElement in attributesElement.Elements("attribute").ToArray())
+            {
+                var physicalName = attributeElement.Attribute("PhysicalName")?.Value;
+                var logicalName = attributeElement.Element("LogicalName")?.Value ?? physicalName;
+                if (string.IsNullOrEmpty(logicalName)) continue;
+                if (attributeElement.Element("IsCustomField")?.Value == "1") continue;
+                if (sourceAttributeNames.Contains(logicalName!)) continue;
+                if (physicalName != null && sourceAttributeNames.Contains(physicalName)) continue;
+
+                if (attributeElement.PreviousNode is XText leadingWhitespace && string.IsNullOrWhiteSpace(leadingWhitespace.Value))
+                    leadingWhitespace.Remove();
+                attributeElement.Remove();
+                entity.RemoveAttribute(logicalName!);
+                changes.Add(new ExportNormalizationChange(
+                    ExportNormalizationRule.ServerOwnedAttribute,
+                    $"{entity.LogicalName}.{logicalName}",
+                    $"Removed server-owned attribute '{logicalName}' of entity '{entity.LogicalName}' not present in the source.",
+                    ComponentType.Attribute));
+            }
+        }
+    }
+
+    private static HashSet<string> GetSourceAttributeNames(Workspace source, EntityMetadata sourceEntity)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attribute in sourceEntity.Attributes)
+        {
+            if (!string.IsNullOrEmpty(attribute.LogicalName)) names.Add(attribute.LogicalName);
+        }
+
+        if (source.OriginalDocuments.TryGetValue($"Entity:{sourceEntity.LogicalName}", out var document))
+        {
+            var attributeElements = document.Root?.Element("EntityInfo")?.Element("entity")?.Element("attributes")?.Elements("attribute")
+                ?? Enumerable.Empty<XElement>();
+            foreach (var attributeElement in attributeElements)
+            {
+                var physicalName = attributeElement.Attribute("PhysicalName")?.Value;
+                var logicalName = attributeElement.Element("LogicalName")?.Value;
+                if (!string.IsNullOrEmpty(physicalName)) names.Add(physicalName!);
+                if (!string.IsNullOrEmpty(logicalName)) names.Add(logicalName!);
+            }
+        }
+
+        return names;
     }
 
     private static void RecordExcludedSubcomponent(List<ExportNormalizationChange> changes, string componentKind, string displayName, string entityName, ComponentType componentType, string target)
