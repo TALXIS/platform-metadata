@@ -22,9 +22,11 @@ public class SolutionPackagerServiceTests
             CopyDirectory(SamplePath, inputPath);
             EnsureSolutionPackagerRequiredAttributes(inputPath);
 
-            service.Pack(inputPath, zipPath, managed: false);
+            var packResult = service.Pack(inputPath, zipPath, managed: false);
 
             Assert.True(File.Exists(zipPath));
+            Assert.False(packResult.HasErrors);
+            Assert.False(packResult.HasMissingRootComponents);
 
             service.Unpack(zipPath, unpackPath, managed: false);
 
@@ -34,6 +36,37 @@ public class SolutionPackagerServiceTests
             var solution = Assert.Single(workspace.Solutions);
 
             Assert.Equal("TestSolution", solution.UniqueName);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Pack_WithRootComponentMissingFiles_ReportsMissingRootComponents()
+    {
+        var service = new SolutionPackagerService();
+        var root = Path.Combine(Path.GetTempPath(), $"packager-missing-root-{Guid.NewGuid():N}");
+        var inputPath = Path.Combine(root, "input");
+        var zipPath = Path.Combine(root, "packed", "solution.zip");
+        const string missingStepId = "35c5f395-d4b2-45b5-8c26-1d250f6d0b72";
+
+        try
+        {
+            CopyDirectory(SamplePath, inputPath);
+            EnsureSolutionPackagerRequiredAttributes(inputPath);
+            AddRootComponent(inputPath, type: "92", id: $"{{{missingStepId}}}");
+
+            var result = service.Pack(inputPath, zipPath, managed: false);
+
+            Assert.True(File.Exists(zipPath));
+            Assert.False(result.HasErrors);
+            Assert.True(result.HasMissingRootComponents);
+            var warning = Assert.Single(result.MissingRootComponentWarnings);
+            Assert.Contains(missingStepId, warning);
+            Assert.Contains(warning, result.Warnings);
         }
         finally
         {
@@ -119,6 +152,18 @@ public class SolutionPackagerServiceTests
         var entitiesPath = Path.Combine(workspacePath, "Entities");
         if (Directory.Exists(entitiesPath))
             Directory.Delete(entitiesPath, recursive: true);
+    }
+
+    private static void AddRootComponent(string workspacePath, string type, string id)
+    {
+        var solutionXmlPath = Path.Combine(workspacePath, "Other", "Solution.xml");
+        var document = XDocument.Load(solutionXmlPath);
+        var rootComponents = document.Descendants("RootComponents").Single();
+        rootComponents.Add(new XElement("RootComponent",
+            new XAttribute("type", type),
+            new XAttribute("id", id),
+            new XAttribute("behavior", "0")));
+        document.Save(solutionXmlPath);
     }
 
     private static void CopyDirectory(string sourceDirectory, string targetDirectory)

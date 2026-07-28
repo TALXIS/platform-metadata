@@ -1,3 +1,4 @@
+using Microsoft.Crm.Tools;
 using Microsoft.Crm.Tools.SolutionPackager;
 
 namespace TALXIS.Platform.Metadata.Packaging;
@@ -8,13 +9,13 @@ namespace TALXIS.Platform.Metadata.Packaging;
 public sealed class SolutionPackagerService : ISolutionPackagerService
 {
     /// <inheritdoc />
-    public void Unpack(string zipPath, string outputFolder, bool managed)
+    public SolutionPackagerResult Unpack(string zipPath, string outputFolder, bool managed)
     {
-        Unpack(zipPath, outputFolder, new SolutionPackagerOptions { Managed = managed });
+        return Unpack(zipPath, outputFolder, new SolutionPackagerOptions { Managed = managed });
     }
 
     /// <inheritdoc />
-    public void Unpack(string zipPath, string outputFolder, SolutionPackagerOptions options)
+    public SolutionPackagerResult Unpack(string zipPath, string outputFolder, SolutionPackagerOptions options)
     {
         ValidateUnpackArguments(zipPath, outputFolder, options);
         Directory.CreateDirectory(outputFolder);
@@ -33,18 +34,17 @@ public sealed class SolutionPackagerService : ISolutionPackagerService
 
         ApplyCommonOptions(arguments, options);
 
-        var packager = new SolutionPackager(arguments);
-        packager.Run();
+        return RunAndCollect(new SolutionPackager(arguments));
     }
 
     /// <inheritdoc />
-    public void Pack(string folder, string zipPath, bool managed)
+    public SolutionPackagerResult Pack(string folder, string zipPath, bool managed)
     {
-        Pack(folder, zipPath, new SolutionPackagerOptions { Managed = managed });
+        return Pack(folder, zipPath, new SolutionPackagerOptions { Managed = managed });
     }
 
     /// <inheritdoc />
-    public void Pack(string folder, string zipPath, SolutionPackagerOptions options)
+    public SolutionPackagerResult Pack(string folder, string zipPath, SolutionPackagerOptions options)
     {
         ValidatePackArguments(folder, zipPath, options);
         EnsureParentDirectoryExists(zipPath);
@@ -62,8 +62,20 @@ public sealed class SolutionPackagerService : ISolutionPackagerService
 
         ApplyCommonOptions(arguments, options);
 
-        var packager = new SolutionPackager(arguments);
+        return RunAndCollect(new SolutionPackager(arguments));
+    }
+
+    // Run() is void; the only per-run signal is what it appends to the static Logger collections.
+    private static SolutionPackagerResult RunAndCollect(SolutionPackager packager)
+    {
+        var errorCountBefore = Logger.AllErrors.Count;
+        var warningCountBefore = Logger.AllWarnings.Count;
+
         packager.Run();
+
+        return new SolutionPackagerResult(
+            Logger.AllErrors.Skip(errorCountBefore).ToArray(),
+            Logger.AllWarnings.Skip(warningCountBefore).ToArray());
     }
 
     private static void ApplyCommonOptions(PackagerArguments arguments, SolutionPackagerOptions options)
