@@ -30,6 +30,7 @@
 	</xs:element>
 	<xs:complexType name="EntityInfoType">
 		<xs:choice minOccurs="0" maxOccurs="1">
+			<xs:element name="attributes" type="EntityAttributesType" minOccurs="0" maxOccurs="1" />
 			<xs:element name="entity">
 				<xs:complexType>
 					<xs:all>
@@ -140,80 +141,7 @@
 								</xs:sequence>
 							</xs:complexType>
 						</xs:element>
-						<xs:element name="attributes" minOccurs="0" maxOccurs="1">
-							<xs:complexType>
-								<xs:sequence>
-									<xs:element name="attribute" minOccurs="0" maxOccurs="unbounded">
-										<xs:complexType>
-											<xs:all>
-												<xs:element name="Type" type="CrmDataType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Name" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="LogicalName" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ExternalName" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsCustomField" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ValidForCreateApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ValidForReadApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ValidForUpdateApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="DisplayMask" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Length" type="LengthType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsLogical" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="AttributeOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="YomiOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CalculationOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="AggregateOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsAuditEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="XmlAbbreviation" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ImeMode" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="RequiredLevel" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="LinkedAttribute" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Format" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="MaxLength" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="MinValue" type="xs:double" minOccurs="0" maxOccurs="1" />
-												<xs:element name="MaxValue" type="xs:double" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Accuracy" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Descriptions" type="DescriptionsType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="displaynames" type="displaynamestype" minOccurs="0" maxOccurs="1" />
-												<xs:element name="OptionSetName" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="optionset" type="optionsettype" minOccurs="0" maxOccurs="1" />
-												<xs:element name="AppDefaultValue" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="AccuracySource" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="ReferencedEntityObjectTypeCode" type="ObjectTypeCodeType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="LookupBrowse" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="LookupStyle" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="LookupTypes" type="LookupTypesType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsSecured" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsRenameable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifySearchSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifyRequirementLevelSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifyFieldLevelSecuritySettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifyAdditionalSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
-												<xs:element name="SourceType" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="FormulaDefinitionFileName" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="Behavior" type="xs:integer" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanChangeDateTimeBehavior" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsGlobalFilterEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsSortableEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifyGlobalFilterSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="CanModifyIsSortableSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsActive" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsDataSourceSecret" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="AutoNumberFormat" type="xs:string" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsSearchable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsFilterable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsRetrievable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="IsLocalizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
-												<xs:element name="DateTimeFormat" type="xs:string" minOccurs="0" maxOccurs="1" />
-											</xs:all>
-											<xs:attribute name="PhysicalName" use="required" type="EntityAttributeNameBaseType" />
-											<xs:attribute name="unmodified" use="optional" type="TrueFalse01Type" />
-											<xs:attribute name="IsHidden" use="optional" type="TrueFalse01Type" />
-										</xs:complexType>
-									</xs:element>
-								</xs:sequence>
-							</xs:complexType>
-						</xs:element>
+							<xs:element name="attributes" type="EntityAttributesType" minOccurs="0" maxOccurs="1" />
 					</xs:all>
 					<xs:attribute name="Name" use="required" type="EntityAttributeNameBaseType" />
 					<xs:attribute name="unmodified" use="optional" type="TrueFalse01Type" />
@@ -229,9 +157,11 @@
 		</xs:simpleContent>
 	</xs:complexType>
 	<xs:complexType name="LocalizedCollectionNamesType">
-		<xs:sequence>
-			<xs:element name="LocalizedCollectionName" type="FieldXmlFieldUIType" minOccurs="0" maxOccurs="unbounded" />
-		</xs:sequence>
+		<xs:choice minOccurs="0" maxOccurs="unbounded">
+			<xs:element name="LocalizedCollectionName" type="FieldXmlFieldUIType" />
+			<!-- Real exports occasionally emit LocalizedName here. -->
+			<xs:element name="LocalizedName" type="FieldXmlFieldUIType" />
+		</xs:choice>
 	</xs:complexType>
 	<xs:complexType name="CustomLabelsType">
 		<xs:sequence>
@@ -405,4 +335,79 @@
 			<xs:enumeration value="VectorIcon" />
 		</xs:restriction>
 	</xs:simpleType>
+	<xs:complexType name="EntityAttributesType">
+								<xs:sequence>
+									<xs:element name="attribute" minOccurs="0" maxOccurs="unbounded">
+										<xs:complexType>
+											<!-- choice, not all: real exports occasionally duplicate elements (e.g. IsSearchable). -->
+											<xs:choice minOccurs="0" maxOccurs="unbounded">
+												<xs:element name="Type" type="CrmDataType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Name" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="LogicalName" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ExternalName" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsCustomField" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ValidForCreateApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ValidForReadApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ValidForUpdateApi" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="DisplayMask" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Length" type="LengthType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsLogical" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="AttributeOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="YomiOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CalculationOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="AggregateOf" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsAuditEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="XmlAbbreviation" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ImeMode" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="RequiredLevel" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="LinkedAttribute" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Format" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="MaxLength" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="MinValue" type="xs:double" minOccurs="0" maxOccurs="1" />
+												<xs:element name="MaxValue" type="xs:double" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Accuracy" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Descriptions" type="DescriptionsType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="displaynames" type="displaynamestype" minOccurs="0" maxOccurs="1" />
+												<xs:element name="OptionSetName" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="optionset" type="optionsettype" minOccurs="0" maxOccurs="1" />
+												<xs:element name="AppDefaultValue" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="AccuracySource" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="ReferencedEntityObjectTypeCode" type="ObjectTypeCodeType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="LookupBrowse" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="LookupStyle" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="LookupTypes" type="LookupTypesType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsSecured" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsRenameable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifySearchSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifyRequirementLevelSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifyFieldLevelSecuritySettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifyAdditionalSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="SourceType" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="FormulaDefinitionFileName" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="Behavior" type="xs:integer" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanChangeDateTimeBehavior" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsGlobalFilterEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsSortableEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifyGlobalFilterSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="CanModifyIsSortableSettings" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsActive" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsDataSourceSecret" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="AutoNumberFormat" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsSearchable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsFilterable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsRetrievable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsLocalizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="DateTimeFormat" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsOfflineInMobileClient" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="MobileOfflineFilters" type="xs:string" minOccurs="0" maxOccurs="1" />
+											</xs:choice>
+											<xs:attribute name="PhysicalName" use="required" type="EntityAttributeNameBaseType" />
+											<xs:attribute name="unmodified" use="optional" type="TrueFalse01Type" />
+											<xs:attribute name="IsHidden" use="optional" type="TrueFalse01Type" />
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+	</xs:complexType>
 </xs:schema>

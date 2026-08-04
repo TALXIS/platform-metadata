@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="Dashboard" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="Dashboard">
+		<xs:complexType>
+			<xs:all>
+				<xs:element name="LocalizedNames" type="LocalizedNamesType" minOccurs="0" maxOccurs="1" />
+				<xs:element name="Descriptions" type="DescriptionsType" minOccurs="0" maxOccurs="1" />
+				<xs:element name="FormId" type="GuidType" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IsDefault" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="CanBeDeleted" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IsTabletEnabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="FormPresentation" type="xs:integer" minOccurs="0" maxOccurs="1" />
+				<xs:element name="FormActivationState" type="xs:integer" minOccurs="0" maxOccurs="1" />
+				<xs:element name="FormXml" type="FormXmlType" minOccurs="0" maxOccurs="1" />
+			</xs:all>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

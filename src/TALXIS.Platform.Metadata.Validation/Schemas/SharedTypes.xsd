@@ -37,6 +37,14 @@
             <xs:enumeration value="1" />
         </xs:restriction>
     </xs:simpleType>
+    <xs:simpleType name="TrueFalse01BoolType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="0" />
+            <xs:enumeration value="1" />
+            <xs:enumeration value="true" />
+            <xs:enumeration value="false" />
+        </xs:restriction>
+    </xs:simpleType>
     <xs:simpleType name="CrmEventType">
         <xs:restriction base="xs:string">
             <xs:enumeration value="DataEvent" />
@@ -55,6 +63,7 @@
         <xs:attribute name="id" type="guid" />
         <xs:attribute name="description" use="required" type="xs:string" />
         <xs:attribute name="languagecode" use="required" type="xs:positiveInteger" />
+        <xs:attribute name="solutionaction" type="solutionactionType" use="optional" />
     </xs:complexType>
     <xs:complexType name="DescriptionsType">
         <xs:choice minOccurs="0" maxOccurs="unbounded">

@@ -9,7 +9,7 @@
     <xs:complexType name="optionsettype">
         <xs:all>
             <xs:element name="OptionSetType" type="OptionSetEnumType" minOccurs="0" maxOccurs="1" />
-            <xs:element name="IsGlobal" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+            <xs:element name="IsGlobal" type="TrueFalse01BoolType" minOccurs="0" maxOccurs="1" />
             <xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
             <xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
             <xs:element name="ExternalTypeName" type="xs:string" minOccurs="0" maxOccurs="1" />
