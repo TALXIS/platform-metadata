@@ -60,6 +60,8 @@ public sealed class SolutionManifestValidator
 
             if (canAttributeComponentsToSolution)
                 ValidateComponentsAreDeclared(solution, loaded, results);
+
+            ValidateNoDuplicateRootComponents(solution, results);
         }
 
         if (canAttributeComponentsToSolution)
@@ -291,6 +293,50 @@ public sealed class SolutionManifestValidator
                     Code = ValidationDiagnostics.ComponentNotDeclaredAsRootComponent
                 });
             }
+        }
+    }
+
+    /// <summary>
+    /// Flags root components of the same type declared more than once with the same identity
+    /// (schema name, or id when schema-name-less) within a single solution manifest. A duplicate
+    /// silently collapses to one component on import, or - for build-time generated declarations
+    /// such as a Code App's CanvasApp root component - one generated artifact (schema entry,
+    /// .meta.xml, package folder) silently overwrites another's.
+    /// </summary>
+    private static void ValidateNoDuplicateRootComponents(Solution solution, List<ValidationResult> results)
+    {
+        // Dataverse schema names are case-insensitive, so two declarations differing only by
+        // casing still collide - keyed on the lowercased identity, but the first-seen original
+        // casing is what's reported.
+        var counts = new Dictionary<(ComponentType Type, string Identity), int>();
+        var firstSeen = new Dictionary<(ComponentType Type, string Identity), string>();
+
+        foreach (var rootComponent in solution.RootComponents)
+        {
+            var identity = GetIdentity(rootComponent);
+            if (identity == null) continue;
+
+            var key = (rootComponent.Type, identity.ToLowerInvariant());
+            counts[key] = counts.TryGetValue(key, out var count) ? count + 1 : 1;
+            if (!firstSeen.ContainsKey(key)) firstSeen[key] = identity;
+        }
+
+        foreach (var entry in counts)
+        {
+            if (entry.Value <= 1) continue;
+
+            var type = entry.Key.Type;
+            var identity = firstSeen[entry.Key];
+
+            results.Add(new ValidationResult(
+                ValidationSeverity.Error,
+                $"Solution '{solution.UniqueName}' declares {entry.Value} {type} root components with the same identity '{identity}'. " +
+                "Each root component of a given type must be unique within a solution, or one silently overwrites the other.",
+                solution.Source?.FilePath, solution.Source?.Line, solution.Source?.Column)
+            {
+                Stage = ValidationStage.SolutionManifest,
+                Code = ValidationDiagnostics.DuplicateRootComponent
+            });
         }
     }
 
