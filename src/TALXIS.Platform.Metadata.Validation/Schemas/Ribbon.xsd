@@ -16,6 +16,7 @@
 	<xs:complexType name="RibbonEntityDiffXmlType">
 		<xs:choice minOccurs="0" maxOccurs="unbounded">
 			<xs:element name="CustomActions" type="CustomActionsType" />
+			<xs:element name="HideCustomAction" type="HideCustomActionType" />
 			<xs:element name="Templates" type="TemplatesType" />
 			<xs:element name="CommandDefinitions" type="CommandDefinitionsType" />
 			<xs:element name="RuleDefinitions" type="RuleDefinitionsEntityType" />
@@ -847,7 +848,8 @@
 		<xs:attribute name="Name" type="xs:string" use="required" />
 	</xs:complexType>
 	<xs:complexType name="StringParameterType">
-		<xs:attribute name="Value" type="xs:string" use="required" />
+		<!-- Real exports contain empty <StringParameter /> and import fine. -->
+		<xs:attribute name="Value" type="xs:string" use="optional" />
 	</xs:complexType>
 	<xs:complexType name="StringNamedParameterType">
 		<xs:attribute name="Value" type="xs:string" use="required" />

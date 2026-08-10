@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="OrganizationSetting" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="organizationsetting">
+		<xs:complexType>
+			<xs:all>
+				<xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="value" type="xs:string" minOccurs="0" maxOccurs="1" />
+				<xs:element name="settingdefinitionid" minOccurs="0" maxOccurs="1">
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="uniquename" type="xs:string" minOccurs="0" maxOccurs="1" />
+						</xs:all>
+					</xs:complexType>
+				</xs:element>
+			</xs:all>
+			<xs:attribute name="settingdefinitionid.uniquename" type="xs:string" use="optional" />
+			<xs:attribute name="uniquename" type="xs:string" use="optional" />
+			<xs:attribute name="solutionaction" type="solutionactionType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

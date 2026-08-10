@@ -17,6 +17,12 @@ public sealed record ValidationResult(
 )
 {
     public ValidationStage Stage { get; init; } = ValidationStage.Workspace;
+
+    /// <summary>
+    /// Stable rule code from <see cref="ValidationDiagnostics"/>. Lets consumers track or suppress
+    /// a single rule instead of a whole validation stage.
+    /// </summary>
+    public string Code { get; init; } = ValidationDiagnostics.Unclassified;
 }
 
 /// <summary>
@@ -43,7 +49,8 @@ public enum ValidationStage
     DuplicateGuid,
     ModelLoad,
     Flow,
-    Relationship
+    Relationship,
+    SolutionManifest
 }
 
 public static class ValidationStageExtensions
@@ -56,6 +63,7 @@ public static class ValidationStageExtensions
         ValidationStage.ModelLoad => "Model",
         ValidationStage.Flow => "Flow",
         ValidationStage.Relationship => "Relationship",
+        ValidationStage.SolutionManifest => "Solution",
         _ => "Workspace"
     };
 }

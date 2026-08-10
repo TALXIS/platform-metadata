@@ -51,7 +51,12 @@ public sealed class WorkspaceValidator
         }
 
         // Layer 1: XSD schema validation, one file at a time.
-        ValidateFiles(workspacePath, "*.xml", ValidationStage.Schema, new SchemaValidator().ValidateFile, results);
+        // WebResources payloads (arbitrary XML uploaded as web resources) are skipped -
+        // only their .data.xml descriptors have a schema.
+        var schemaValidator = new SchemaValidator();
+        ValidateFiles(workspacePath, "*.xml", ValidationStage.Schema,
+            file => IsWebResourcePayload(file) ? Array.Empty<ValidationResult>() : schemaValidator.ValidateFile(file),
+            results);
 
         // Layer 2: JSON schema validation, one file at a time.
         ValidateFiles(workspacePath, "*.json", ValidationStage.Json, new JsonValidator().ValidateFile, results);
@@ -63,6 +68,13 @@ public sealed class WorkspaceValidator
         var workspace = ValidateModel(workspacePath, results);
 
         return BuildReport(results, workspace);
+    }
+
+    private static bool IsWebResourcePayload(string filePath)
+    {
+        if (filePath.EndsWith(".data.xml", StringComparison.OrdinalIgnoreCase)) return false;
+        var normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        return normalized.IndexOf($"{Path.DirectorySeparatorChar}WebResources{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void ValidateFiles(
@@ -154,6 +166,7 @@ public sealed class WorkspaceValidator
         }
 
         results.AddRange(WithStage(new RelationshipValidator().Validate(workspace, workspaceColumns), ValidationStage.Relationship));
+        results.AddRange(new SolutionManifestValidator().Validate(workspace));
     }
 
     private static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="EntityDataSource" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="EntityDataSource">
+		<xs:complexType>
+			<xs:all>
+				<xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1" />
+				<xs:element name="ConnectionDefinition" type="xs:string" minOccurs="0" maxOccurs="1" />
+				<xs:element name="ConnectionDefinitionSecrets" type="xs:string" minOccurs="0" maxOccurs="1" />
+				<xs:element name="Description" type="xs:string" minOccurs="0" maxOccurs="1" />
+				<xs:element name="EntityDataProviderId" type="GuidType" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+				<xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
+			</xs:all>
+			<xs:attribute name="EntityDataSourceId" type="GuidType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

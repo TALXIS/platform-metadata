@@ -88,6 +88,7 @@
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
+					<xs:attribute name="solutionaction" type="solutionactionType" />
 				</xs:complexType>
 			</xs:element>
 			<xs:element name="tabs" minOccurs="0" maxOccurs="1">
@@ -99,7 +100,7 @@
 									<xs:element name="labels" type="FormXmlLabelsType" minOccurs="0" maxOccurs="1" />
 									<xs:element name="tabheader" type="FormXmlHeaderFooterType" minOccurs="0" maxOccurs="1"/>
 									<xs:element name="tabfooter" type="FormXmlHeaderFooterType" minOccurs="0" maxOccurs="1"/>
-									<xs:element name="columns" minOccurs="1" maxOccurs="1">
+									<xs:element name="columns" minOccurs="0" maxOccurs="1">
 										<xs:complexType>
 											<xs:sequence>
 												<xs:element name="column" minOccurs="1" maxOccurs="3">
@@ -221,6 +222,14 @@
 			<xs:element name ="clientresources" type ="ClientResourcesType" minOccurs ="0" maxOccurs ="1"></xs:element>
 			<xs:element name="Navigation" type="FormNavigationType" minOccurs="0" maxOccurs="1"/>
 			<xs:element name="DisplayConditions" type="FormDisplayConditionsType" minOccurs="0" maxOccurs="1" />
+			<xs:element name="controlDescription" minOccurs="0" maxOccurs="1">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip" />
+					</xs:sequence>
+					<xs:attribute name="solutionaction" type="solutionactionType" />
+				</xs:complexType>
+			</xs:element>
 		</xs:all>
 		<xs:attribute name="enablerelatedinformation" type="xs:boolean" />
 		<xs:attribute name="relatedInformationCollapsed" type="xs:boolean" />
@@ -347,7 +356,7 @@
 		</xs:choice>
 		<xs:attribute name="FallbackForm" type="xs:boolean" use="optional" />
 		<xs:attribute name="Order" type="xs:integer" use="optional" />
-
+		<xs:attribute name="solutionaction" type="solutionactionType" />
 	</xs:complexType>
 	<xs:complexType name="FormLocalizedLabel">
 		<xs:attribute name="LCID" type="xs:integer" />
@@ -429,7 +438,7 @@
 					<xs:attribute name="Sequence" type="xs:nonNegativeInteger" use="optional" />
 					<xs:attribute name="Show" type="xs:boolean" use="optional" />
 					<xs:attribute name="ViewId" type="FormISVGuid" use="optional" />
-
+					<xs:attribute name="solutionaction" type="solutionactionType" />
 				</xs:complexType>
 			</xs:element>
 		</xs:choice>
@@ -566,6 +575,7 @@
 			</xs:element>
 		</xs:sequence>
 
+		<xs:attribute name="solutionaction" type="solutionactionType" />
 	</xs:complexType>
 	<xs:complexType name="FormXmlExternalDependenciesType">
 		<xs:sequence>
