@@ -125,6 +125,14 @@ public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata
         _attributes.FirstOrDefault(a => string.Equals(a.LogicalName, logicalName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// Removes an attribute by logical name using case-insensitive comparison.
+    /// </summary>
+    /// <param name="logicalName">Attribute logical name.</param>
+    /// <returns><see langword="true"/> when a matching attribute was removed.</returns>
+    public bool RemoveAttribute(string logicalName) =>
+        _attributes.RemoveAll(a => string.Equals(a.LogicalName, logicalName, StringComparison.OrdinalIgnoreCase)) > 0;
+
+    /// <summary>
     /// Adds a relationship to the table.
     /// </summary>
     /// <param name="relationship">Relationship metadata to add.</param>

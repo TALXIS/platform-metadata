@@ -381,6 +381,113 @@ public sealed class Workspace
         _ribbons.FirstOrDefault(r => string.Equals(r.EntityLogicalName, entityLogicalName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// Removes an entity together with its forms, views, and ribbon customization.
+    /// </summary>
+    public bool RemoveEntity(string logicalName)
+    {
+        var entity = FindEntity(logicalName);
+        if (entity == null) return false;
+
+        _entities.Remove(entity);
+        OriginalDocuments.Remove($"Entity:{entity.LogicalName}");
+
+        foreach (var form in _forms.Where(f => string.Equals(f.EntityLogicalName, logicalName, StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            RemoveForm(form.FormId);
+        }
+
+        foreach (var view in _views.Where(v => string.Equals(v.EntityLogicalName, logicalName, StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            RemoveView(view.SavedQueryId);
+        }
+
+        RemoveRibbon(logicalName);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a global option set by name.
+    /// </summary>
+    public bool RemoveGlobalOptionSet(string name) =>
+        RemoveByKey(_globalOptionSets, o => o.Name, name, o => $"OptionSet:{o.Name}");
+
+    /// <summary>
+    /// Removes a relationship by schema name.
+    /// </summary>
+    public bool RemoveRelationship(string schemaName) =>
+        RemoveByKey(_relationships, r => r.SchemaName, schemaName, documentKey: null);
+
+    /// <summary>
+    /// Removes a form by form ID.
+    /// </summary>
+    public bool RemoveForm(string formId) =>
+        RemoveByKey(_forms, f => f.FormId, formId, f => $"Form:{f.EntityLogicalName}:{f.FormId}");
+
+    /// <summary>
+    /// Removes a view by saved-query ID.
+    /// </summary>
+    public bool RemoveView(string savedQueryId) =>
+        RemoveByKey(_views, v => v.SavedQueryId, savedQueryId, v => $"View:{v.EntityLogicalName}:{v.SavedQueryId}");
+
+    /// <summary>
+    /// Removes a plugin assembly by ID.
+    /// </summary>
+    public bool RemovePluginAssembly(string pluginAssemblyId) =>
+        RemoveByKey(_pluginAssemblies, p => p.PluginAssemblyId, pluginAssemblyId, p => $"PluginAssembly:{p.Name}");
+
+    /// <summary>
+    /// Removes an SDK message processing step by ID.
+    /// </summary>
+    public bool RemoveSdkMessageProcessingStep(string stepId) =>
+        RemoveByKey(_sdkMessageProcessingSteps, s => s.SdkMessageProcessingStepId, stepId, s => $"Step:{s.SdkMessageProcessingStepId}");
+
+    /// <summary>
+    /// Removes a security role by role ID.
+    /// </summary>
+    public bool RemoveSecurityRole(string roleId) =>
+        RemoveByKey(_securityRoles, r => r.RoleId, roleId, r => $"Role:{r.RoleId}");
+
+    /// <summary>
+    /// Removes an app module by unique name.
+    /// </summary>
+    public bool RemoveAppModule(string uniqueName) =>
+        RemoveByKey(_appModules, a => a.UniqueName, uniqueName, a => $"AppModule:{a.UniqueName}");
+
+    /// <summary>
+    /// Removes a site map by unique name.
+    /// </summary>
+    public bool RemoveSiteMap(string uniqueName) =>
+        RemoveByKey(_siteMaps, s => s.UniqueName, uniqueName, s => $"SiteMap:{s.UniqueName}");
+
+    /// <summary>
+    /// Removes a web resource by ID.
+    /// </summary>
+    public bool RemoveWebResource(string webResourceId) =>
+        RemoveByKey(_webResources, w => w.WebResourceId, webResourceId, w => $"WebResource:{w.Name}");
+
+    /// <summary>
+    /// Removes a workflow by ID.
+    /// </summary>
+    public bool RemoveWorkflow(string workflowId) =>
+        RemoveByKey(_workflows, w => w.WorkflowId, workflowId, w => $"Workflow:{w.WorkflowId}");
+
+    /// <summary>
+    /// Removes a ribbon customization by target entity logical name.
+    /// </summary>
+    public bool RemoveRibbon(string entityLogicalName) =>
+        RemoveByKey(_ribbons, r => r.EntityLogicalName, entityLogicalName, r => $"Ribbon:{r.EntityLogicalName}");
+
+    private bool RemoveByKey<T>(List<T> items, Func<T, string?> getKey, string key, Func<T, string>? documentKey)
+    {
+        var index = items.FindIndex(item => string.Equals(getKey(item), key, StringComparison.OrdinalIgnoreCase));
+        if (index < 0) return false;
+
+        if (documentKey != null) OriginalDocuments.Remove(documentKey(items[index]));
+        items.RemoveAt(index);
+        return true;
+    }
+
+    /// <summary>
     /// Enumerates components in a shape suitable for solution-layer import.
     /// </summary>
     public IEnumerable<LayerComponentDescriptor> EnumerateLayerComponents()

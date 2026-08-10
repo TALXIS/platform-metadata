@@ -76,6 +76,19 @@ public sealed class Solution : MetadataBase, ILocalizedMetadata
     }
 
     /// <summary>
+    /// Removes all root components of the supplied type matching either the schema name or the ID.
+    /// </summary>
+    /// <param name="type">Dataverse component type.</param>
+    /// <param name="schemaName">Schema name used for name-based matching; ignored when null.</param>
+    /// <param name="id">Component ID used for GUID-based matching; ignored when null.</param>
+    public void RemoveRootComponent(ComponentType type, string? schemaName, Guid? id)
+    {
+        _rootComponents.RemoveAll(c => c.Type == type
+            && ((schemaName != null && string.Equals(c.SchemaName, schemaName, StringComparison.OrdinalIgnoreCase))
+                || (id.HasValue && c.Id == id)));
+    }
+
+    /// <summary>
     /// Finds the first root component matching the supplied type and schema name.
     /// </summary>
     /// <param name="type">Dataverse component type.</param>
