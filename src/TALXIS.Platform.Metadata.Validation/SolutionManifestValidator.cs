@@ -56,7 +56,6 @@ public sealed class SolutionManifestValidator
 
         foreach (var solution in workspace.Solutions)
         {
-            ValidateMissingDependencies(solution, results);
             ValidateDeclaredComponentsExist(solution, SupplementFromDisk(solution, loaded), results);
 
             if (canAttributeComponentsToSolution)
@@ -88,9 +87,10 @@ public sealed class SolutionManifestValidator
             if (assemblies.Contains(assemblyName)) continue;
 
             results.Add(new ValidationResult(
-                ValidationSeverity.Error,
+                ValidationSeverity.Warning,
                 $"SdkMessageProcessingStep '{step.Name ?? step.SdkMessageProcessingStepId}' references plugin assembly " +
-                $"'{assemblyName}' that is not part of the solution. The step registration fails on import.",
+                $"'{assemblyName}' that is not part of this source. If the assembly ships from another solution, " +
+                "make sure that solution is imported first; otherwise the step registration fails on import.",
                 step.Source?.FilePath, step.Source?.Line, step.Source?.Column)
             {
                 Stage = ValidationStage.SolutionManifest,
@@ -221,35 +221,6 @@ public sealed class SolutionManifestValidator
         }
 
         identifiers.Add(Normalize(type, identity!));
-    }
-
-    private static void ValidateMissingDependencies(Solution solution, List<ValidationResult> results)
-    {
-        var solutionFile = solution.Source?.FilePath;
-        if (solutionFile == null || !File.Exists(solutionFile)) return;
-
-        XDocument document;
-        try
-        {
-            document = XDocument.Load(solutionFile);
-        }
-        catch (System.Xml.XmlException)
-        {
-            return;
-        }
-
-        var manifest = document.Root?.Element("SolutionManifest");
-        if (manifest?.Element("MissingDependencies") != null) return;
-
-        results.Add(new ValidationResult(
-            ValidationSeverity.Error,
-            $"Solution '{solution.UniqueName}' has no <MissingDependencies/> element in Solution.xml. " +
-            "The manifest was authored without the dependency section, which fails with an opaque error when importing into a fresh environment.",
-            solutionFile, solution.Source?.Line, solution.Source?.Column)
-        {
-            Stage = ValidationStage.SolutionManifest,
-            Code = ValidationDiagnostics.MissingDependenciesElementAbsent
-        });
     }
 
     private static void ValidateDeclaredComponentsExist(
