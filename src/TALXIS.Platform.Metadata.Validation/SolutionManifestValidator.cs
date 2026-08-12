@@ -298,7 +298,7 @@ public sealed class SolutionManifestValidator
 
     /// <summary>
     /// Flags root components of the same type declared more than once with the same identity
-    /// (schema name, or id when schema-name-less) within a single solution manifest. A duplicate
+    /// (id when present, otherwise schema name) within a single solution manifest. A duplicate
     /// silently collapses to one component on import, or - for build-time generated declarations
     /// such as a Code App's CanvasApp root component - one generated artifact (schema entry,
     /// .meta.xml, package folder) silently overwrites another's.
@@ -306,37 +306,40 @@ public sealed class SolutionManifestValidator
     private static void ValidateNoDuplicateRootComponents(Solution solution, List<ValidationResult> results)
     {
         // Dataverse schema names are case-insensitive, so two declarations differing only by
-        // casing still collide - keyed on the lowercased identity, but the first-seen original
-        // casing is what's reported.
-        var counts = new Dictionary<(ComponentType Type, string Identity), int>();
-        var firstSeen = new Dictionary<(ComponentType Type, string Identity), string>();
-
+        // casing still collide - the case-insensitive key keeps the first-seen casing, which is
+        // what's reported.
+        var declared = new Dictionary<ComponentType, Dictionary<string, int>>();
         foreach (var rootComponent in solution.RootComponents)
         {
-            var identity = GetIdentity(rootComponent);
+            var identity = GetDeclaredIdentity(rootComponent);
             if (identity == null) continue;
 
-            var key = (rootComponent.Type, identity.ToLowerInvariant());
-            counts[key] = counts.TryGetValue(key, out var count) ? count + 1 : 1;
-            if (!firstSeen.ContainsKey(key)) firstSeen[key] = identity;
+            if (!declared.TryGetValue(rootComponent.Type, out var counts))
+            {
+                counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                declared[rootComponent.Type] = counts;
+            }
+
+            counts[identity] = counts.TryGetValue(identity, out var count) ? count + 1 : 1;
         }
 
-        foreach (var entry in counts)
+        foreach (var typeEntry in declared)
         {
-            if (entry.Value <= 1) continue;
-
-            var type = entry.Key.Type;
-            var identity = firstSeen[entry.Key];
-
-            results.Add(new ValidationResult(
-                ValidationSeverity.Error,
-                $"Solution '{solution.UniqueName}' declares {entry.Value} {type} root components with the same identity '{identity}'. " +
-                "Each root component of a given type must be unique within a solution, or one silently overwrites the other.",
-                solution.Source?.FilePath, solution.Source?.Line, solution.Source?.Column)
+            foreach (var identityEntry in typeEntry.Value)
             {
-                Stage = ValidationStage.SolutionManifest,
-                Code = ValidationDiagnostics.DuplicateRootComponent
-            });
+                if (identityEntry.Value <= 1) continue;
+
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Error,
+                    $"Solution '{solution.UniqueName}' declares {identityEntry.Value} {typeEntry.Key} root components with the same identity '{identityEntry.Key}'. " +
+                    "On import they collapse into a single component, and build-time generated artifacts overwrite each other. " +
+                    "Remove the duplicate declaration, or rename one of the components so identities stay unique.",
+                    solution.Source?.FilePath, solution.Source?.Line, solution.Source?.Column)
+                {
+                    Stage = ValidationStage.SolutionManifest,
+                    Code = ValidationDiagnostics.DuplicateRootComponent
+                });
+            }
         }
     }
 
@@ -344,6 +347,15 @@ public sealed class SolutionManifestValidator
     {
         if (!string.IsNullOrWhiteSpace(rootComponent.SchemaName)) return Normalize(rootComponent.Type, rootComponent.SchemaName!);
         if (rootComponent.Id.HasValue) return Normalize(rootComponent.Type, rootComponent.Id.Value.ToString());
+        return null;
+    }
+
+    // No Normalize here: side-by-side plugin assembly versions are distinct components.
+    private static string? GetDeclaredIdentity(RootComponent rootComponent)
+    {
+        if (rootComponent.Id.HasValue) return rootComponent.Id.Value.ToString();
+        if (!string.IsNullOrWhiteSpace(rootComponent.SchemaName)) return rootComponent.SchemaName!.Trim().Trim('{', '}');
+        
         return null;
     }
 

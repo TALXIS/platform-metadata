@@ -136,6 +136,30 @@ public class SolutionManifestValidatorTests : IDisposable
         Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
     }
 
+    [Fact]
+    public void DuplicateWorkflowId_ReportsError()
+    {
+        var workflowId = Guid.NewGuid();
+        WriteSolution($$"""
+            <RootComponent type="29" id="{{{workflowId}}}" behavior="0" />
+            <RootComponent type="29" id="{{{workflowId}}}" behavior="0" />
+            """);
+
+        var finding = Assert.Single(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+        Assert.Contains(workflowId.ToString(), finding.Message);
+    }
+
+    [Fact]
+    public void SideBySidePluginAssemblyVersions_NoFinding()
+    {
+        WriteSolution("""
+            <RootComponent type="91" schemaName="Test.Plugins, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" behavior="0" />
+            <RootComponent type="91" schemaName="Test.Plugins, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null" behavior="0" />
+            """);
+
+        Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+    }
+
     private IReadOnlyList<ValidationResult> Validate()
     {
         var workspace = new XmlWorkspaceReader().Load(_root);
