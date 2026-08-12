@@ -84,6 +84,82 @@ public class SolutionManifestValidatorTests : IDisposable
         Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.RootComponentFileAbsent);
     }
 
+    [Fact]
+    public void DuplicateCanvasAppSchemaName_ReportsError()
+    {
+        // Mirrors what AddRootComponentToSolution produces for a Code App reference: a
+        // CanvasApp (type 300) root component identified by SchemaName rather than Id. Two Code
+        // Apps sharing an AppName collapse to the same SchemaName here.
+        WriteSolution("""
+            <RootComponent type="300" schemaName="tp_warehousepicking" behavior="0" />
+            <RootComponent type="300" schemaName="tp_warehousepicking" behavior="0" />
+            """);
+
+        var finding = Assert.Single(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("tp_warehousepicking", finding.Message);
+        Assert.Contains("CanvasApp", finding.Message);
+    }
+
+    [Fact]
+    public void DuplicateSchemaNameCasingDiffers_ReportsError()
+    {
+        WriteSolution("""
+            <RootComponent type="300" schemaName="tp_warehousepicking" behavior="0" />
+            <RootComponent type="300" schemaName="TP_WarehousePicking" behavior="0" />
+            """);
+
+        Assert.Contains(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+    }
+
+    [Fact]
+    public void SameSchemaNameDifferentTypes_NoFinding()
+    {
+        // Same identity string but different component types is not a collision.
+        WriteSolution("""
+            <RootComponent type="1" schemaName="tp_warehouse" behavior="0" />
+            <RootComponent type="300" schemaName="tp_warehouse" behavior="0" />
+            """);
+        WriteEntity("tp_warehouse");
+
+        Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+    }
+
+    [Fact]
+    public void DistinctCanvasAppSchemaNames_NoFinding()
+    {
+        WriteSolution("""
+            <RootComponent type="300" schemaName="tp_warehousepicking" behavior="0" />
+            <RootComponent type="300" schemaName="tp_warehousereceiving" behavior="0" />
+            """);
+
+        Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+    }
+
+    [Fact]
+    public void DuplicateWorkflowId_ReportsError()
+    {
+        var workflowId = Guid.NewGuid();
+        WriteSolution($$"""
+            <RootComponent type="29" id="{{{workflowId}}}" behavior="0" />
+            <RootComponent type="29" id="{{{workflowId}}}" behavior="0" />
+            """);
+
+        var finding = Assert.Single(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+        Assert.Contains(workflowId.ToString(), finding.Message);
+    }
+
+    [Fact]
+    public void SideBySidePluginAssemblyVersions_NoFinding()
+    {
+        WriteSolution("""
+            <RootComponent type="91" schemaName="Test.Plugins, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" behavior="0" />
+            <RootComponent type="91" schemaName="Test.Plugins, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null" behavior="0" />
+            """);
+
+        Assert.DoesNotContain(Validate(), r => r.Code == ValidationDiagnostics.DuplicateRootComponent);
+    }
+
     private IReadOnlyList<ValidationResult> Validate()
     {
         var workspace = new XmlWorkspaceReader().Load(_root);

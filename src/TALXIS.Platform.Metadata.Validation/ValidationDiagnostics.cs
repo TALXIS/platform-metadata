@@ -18,4 +18,7 @@ public static class ValidationDiagnostics
 
     /// <summary>An SDK message processing step references a plugin assembly that is not part of this source — it may legitimately ship from another solution.</summary>
     public const string StepAssemblyNotInSolution = "TXM003";
+
+    /// <summary>A solution manifest declares more than one root component of the same type with the same identity (schema name or id).</summary>
+    public const string DuplicateRootComponent = "TXM004";
 }
