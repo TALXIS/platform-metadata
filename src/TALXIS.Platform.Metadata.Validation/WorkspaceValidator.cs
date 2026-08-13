@@ -1,40 +1,18 @@
 using TALXIS.Platform.Metadata.Serialization.Xml;
-using TALXIS.Platform.Metadata.Components;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
-/// Unified validation entry point. Runs all registered validators
-/// and optionally loads the workspace into the typed model.
-/// Consumers call this single method instead of wiring validators individually.
+/// Unified validation entry point for a whole workspace. Discovers every solution root,
+/// runs <see cref="SolutionValidator"/> on each, then adds the checks that only make sense
+/// across solutions: cross-solution duplicate GUIDs, files outside any solution root, and
+/// the combined workspace model.
 /// </summary>
 public sealed class WorkspaceValidator
 {
-    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "bin", "obj", ".vs", ".git", ".github", "node_modules", "packages", "TestResults"
-    };
-
-
-    private static IEnumerable<string> EnumerateWorkspaceFiles(string directory, string pattern)
-    {
-        var fullDir = Path.GetFullPath(directory);
-        foreach (var file in Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories))
-        {
-            // Check if any parent directory is in the ignore list
-            var fullFile = Path.GetFullPath(file);
-            var relativePath = fullFile.Substring(fullDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var parts = relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
-            if (parts.Any(p => IgnoredDirectories.Contains(p)))
-                continue;
-            yield return file;
-        }
-    }
-
     /// <summary>
     /// Runs all validation checks on a solution workspace directory:
-    /// XSD schema validation, JSON schema validation, duplicate GUID detection,
-    /// and model loading (reports parse errors and component counts).
+    /// per-solution checks (XSD, JSON, GUIDs, model rules) plus cross-solution checks.
     /// </summary>
     /// <param name="workspacePath">Path to the unpacked SolutionPackager workspace.</param>
     /// <returns>A validation report containing all findings and the loaded workspace when loading succeeded.</returns>
@@ -50,76 +28,70 @@ public sealed class WorkspaceValidator
             return BuildReport(results, null);
         }
 
-        // Layer 1: XSD schema validation, one file at a time.
-        // WebResources payloads (arbitrary XML uploaded as web resources) are skipped -
-        // only their .data.xml descriptors have a schema.
-        var schemaValidator = new SchemaValidator();
-        ValidateFiles(workspacePath, "*.xml", ValidationStage.Schema,
-            file => IsWebResourcePayload(file) ? Array.Empty<ValidationResult>() : schemaValidator.ValidateFile(file),
-            results);
+        var solutionRoots = DiscoverSolutionRoots(workspacePath);
+        var workspaceIsSingleRoot = solutionRoots.Count == 0;
+        if (workspaceIsSingleRoot)
+            solutionRoots = new[] { workspacePath };
 
-        // Layer 2: JSON schema validation, one file at a time.
-        ValidateFiles(workspacePath, "*.json", ValidationStage.Json, new JsonValidator().ValidateFile, results);
+        var solutionValidator = new SolutionValidator();
 
-        // Layer 3: duplicate GUID detection across the whole tree.
-        results.AddRange(WithStage(new GuidValidator().ValidateDirectory(workspacePath), ValidationStage.DuplicateGuid));
+        // File-level checks per solution root, then files outside any root, so every file is
+        // visited exactly once. Duplicate GUID detection stays workspace-wide: its component
+        // identity rules already tell cross-solution layering apart from real duplicates.
+        foreach (var root in solutionRoots)
+            solutionValidator.CollectSchemaAndJsonFindings(root, results);
 
-        // Layer 4: load each solution into the model and validate it (load errors, flows, relationships).
-        var workspace = ValidateModel(workspacePath, results);
+        if (!workspaceIsSingleRoot)
+        {
+            // Enumerated files and discovered roots share the workspacePath base, so ordinal
+            // prefix comparison is exact on every platform.
+            var rootPrefixes = solutionRoots
+                .Select(root => Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar)
+                .ToArray();
 
+            solutionValidator.CollectSchemaAndJsonFindings(workspacePath, results,
+                file =>
+                {
+                    var fullFile = Path.GetFullPath(file);
+                    return !rootPrefixes.Any(prefix => fullFile.StartsWith(prefix, StringComparison.Ordinal));
+                });
+        }
+
+        results.AddRange(SolutionValidator.WithStage(
+            new GuidValidator().ValidateDirectory(workspacePath), ValidationStage.DuplicateGuid));
+
+        var loaded = new List<(string Root, Workspace? Workspace)>();
+        foreach (var root in solutionRoots)
+            loaded.Add((root, SolutionValidator.TryLoad(root, results)));
+
+        var context = new SolutionValidationContext
+        {
+            WorkspaceColumns = BuildWorkspaceColumnSet(loaded.Select(l => l.Workspace).OfType<Workspace>())
+        };
+
+        foreach (var (root, solution) in loaded)
+        {
+            if (solution != null)
+                solutionValidator.CollectModelFindingsSafe(solution, context, results, root);
+        }
+
+        var workspace = BuildCombinedWorkspace(workspacePath, solutionRoots, loaded, results);
         return BuildReport(results, workspace);
     }
 
-    private static bool IsWebResourcePayload(string filePath)
-    {
-        if (filePath.EndsWith(".data.xml", StringComparison.OrdinalIgnoreCase)) return false;
-        var normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-        return normalized.IndexOf($"{Path.DirectorySeparatorChar}WebResources{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static void ValidateFiles(
+    private static Workspace? BuildCombinedWorkspace(
         string workspacePath,
-        string pattern,
-        ValidationStage stage,
-        Func<string, IReadOnlyList<ValidationResult>> validate,
+        IReadOnlyList<string> solutionRoots,
+        List<(string Root, Workspace? Workspace)> loaded,
         List<ValidationResult> results)
     {
-        foreach (var file in EnumerateWorkspaceFiles(workspacePath, pattern))
-        {
-            try
-            {
-                results.AddRange(WithStage(validate(file), stage));
-            }
-            catch (IOException ex)
-            {
-                results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Cannot read file: {ex.Message}", file, null, null) { Stage = stage });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                results.Add(new ValidationResult(ValidationSeverity.Warning,
-                    $"Access denied: {ex.Message}", file, null, null) { Stage = stage });
-            }
-        }
-    }
+        if (loaded.Any(l => l.Workspace == null)) return null;
+        if (loaded.Count == 1) return loaded[0].Workspace;
 
-    private static Workspace? ValidateModel(string workspacePath, List<ValidationResult> results)
-    {
         try
         {
-            var reader = new XmlWorkspaceReader();
-            var solutionRoots = DiscoverSolutionRoots(workspacePath);
-            if (solutionRoots.Count == 0)
-                solutionRoots = new[] { workspacePath };
-
-            var loaded = solutionRoots.Select(reader.Load).ToList();
-            var workspaceColumns = BuildWorkspaceColumnSet(loaded);
-            foreach (var ws in loaded)
-                CollectModelFindings(ws, workspaceColumns, results);
-
-            return loaded.Count == 1
-                ? loaded[0]
-                : reader.LoadMany(solutionRoots.Select((path, index) => new SolutionWorkspaceSource(path, index)));
+            return new XmlWorkspaceReader().LoadMany(
+                solutionRoots.Select((path, index) => new SolutionWorkspaceSource(path, index)));
         }
         catch (Exception ex)
         {
@@ -131,8 +103,6 @@ public sealed class WorkspaceValidator
         }
     }
 
-
-
     private static HashSet<string> BuildWorkspaceColumnSet(IEnumerable<Workspace> workspaces)
     {
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -143,33 +113,7 @@ public sealed class WorkspaceValidator
         return columns;
     }
 
-    private static void CollectModelFindings(Workspace workspace, HashSet<string> workspaceColumns, List<ValidationResult> results)
-    {
-        foreach (var loadError in workspace.LoadErrors)
-        {
-            results.Add(new ValidationResult(
-                ValidationSeverity.Error,
-                $"Load error: {loadError.Message}",
-                loadError.FilePath,
-                loadError.Line,
-                loadError.Column) { Stage = ValidationStage.ModelLoad });
-        }
-
-        foreach (var diagnostic in workspace.FlowDefinitions.SelectMany(f => f.Diagnostics))
-        {
-            results.Add(new ValidationResult(
-                MapFlowSeverity(diagnostic.Severity),
-                $"Flow {diagnostic.Code}: {diagnostic.Message}",
-                diagnostic.FilePath,
-                diagnostic.Line,
-                diagnostic.Column) { Stage = ValidationStage.Flow });
-        }
-
-        results.AddRange(WithStage(new RelationshipValidator().Validate(workspace, workspaceColumns), ValidationStage.Relationship));
-        results.AddRange(new SolutionManifestValidator().Validate(workspace));
-    }
-
-    private static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)
+    internal static WorkspaceValidationReport BuildReport(IEnumerable<ValidationResult> results, Workspace? workspace)
     {
         var labeled = results
             .Select(r => r with { Message = $"[{r.Stage.Label()}] {r.Message}" })
@@ -191,7 +135,7 @@ public sealed class WorkspaceValidator
             var dir = pending.Pop();
             foreach (var child in Directory.EnumerateDirectories(dir))
             {
-                if (IgnoredDirectories.Contains(Path.GetFileName(child)))
+                if (WorkspaceFiles.IgnoredDirectories.Contains(Path.GetFileName(child)))
                     continue;
 
                 if (File.Exists(Path.Combine(child, "Other", "Solution.xml")))
@@ -203,9 +147,6 @@ public sealed class WorkspaceValidator
 
         return roots;
     }
-
-    private static IEnumerable<ValidationResult> WithStage(IEnumerable<ValidationResult> results, ValidationStage stage) => results.Select(r => r with { Stage = stage });
-    private static ValidationSeverity MapFlowSeverity(FlowDiagnosticSeverity severity) => severity == FlowDiagnosticSeverity.Error ? ValidationSeverity.Error : ValidationSeverity.Warning;
 }
 
 /// <summary>

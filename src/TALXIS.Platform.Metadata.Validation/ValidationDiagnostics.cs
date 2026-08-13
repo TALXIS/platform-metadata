@@ -21,4 +21,7 @@ public static class ValidationDiagnostics
 
     /// <summary>A solution manifest declares more than one root component of the same type with the same identity (schema name or id).</summary>
     public const string DuplicateRootComponent = "TXM004";
+
+    /// <summary>The directory passed to solution validation has no Other/Solution.xml manifest.</summary>
+    public const string SolutionManifestFileAbsent = "TXM005";
 }
