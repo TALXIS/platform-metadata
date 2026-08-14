@@ -64,19 +64,71 @@ public sealed class WorkspaceValidator
         foreach (var root in solutionRoots)
             loaded.Add((root, SolutionValidator.TryLoad(root, results)));
 
-        var context = new SolutionValidationContext
-        {
-            WorkspaceColumns = BuildWorkspaceColumnSet(loaded.Select(l => l.Workspace).OfType<Workspace>())
-        };
-
         foreach (var (root, solution) in loaded)
         {
             if (solution != null)
-                solutionValidator.CollectModelFindingsSafe(solution, context, results, root);
+                solutionValidator.CollectModelFindingsSafe(solution, results, root);
         }
+
+        CollectRelationshipFindings(loaded, results);
 
         var workspace = BuildCombinedWorkspace(workspacePath, solutionRoots, loaded, results);
         return BuildReport(results, workspace);
+    }
+
+    /// <summary>
+    /// Runs only the workspace-scoped relationship rules: every solution's relationships are
+    /// checked against the entities and columns of the whole workspace, since a relationship and
+    /// the entity it references may ship in different solutions. Meant for a single pre-build
+    /// pass over a multi-solution workspace; per-solution rules stay in <see cref="SolutionValidator"/>.
+    /// </summary>
+    /// <param name="workspacePath">Path to the workspace root containing one or more unpacked solutions.</param>
+    public WorkspaceValidationReport ValidateRelationships(string workspacePath)
+    {
+        var results = new List<ValidationResult>();
+
+        if (!Directory.Exists(workspacePath))
+        {
+            results.Add(new ValidationResult(ValidationSeverity.Error,
+                $"Directory not found: {workspacePath}", null, null, null) { Stage = ValidationStage.Workspace });
+
+            return BuildReport(results, null);
+        }
+
+        var solutionRoots = DiscoverSolutionRoots(workspacePath);
+        if (solutionRoots.Count == 0)
+            solutionRoots = new[] { workspacePath };
+
+        var loaded = new List<(string Root, Workspace? Workspace)>();
+        foreach (var root in solutionRoots)
+            loaded.Add((root, SolutionValidator.TryLoad(root, results)));
+
+        CollectRelationshipFindings(loaded, results);
+
+        return BuildReport(results, null);
+    }
+
+    private static void CollectRelationshipFindings(List<(string Root, Workspace? Workspace)> loaded, List<ValidationResult> results)
+    {
+        var workspaceColumns = BuildWorkspaceColumnSet(loaded.Select(l => l.Workspace).OfType<Workspace>());
+
+        foreach (var (root, solution) in loaded)
+        {
+            if (solution == null) continue;
+
+            try
+            {
+                results.AddRange(SolutionValidator.WithStage(
+                    new RelationshipValidator().Validate(solution, workspaceColumns), ValidationStage.Relationship));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new ValidationResult(
+                    ValidationSeverity.Error,
+                    $"Failed to load workspace into model: {ex.Message}",
+                    root, null, null) { Stage = ValidationStage.ModelLoad });
+            }
+        }
     }
 
     private static Workspace? BuildCombinedWorkspace(

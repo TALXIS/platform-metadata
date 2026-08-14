@@ -4,24 +4,12 @@ using TALXIS.Platform.Metadata.Components;
 namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
-/// Cross-solution knowledge a surrounding workspace can supply to refine single-solution rules.
-/// Without it, rules judge the solution strictly on its own content.
-/// </summary>
-public sealed class SolutionValidationContext
-{
-    /// <summary>
-    /// "entity|attribute" pairs known across the whole workspace. When supplied, a relationship
-    /// column missing from this solution but defined in a sibling solution is reported as a
-    /// warning instead of an error.
-    /// </summary>
-    public HashSet<string>? WorkspaceColumns { get; init; }
-}
-
-/// <summary>
 /// Validates a single solution root with every rule that needs no cross-solution knowledge:
-/// XSD and JSON schema checks, duplicate GUID detection, model load, flow, relationship and
-/// solution manifest rules. <see cref="WorkspaceValidator"/> composes this validator over each
-/// solution it discovers; build pipelines call it directly on one solution source folder.
+/// XSD and JSON schema checks, duplicate GUID detection, model load, flow and solution manifest
+/// rules. Relationship rules are workspace-scoped (a relationship and the entity it references
+/// may ship in different solutions), so they live in <see cref="WorkspaceValidator"/>.
+/// <see cref="WorkspaceValidator"/> composes this validator over each solution it discovers;
+/// build pipelines call it directly on one solution source folder.
 /// </summary>
 public sealed class SolutionValidator
 {
@@ -43,8 +31,7 @@ public sealed class SolutionValidator
     /// Runs all single-solution checks on a solution root directory.
     /// </summary>
     /// <param name="solutionRootPath">Directory containing the unpacked solution (the folder with Other/Solution.xml).</param>
-    /// <param name="context">Optional cross-solution knowledge supplied by a surrounding workspace.</param>
-    public WorkspaceValidationReport Validate(string solutionRootPath, SolutionValidationContext? context = null)
+    public WorkspaceValidationReport Validate(string solutionRootPath)
     {
         var results = new List<ValidationResult>();
 
@@ -66,7 +53,7 @@ public sealed class SolutionValidator
 
         var workspace = TryLoad(solutionRootPath, results);
         if (workspace != null)
-            CollectModelFindingsSafe(workspace, context, results, solutionRootPath);
+            CollectModelFindingsSafe(workspace, results, solutionRootPath);
 
         return WorkspaceValidator.BuildReport(results, workspace);
     }
@@ -74,7 +61,7 @@ public sealed class SolutionValidator
     /// <summary>
     /// Runs all single-solution checks against an already-loaded solution workspace.
     /// </summary>
-    public WorkspaceValidationReport Validate(Workspace solution, string solutionRootPath, SolutionValidationContext? context = null)
+    public WorkspaceValidationReport Validate(Workspace solution, string solutionRootPath)
     {
         if (solution == null) throw new ArgumentNullException(nameof(solution));
 
@@ -82,7 +69,7 @@ public sealed class SolutionValidator
         if (Directory.Exists(solutionRootPath))
             CollectFileFindings(solutionRootPath, results);
 
-        CollectModelFindingsSafe(solution, context, results, solutionRootPath);
+        CollectModelFindingsSafe(solution, results, solutionRootPath);
         return WorkspaceValidator.BuildReport(results, solution);
     }
 
@@ -90,11 +77,11 @@ public sealed class SolutionValidator
     /// Model checks with the same safety net the load has: a crashing rule becomes a finding,
     /// not an exception escaping to the consumer.
     /// </summary>
-    internal void CollectModelFindingsSafe(Workspace workspace, SolutionValidationContext? context, List<ValidationResult> results, string solutionRootPath)
+    internal void CollectModelFindingsSafe(Workspace workspace, List<ValidationResult> results, string solutionRootPath)
     {
         try
         {
-            CollectModelFindings(workspace, context, results);
+            CollectModelFindings(workspace, results);
         }
         catch (Exception ex)
         {
@@ -128,9 +115,9 @@ public sealed class SolutionValidator
 
     /// <summary>
     /// Model-level checks for one loaded solution: load errors, flow diagnostics,
-    /// relationship rules, solution manifest rules.
+    /// solution manifest rules.
     /// </summary>
-    private void CollectModelFindings(Workspace workspace, SolutionValidationContext? context, List<ValidationResult> results)
+    private void CollectModelFindings(Workspace workspace, List<ValidationResult> results)
     {
         foreach (var loadError in workspace.LoadErrors)
         {
@@ -152,7 +139,6 @@ public sealed class SolutionValidator
                 diagnostic.Column) { Stage = ValidationStage.Flow });
         }
 
-        results.AddRange(WithStage(new RelationshipValidator().Validate(workspace, context?.WorkspaceColumns), ValidationStage.Relationship));
         results.AddRange(new SolutionManifestValidator().Validate(workspace));
     }
 

@@ -181,6 +181,24 @@ public class WorkspaceValidatorTests
     }
 
     [Fact]
+    public void ValidateDirectory_RelationshipFindings_StillIncluded()
+    {
+        var report = new WorkspaceValidator().ValidateDirectory(SamplePath);
+
+        Assert.Contains(report.Results, r => r.Message.Contains("[Relationship]"));
+    }
+
+    [Fact]
+    public void ValidateRelationships_ReportsOnlyRelationshipStage()
+    {
+        var report = new WorkspaceValidator().ValidateRelationships(SamplePath);
+
+        Assert.Contains(report.Results, r => r.Message.Contains("[Relationship]"));
+        Assert.DoesNotContain(report.Results, r => r.Message.Contains("[Schema]"));
+        Assert.DoesNotContain(report.Results, r => r.Message.Contains("[Solution]"));
+    }
+
+    [Fact]
     public void MultiSolution_DuplicateGuidAcrossRoots_DifferentComponents_ReportsError()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-xroot-guid-{Guid.NewGuid():N}");

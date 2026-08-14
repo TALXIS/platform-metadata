@@ -52,31 +52,7 @@ public class SolutionValidatorTests
     }
 
     [Fact]
-    public void MissingRelationshipColumn_NoContext_ReportsError()
-    {
-        var results = ValidateModel(context: null);
-
-        Assert.Contains(results, r =>
-            r.Severity == ValidationSeverity.Error && r.Message.Contains("pba_missing"));
-    }
-
-    [Fact]
-    public void MissingRelationshipColumn_ColumnKnownToWorkspace_ReportsWarning()
-    {
-        var context = new SolutionValidationContext
-        {
-            WorkspaceColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "pba_child|pba_missing" }
-        };
-
-        var results = ValidateModel(context);
-
-        Assert.DoesNotContain(results, r =>
-            r.Severity == ValidationSeverity.Error && r.Message.Contains("pba_missing"));
-        Assert.Contains(results, r =>
-            r.Severity == ValidationSeverity.Warning && r.Message.Contains("pba_missing"));
-    }
-
-    private static IReadOnlyList<ValidationResult> ValidateModel(SolutionValidationContext? context)
+    public void RelationshipRules_NotPartOfSolutionValidation()
     {
         var ws = new Workspace("test");
         var entity = new EntityMetadata { LogicalName = "pba_child" };
@@ -92,6 +68,9 @@ public class SolutionValidatorTests
         });
 
         var missingDir = Path.Combine(Path.GetTempPath(), $"sol-test-none-{Guid.NewGuid():N}");
-        return new SolutionValidator().Validate(ws, missingDir, context).Results;
+        var results = new SolutionValidator().Validate(ws, missingDir).Results;
+
+        Assert.DoesNotContain(results, r => r.Message.Contains("pba_missing"));
+        Assert.DoesNotContain(results, r => r.Message.Contains("[Relationship]"));
     }
 }
