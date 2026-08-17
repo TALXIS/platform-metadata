@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Xml.Linq;
+using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
@@ -48,94 +51,88 @@ public static class EntityAttributeScaffold
         return result;
     }
 
-    // Fills the empty <options> element of the rendered option set with parsed options.
-    // Local sets live inside the attribute file, global sets in OptionSets/<name>.xml.
     private static void SetOptionSetOptions(EntityAttributeScaffoldRequest request)
     {
-        var targetPath = request.GlobalOptionSetFilePath ?? request.AttributeFilePath;
-        var doc = LoadXml(targetPath);
+        var options = ParseOptions(request.OptionSetOptions!);
+        if (request.GlobalOptionSetFilePath != null)
+            SetGlobalOptionSetOptions(request, options);
+        else
+            SetLocalOptionSetOptions(request.AttributeFilePath, options);
+    }
 
-        var optionsNode = doc.SelectSingleNode("//options")
-            ?? throw new InvalidOperationException($"Options node not found in '{targetPath}'.");
-
-        var nextAutoValue = (long)AutoOptionValueStart;
-        foreach (var entry in ParseOptionEntries(request.OptionSetOptions!))
+    // Label:Value pairs pin explicit values; bare labels auto-increment from 100000000.
+    private static List<OptionMetadata> ParseOptions(string spec)
+    {
+        var options = new List<OptionMetadata>();
+        var nextAutoValue = AutoOptionValueStart;
+        foreach (var entry in ParseOptionEntries(spec))
         {
-            // Label:Value pairs pin explicit values; bare labels auto-increment from 100000000.
-            long value;
-            string label;
             var match = Regex.Match(entry, @"^(.+):(\d+)$");
-            if (match.Success)
+            var label = match.Success ? match.Groups[1].Value.Trim() : entry;
+            var value = match.Success ? int.Parse(match.Groups[2].Value) : nextAutoValue++;
+            options.Add(new OptionMetadata
             {
-                label = match.Groups[1].Value.Trim();
-                value = long.Parse(match.Groups[2].Value);
-            }
-            else
-            {
-                label = entry;
-                value = nextAutoValue++;
-            }
+                Value = value,
+                Label = new Label(label),
+                Description = new Label(""),
+            });
+        }
+        return options;
+    }
 
-            optionsNode.AppendChild(BuildOptionElement(doc, value, label));
+    // Global sets go through the workspace model: the reader/writer own the option set
+    // file shape and the RootComponent (type 9) registration in Solution.xml.
+    private static void SetGlobalOptionSetOptions(EntityAttributeScaffoldRequest request, List<OptionMetadata> options)
+    {
+        var workspace = new XmlWorkspaceReader().Load(request.SolutionRootPath);
+
+        var name = Path.GetFileNameWithoutExtension(request.GlobalOptionSetFilePath!);
+        var optionSet = workspace.GlobalOptionSets.FirstOrDefault(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Global option set '{name}' not found in '{request.SolutionRootPath}'.");
+        foreach (var option in options)
+        {
+            optionSet.AddOption(option);
         }
 
-        SaveXml(doc, targetPath);
+        if (request.GlobalOptionSetSchemaName != null)
+        {
+            var solution = workspace.Solutions.FirstOrDefault()
+                ?? throw new InvalidOperationException($"No solution manifest found in '{request.SolutionRootPath}'.");
+            var exists = solution.RootComponents.Any(rc =>
+                rc.Type == ComponentType.OptionSet &&
+                string.Equals(rc.SchemaName, request.GlobalOptionSetSchemaName, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+            {
+                solution.AddRootComponent(new RootComponent
+                {
+                    Type = ComponentType.OptionSet,
+                    SchemaName = request.GlobalOptionSetSchemaName,
+                    Behavior = 0,
+                });
+            }
+        }
 
-        if (request.GlobalOptionSetFilePath != null && request.GlobalOptionSetSchemaName != null)
-            EnsureGlobalOptionSetRootComponent(request);
+        new XmlWorkspaceWriter().Write(workspace, request.SolutionRootPath);
+    }
+
+    // Local sets stay file-level (the rendered attribute is not part of the workspace),
+    // but the option XML shape is borrowed from the writer.
+    private static void SetLocalOptionSetOptions(string attributeFilePath, List<OptionMetadata> options)
+    {
+        var doc = XDocument.Load(attributeFilePath);
+        var optionsElement = doc.Descendants("options").FirstOrDefault()
+            ?? throw new InvalidOperationException($"Options node not found in '{attributeFilePath}'.");
+        foreach (var option in options)
+        {
+            optionsElement.Add(XmlWorkspaceWriter.BuildOptionElement(option));
+        }
+        SaveXml(doc, attributeFilePath);
     }
 
     private static IEnumerable<string> ParseOptionEntries(string spec) =>
         spec.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(e => e.Replace("{", "").Replace("}", "").Trim())
             .Where(e => e.Length > 0);
-
-    private static XmlElement BuildOptionElement(XmlDocument doc, long value, string label)
-    {
-        var option = doc.CreateElement("option");
-        option.SetAttribute("value", value.ToString());
-        option.SetAttribute("ExternalValue", "");
-        option.SetAttribute("IsHidden", "0");
-
-        var labels = doc.CreateElement("labels");
-        var labelElement = doc.CreateElement("label");
-        labelElement.SetAttribute("description", label);
-        labelElement.SetAttribute("languagecode", "1033");
-        labels.AppendChild(labelElement);
-        option.AppendChild(labels);
-
-        var descriptions = doc.CreateElement("Descriptions");
-        var description = doc.CreateElement("Description");
-        description.SetAttribute("description", "");
-        description.SetAttribute("languagecode", "1033");
-        descriptions.AppendChild(description);
-        option.AppendChild(descriptions);
-
-        return option;
-    }
-
-    // A new global option set must also be registered in Solution.xml as RootComponent type 9.
-    private static void EnsureGlobalOptionSetRootComponent(EntityAttributeScaffoldRequest request)
-    {
-        var solutionPath = Path.Combine(request.SolutionRootPath, "Other", "Solution.xml");
-        if (!File.Exists(solutionPath))
-            throw new FileNotFoundException($"Solution.xml not found: {solutionPath}");
-
-        var doc = LoadXml(solutionPath);
-        var schemaName = request.GlobalOptionSetSchemaName!;
-        if (doc.SelectSingleNode($"//RootComponent[@type='9' and @schemaName='{schemaName}']") != null) return;
-
-        var rootComponents = doc.SelectSingleNode("//RootComponents")
-            ?? throw new InvalidOperationException($"RootComponents node not found in '{solutionPath}'.");
-
-        var component = doc.CreateElement("RootComponent");
-        component.SetAttribute("type", "9");
-        component.SetAttribute("schemaName", schemaName);
-        component.SetAttribute("behavior", "0");
-        rootComponents.AppendChild(component);
-
-        doc.Save(solutionPath);
-    }
 
     // Appends the rendered <attribute> into Entity.xml; skips with a warning when an
     // attribute with the same LogicalName already exists (never overwrites metadata).
@@ -319,14 +316,21 @@ public static class EntityAttributeScaffold
     // Same writer settings as the original scripts, so output formatting stays byte-compatible.
     private static void SaveXml(XmlDocument doc, string path)
     {
-        var settings = new XmlWriterSettings
-        {
-            Indent = true,
-            NewLineHandling = NewLineHandling.None,
-            OmitXmlDeclaration = false,
-            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
-        };
-        using var writer = XmlWriter.Create(path, settings);
+        using var writer = XmlWriter.Create(path, CreateWriterSettings());
         doc.Save(writer);
     }
+
+    private static void SaveXml(XDocument doc, string path)
+    {
+        using var writer = XmlWriter.Create(path, CreateWriterSettings());
+        doc.Save(writer);
+    }
+
+    private static XmlWriterSettings CreateWriterSettings() => new()
+    {
+        Indent = true,
+        NewLineHandling = NewLineHandling.None,
+        OmitXmlDeclaration = false,
+        Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
+    };
 }

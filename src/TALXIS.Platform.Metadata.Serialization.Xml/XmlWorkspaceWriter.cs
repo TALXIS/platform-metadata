@@ -673,7 +673,7 @@ public sealed class XmlWorkspaceWriter
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
-    private static XElement BuildOptionElement(OptionMetadata opt)
+    internal static XElement BuildOptionElement(OptionMetadata opt)
     {
         var optEl = new XElement("option",
             new XAttribute("value", opt.Value),
