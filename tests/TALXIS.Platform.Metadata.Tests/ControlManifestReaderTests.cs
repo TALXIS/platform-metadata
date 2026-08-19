@@ -138,4 +138,53 @@ public class ControlManifestReaderTests : IDisposable
     {
         Assert.Throws<FileNotFoundException>(() => ControlManifestReader.Read(Path.Combine(_tempDir, "missing.xml")));
     }
+
+    private string WriteProjectFile(string relativePath, string content)
+    {
+        var path = Path.Combine(_tempDir, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    [Fact]
+    public void Read_ProjectFolder_FindsSourceManifestIgnoringBuildOutput()
+    {
+        WriteProjectFile(@"proj\Grid\ControlManifest.Input.xml", GridManifestXml);
+        WriteProjectFile(@"proj\out\controls\Grid\ControlManifest.xml", GridManifestXml);
+        WriteProjectFile(@"proj\node_modules\pkg\ControlManifest.xml", GridManifestXml);
+
+        var manifest = ControlManifestReader.Read(Path.Combine(_tempDir, "proj"));
+
+        Assert.Equal("TALXIS.PCF.Grid", manifest.QualifiedName);
+    }
+
+    [Fact]
+    public void Read_CsprojPath_FindsManifestInProjectFolder()
+    {
+        var csproj = WriteProjectFile(@"proj\Grid.pcfproj.csproj", "<Project />");
+        WriteProjectFile(@"proj\Grid\ControlManifest.Input.xml", GridManifestXml);
+
+        var manifest = ControlManifestReader.Read(csproj);
+
+        Assert.Equal("TALXIS.PCF.Grid", manifest.QualifiedName);
+    }
+
+    [Fact]
+    public void Read_ProjectFolderWithMultipleManifests_Throws()
+    {
+        WriteProjectFile(@"proj\Grid\ControlManifest.Input.xml", GridManifestXml);
+        WriteProjectFile(@"proj\Map\ControlManifest.Input.xml", GridManifestXml);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ControlManifestReader.Read(Path.Combine(_tempDir, "proj")));
+        Assert.Contains("Multiple control manifests", ex.Message);
+    }
+
+    [Fact]
+    public void Read_ProjectFolderWithoutManifest_Throws()
+    {
+        WriteProjectFile(@"proj\readme.md", "nothing");
+
+        Assert.Throws<InvalidOperationException>(() => ControlManifestReader.Read(Path.Combine(_tempDir, "proj")));
+    }
 }

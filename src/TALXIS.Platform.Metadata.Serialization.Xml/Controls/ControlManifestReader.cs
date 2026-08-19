@@ -5,20 +5,28 @@ using TALXIS.Platform.Metadata.Controls;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Controls;
 
 /// <summary>
-/// Locates and parses a PCF <c>ControlManifest.xml</c> from a bare file or from inside
-/// a control distribution archive (solution zip, Package Deployer pdpkg.zip, or NuGet nupkg —
-/// archives are searched recursively, so a nupkg wrapping a pdpkg wrapping a solution works).
-/// When the manifest comes from a solution archive, the publisher-prefixed control name
-/// (e.g. <c>talxis_TALXIS.PCF.Grid</c>) is resolved from the solution's <c>customizations.xml</c>.
+/// Locates and parses a PCF <c>ControlManifest.xml</c> from a bare file, a control project
+/// (folder or <c>.csproj</c>), or from inside a control distribution archive (solution zip,
+/// Package Deployer pdpkg.zip, or NuGet nupkg — archives are searched recursively, so a nupkg
+/// wrapping a pdpkg wrapping a solution works). When the manifest comes from a solution archive,
+/// the publisher-prefixed control name (e.g. <c>talxis_TALXIS.PCF.Grid</c>) is resolved from
+/// the solution's <c>customizations.xml</c>.
 /// </summary>
 public static class ControlManifestReader
 {
     private const int MaxArchiveDepth = 3;
+    private static readonly string[] ExcludedProjectDirs = ["bin", "obj", "out", "node_modules", ".git"];
 
     public static ControlManifestInfo Read(string path)
     {
+        if (Directory.Exists(path))
+            return Read(FindManifestInProject(Path.GetFullPath(path)));
+
         if (!File.Exists(path))
             throw new FileNotFoundException($"Manifest source not found: {path}");
+
+        if (path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            return Read(FindManifestInProject(Path.GetDirectoryName(Path.GetFullPath(path))!));
 
         if (path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
         {
@@ -33,6 +41,35 @@ public static class ControlManifestReader
 
         result.Manifest.PrefixedName = ResolvePrefixedName(result);
         return result.Manifest;
+    }
+
+    // Source projects name the manifest ControlManifest.Input.xml; build output uses ControlManifest.xml.
+    private static string FindManifestInProject(string directory)
+    {
+        string Relative(string file) =>
+            file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        var candidates = Directory.EnumerateFiles(directory, "ControlManifest*.xml", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                var name = Path.GetFileName(f);
+                return name.Equals("ControlManifest.xml", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("ControlManifest.Input.xml", StringComparison.OrdinalIgnoreCase);
+            })
+            .Where(f => !Relative(f).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => ExcludedProjectDirs.Contains(segment, StringComparer.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (candidates.Count == 0)
+            throw new InvalidOperationException($"No ControlManifest.xml found under '{directory}'.");
+        if (candidates.Count > 1)
+        {
+            throw new InvalidOperationException(
+                $"Multiple control manifests found under '{directory}': {string.Join(", ", candidates.Select(Relative))}. " +
+                "Pass the manifest file directly.");
+        }
+
+        return candidates[0];
     }
 
     private sealed class ArchiveSearchResult
