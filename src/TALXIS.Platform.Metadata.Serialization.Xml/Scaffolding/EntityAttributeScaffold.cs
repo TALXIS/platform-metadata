@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Layout;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
@@ -12,6 +13,8 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 /// Mirrors their behavior step by step: set option set options, import the attribute
 /// into Entity.xml, add money support attributes, add the lookup relationship files,
 /// sort entity attributes, and normalize xsi:nil tags in Solution.xml.
+/// Transitional adapter: patches files directly for byte-compatible output with the old
+/// scripts; steps migrate onto the typed workspace model as the manipulation API lands.
 /// </summary>
 public static class EntityAttributeScaffold
 {
@@ -32,7 +35,7 @@ public static class EntityAttributeScaffold
         if (!string.IsNullOrEmpty(request.OptionSetOptions))
             SetOptionSetOptions(request);
 
-        var entityXmlPath = Path.Combine(request.SolutionRootPath, "Entities", request.EntitySchemaName, "Entity.xml");
+        var entityXmlPath = Path.Combine(request.SolutionRootPath, SolutionPackagerLayout.EntitiesDirectory, request.EntitySchemaName, "Entity.xml");
         if (!File.Exists(entityXmlPath))
             throw new FileNotFoundException($"Entity.xml not found: {entityXmlPath}");
 
@@ -197,9 +200,9 @@ public static class EntityAttributeScaffold
         var referencedEntity = request.ReferencedEntityName
             ?? throw new InvalidOperationException("ReferencedEntityName is required when LookupRelationshipFilePath is set.");
 
-        var otherDir = Path.Combine(request.SolutionRootPath, "Other");
+        var otherDir = Path.Combine(request.SolutionRootPath, SolutionPackagerLayout.OtherDirectory);
         var referencedEntityFilePath = Path.Combine(otherDir, "Relationships", $"{referencedEntity}.xml");
-        var relationshipsFilePath = Path.Combine(otherDir, "Relationships.xml");
+        var relationshipsFilePath = Path.Combine(request.SolutionRootPath, SolutionPackagerLayout.RelationshipsXmlPath);
 
         EnsureRelationshipsFile(referencedEntityFilePath);
         EnsureRelationshipsFile(relationshipsFilePath);
@@ -256,7 +259,7 @@ public static class EntityAttributeScaffold
     // SolutionPackager keeps attributes sorted by PhysicalName; re-sort every Entity.xml.
     private static void SortEntityAttributes(string solutionRootPath)
     {
-        var entitiesDir = Path.Combine(solutionRootPath, "Entities");
+        var entitiesDir = Path.Combine(solutionRootPath, SolutionPackagerLayout.EntitiesDirectory);
         if (!Directory.Exists(entitiesDir)) return;
 
         foreach (var entityXmlPath in Directory.GetFiles(entitiesDir, "Entity.xml", SearchOption.AllDirectories))
@@ -284,7 +287,7 @@ public static class EntityAttributeScaffold
     // The template engine splits <Tag xsi:nil="true"></Tag> across two lines; collapse it back.
     private static void NormalizeNilTags(string solutionRootPath)
     {
-        var solutionPath = Path.Combine(solutionRootPath, "Other", "Solution.xml");
+        var solutionPath = Path.Combine(solutionRootPath, SolutionPackagerLayout.SolutionXmlPath);
         if (!File.Exists(solutionPath)) return;
 
         var content = File.ReadAllText(solutionPath);
