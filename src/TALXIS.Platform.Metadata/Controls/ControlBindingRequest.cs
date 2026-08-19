@@ -1,9 +1,9 @@
 namespace TALXIS.Platform.Metadata.Controls;
 
 /// <summary>
-/// Request to overlay a custom control on an existing form control.
+/// Request to bind a custom control to an existing form control.
 /// </summary>
-public sealed class ControlAttachmentRequest
+public sealed class ControlBindingRequest
 {
     /// <summary>
     /// FormXml control id of the host control (e.g. <c>subgrid</c>).
@@ -23,7 +23,7 @@ public sealed class ControlAttachmentRequest
     public IReadOnlyDictionary<string, string> Parameters { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
-    /// Replace an existing attachment on the same host control instead of failing.
+    /// Replace an existing binding on the same host control instead of failing.
     /// </summary>
     public bool Force { get; init; }
 }

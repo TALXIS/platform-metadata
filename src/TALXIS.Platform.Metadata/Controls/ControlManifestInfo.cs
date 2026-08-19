@@ -2,7 +2,7 @@ namespace TALXIS.Platform.Metadata.Controls;
 
 /// <summary>
 /// Parsed PCF <c>ControlManifest.xml</c> — the runtime parameter schema of a custom control.
-/// The manifest ships with the control itself, so one generic attach operation can validate
+/// The manifest ships with the control itself, so one generic bind operation can validate
 /// and emit parameters for any control.
 /// </summary>
 public sealed class ControlManifestInfo

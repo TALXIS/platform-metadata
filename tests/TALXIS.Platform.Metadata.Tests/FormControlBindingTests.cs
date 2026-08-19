@@ -5,7 +5,7 @@ using TALXIS.Platform.Metadata.Serialization.Xml;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
-public class FormControlAttachmentTests
+public class FormControlBindingTests
 {
     private const string SubgridUniqueId = "{bbbb2222-0000-0000-0000-000000000002}";
     private const string ViewId = "{cccc3333-0000-0000-0000-000000000003}";
@@ -68,7 +68,7 @@ public class FormControlAttachmentTests
         ],
     };
 
-    private static ControlAttachmentRequest Request(
+    private static ControlBindingRequest Request(
         IReadOnlyDictionary<string, string>? parameters = null,
         string targetControlId = "subgrid",
         bool force = false) => new()
@@ -81,10 +81,10 @@ public class FormControlAttachmentTests
     };
 
     [Fact]
-    public void Attach_InsertsControlDescriptionWithAllFormFactors()
+    public void Bind_InsertsControlDescriptionWithAllFormFactors()
     {
         var form = LoadForm();
-        var result = FormControlAttachment.Attach(form, Request(new Dictionary<string, string>
+        var result = FormControlBinding.Bind(form, Request(new Dictionary<string, string>
         {
             ["EnableGrouping"] = "true",
             ["RowHeight"] = "42",
@@ -104,10 +104,10 @@ public class FormControlAttachmentTests
     }
 
     [Fact]
-    public void Attach_CopiesDatasetBindingFromHostSubgrid()
+    public void Bind_CopiesDatasetBindingFromHostSubgrid()
     {
         var form = LoadForm();
-        FormControlAttachment.Attach(form, Request());
+        FormControlBinding.Bind(form, Request());
 
         var dataSet = Render(form).Descendants("customControl")
             .First(c => c.Attribute("formFactor")?.Value == "0")
@@ -122,10 +122,10 @@ public class FormControlAttachmentTests
     }
 
     [Fact]
-    public void Attach_EmitsTypedParameterElements()
+    public void Bind_EmitsTypedParameterElements()
     {
         var form = LoadForm();
-        FormControlAttachment.Attach(form, Request(new Dictionary<string, string>
+        FormControlBinding.Bind(form, Request(new Dictionary<string, string>
         {
             ["EnableGrouping"] = "true",
             ["ClientApiWebresourceName"] = "almlab_main.js",
@@ -146,80 +146,80 @@ public class FormControlAttachmentTests
     }
 
     [Fact]
-    public void Attach_InsertsContainerBeforeDisplayConditions()
+    public void Bind_InsertsContainerBeforeDisplayConditions()
     {
         var form = LoadForm();
-        FormControlAttachment.Attach(form, Request());
+        FormControlBinding.Bind(form, Request());
 
         var formChildren = Render(form).Elements().Select(e => e.Name.LocalName).ToList();
         Assert.Equal(["tabs", "controlDescriptions", "DisplayConditions", "formLibraries"], formChildren);
     }
 
     [Fact]
-    public void Attach_UnknownParameter_ThrowsWithValidParameterList()
+    public void Bind_UnknownParameter_ThrowsWithValidParameterList()
     {
         var ex = Assert.Throws<ArgumentException>(() =>
-            FormControlAttachment.Attach(LoadForm(), Request(new Dictionary<string, string> { ["Nope"] = "1" })));
+            FormControlBinding.Bind(LoadForm(), Request(new Dictionary<string, string> { ["Nope"] = "1" })));
         Assert.Contains("not a parameter", ex.Message);
         Assert.Contains("EnableGrouping", ex.Message);
     }
 
     [Fact]
-    public void Attach_InvalidEnumValue_Throws()
+    public void Bind_InvalidEnumValue_Throws()
     {
         var ex = Assert.Throws<ArgumentException>(() =>
-            FormControlAttachment.Attach(LoadForm(), Request(new Dictionary<string, string> { ["EnableGrouping"] = "banana" })));
+            FormControlBinding.Bind(LoadForm(), Request(new Dictionary<string, string> { ["EnableGrouping"] = "banana" })));
         Assert.Contains("Allowed: true, false", ex.Message);
     }
 
     [Fact]
-    public void Attach_NonNumericWholeValue_Throws()
+    public void Bind_NonNumericWholeValue_Throws()
     {
         var ex = Assert.Throws<ArgumentException>(() =>
-            FormControlAttachment.Attach(LoadForm(), Request(new Dictionary<string, string> { ["RowHeight"] = "tall" })));
+            FormControlBinding.Bind(LoadForm(), Request(new Dictionary<string, string> { ["RowHeight"] = "tall" })));
         Assert.Contains("whole number", ex.Message);
     }
 
     [Fact]
-    public void Attach_MissingTargetControl_ThrowsListingAvailableControls()
+    public void Bind_MissingTargetControl_ThrowsListingAvailableControls()
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            FormControlAttachment.Attach(LoadForm(), Request(targetControlId: "nosuchgrid")));
+            FormControlBinding.Bind(LoadForm(), Request(targetControlId: "nosuchgrid")));
         Assert.Contains("subgrid", ex.Message);
     }
 
     [Fact]
-    public void Attach_FieldBoundControl_Throws()
+    public void Bind_FieldBoundControl_Throws()
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            FormControlAttachment.Attach(LoadForm(), Request(targetControlId: "almlab_name")));
+            FormControlBinding.Bind(LoadForm(), Request(targetControlId: "almlab_name")));
         Assert.Contains("not a subgrid", ex.Message);
     }
 
     [Fact]
-    public void Attach_MissingBody_Throws()
+    public void Bind_MissingBody_Throws()
     {
         var form = new FormMetadata { FormId = "{aaaa1111-0000-0000-0000-000000000001}" };
-        var ex = Assert.Throws<InvalidOperationException>(() => FormControlAttachment.Attach(form, Request()));
+        var ex = Assert.Throws<InvalidOperationException>(() => FormControlBinding.Bind(form, Request()));
         Assert.Contains("no body", ex.Message);
     }
 
     [Fact]
-    public void Attach_ExistingAttachment_ThrowsWithoutForce()
+    public void Bind_ExistingBinding_ThrowsWithoutForce()
     {
         var form = LoadForm();
-        FormControlAttachment.Attach(form, Request());
+        FormControlBinding.Bind(form, Request());
 
-        var ex = Assert.Throws<InvalidOperationException>(() => FormControlAttachment.Attach(form, Request()));
-        Assert.Contains("already attached", ex.Message);
+        var ex = Assert.Throws<InvalidOperationException>(() => FormControlBinding.Bind(form, Request()));
+        Assert.Contains("already bound", ex.Message);
     }
 
     [Fact]
-    public void Attach_ExistingAttachment_ReplacedWithForce()
+    public void Bind_ExistingBinding_ReplacedWithForce()
     {
         var form = LoadForm();
-        FormControlAttachment.Attach(form, Request(new Dictionary<string, string> { ["EnableGrouping"] = "true" }));
-        var result = FormControlAttachment.Attach(form, Request(new Dictionary<string, string> { ["EnableGrouping"] = "false" }, force: true));
+        FormControlBinding.Bind(form, Request(new Dictionary<string, string> { ["EnableGrouping"] = "true" }));
+        var result = FormControlBinding.Bind(form, Request(new Dictionary<string, string> { ["EnableGrouping"] = "false" }, force: true));
 
         Assert.True(result.ReplacedExisting);
         var rendered = Render(form);

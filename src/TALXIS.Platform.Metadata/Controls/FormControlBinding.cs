@@ -4,21 +4,21 @@ using TALXIS.Platform.Metadata.Merging;
 namespace TALXIS.Platform.Metadata.Controls;
 
 /// <summary>
-/// Overlays a PCF custom control on an existing subgrid of a form by inserting the
+/// Binds a PCF custom control to an existing subgrid of a form by inserting the
 /// <c>controlDescriptions/controlDescription</c> node (base control block + one
 /// <c>customControl</c> block per form factor), mirroring the shape produced by the
 /// Dataverse form designer. Parameter values are validated against the control manifest,
 /// and dataset binding values (ViewId, TargetEntityType, RelationshipName) are read from
 /// the host subgrid so they never need to be supplied by hand.
 /// </summary>
-public static class FormControlAttachment
+public static class FormControlBinding
 {
     private const string SubgridClassId = "{E7A81278-8635-4D9E-8D4D-59480B391C5B}";
 
-    public static ControlAttachmentResult Attach(FormMetadata form, ControlAttachmentRequest request)
+    public static ControlBindingResult Bind(FormMetadata form, ControlBindingRequest request)
     {
         var body = form.Body
-            ?? throw new InvalidOperationException($"Form '{form.FormId}' has no body to attach a control to.");
+            ?? throw new InvalidOperationException($"Form '{form.FormId}' has no body to bind a control to.");
 
         var host = FindHostControl(body, request.TargetControlId);
         var uniqueId = host.GetAttribute("uniqueid")
@@ -46,7 +46,7 @@ public static class FormControlAttachment
 
         var replaced = InsertDescription(body, description, uniqueId, request.Force);
 
-        return new ControlAttachmentResult
+        return new ControlBindingResult
         {
             ControlName = request.ControlName,
             HostControlUniqueId = uniqueId,
@@ -98,7 +98,7 @@ public static class FormControlAttachment
             throw new ArgumentException("Invalid control parameters:\n  " + string.Join("\n  ", errors));
     }
 
-    private static MergeableNode BuildParameters(ControlAttachmentRequest request, MergeableNode host)
+    private static MergeableNode BuildParameters(ControlBindingRequest request, MergeableNode host)
     {
         var parameters = new MergeableNode { Name = "parameters" };
 
@@ -135,7 +135,7 @@ public static class FormControlAttachment
         return parameters;
     }
 
-    /// <returns>True when an existing attachment for the same host control was replaced.</returns>
+    /// <returns>True when an existing binding for the same host control was replaced.</returns>
     private static bool InsertDescription(MergeableNode body, MergeableNode description, string uniqueId, bool force)
     {
         var container = FirstChild(body, "controlDescriptions");
@@ -155,7 +155,7 @@ public static class FormControlAttachment
         if (existing != null)
         {
             if (!force)
-                throw new InvalidOperationException($"A custom control is already attached to control '{uniqueId}'.");
+                throw new InvalidOperationException($"A custom control is already bound to control '{uniqueId}'.");
             var index = IndexOf(container, existing);
             container.RemoveChild(existing);
             container.InsertChild(index, description);
