@@ -57,7 +57,6 @@ public class FormControlBindingTests
     {
         Namespace = "TALXIS.PCF",
         Constructor = "Grid",
-        PrefixedName = "talxis_TALXIS.PCF.Grid",
         DataSets = ["Grid", "RibbonGroupingDataset"],
         Properties =
         [

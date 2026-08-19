@@ -1,3 +1,5 @@
+using TALXIS.Platform.Metadata.Controls;
+
 namespace TALXIS.Platform.Metadata.Solutions;
 
 /// <summary>
@@ -47,6 +49,22 @@ public sealed class Solution : MetadataBase, ILocalizedMetadata
 
     /// <inheritdoc />
     public Label Description { get; set; } = new();
+
+    private readonly List<CustomControl> _controls = new();
+
+    /// <summary>
+    /// Gets the custom controls contained in the solution.
+    /// </summary>
+    public IReadOnlyList<CustomControl> Controls => _controls;
+
+    /// <summary>
+    /// Adds a custom control to the solution.
+    /// </summary>
+    /// <param name="control">Control to add.</param>
+    public void AddControl(CustomControl control)
+    {
+        _controls.Add(control);
+    }
 
     private readonly List<RootComponent> _rootComponents = new();
 

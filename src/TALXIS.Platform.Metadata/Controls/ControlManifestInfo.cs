@@ -28,13 +28,6 @@ public sealed class ControlManifestInfo
     public string QualifiedName => $"{Namespace}.{Constructor}";
 
     /// <summary>
-    /// Publisher-prefixed name used in FormXml (e.g. <c>talxis_TALXIS.PCF.Grid</c>).
-    /// Resolved from the accompanying solution's <c>customizations.xml</c> when the manifest
-    /// was read from a solution/package archive; null for a bare manifest file.
-    /// </summary>
-    public string? PrefixedName { get; set; }
-
-    /// <summary>
     /// Dataset bindings declared by the control, in document order (e.g. <c>Grid</c>, <c>RibbonGroupingDataset</c>).
     /// </summary>
     public IReadOnlyList<string> DataSets { get; init; } = [];
