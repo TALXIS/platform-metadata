@@ -53,7 +53,9 @@ public sealed class Solution : MetadataBase, ILocalizedMetadata
     private readonly List<CustomControl> _controls = new();
 
     /// <summary>
-    /// Gets the custom controls contained in the solution.
+    /// Gets the custom controls contained in the solution. Populated only when the solution is
+    /// read from a packed archive; a read-only convenience view that is not written back by the
+    /// workspace writer and does not participate in solution layering.
     /// </summary>
     public IReadOnlyList<CustomControl> Controls => _controls;
 
@@ -61,8 +63,12 @@ public sealed class Solution : MetadataBase, ILocalizedMetadata
     /// Adds a custom control to the solution.
     /// </summary>
     /// <param name="control">Control to add.</param>
+    /// <exception cref="InvalidOperationException">A control with the same name is already present.</exception>
     public void AddControl(CustomControl control)
     {
+        var key = control.Name ?? control.Manifest.QualifiedName;
+        if (_controls.Any(c => string.Equals(c.Name ?? c.Manifest.QualifiedName, key, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"A custom control with name '{key}' already exists in the solution.");
         _controls.Add(control);
     }
 

@@ -1,10 +1,37 @@
 using TALXIS.Platform.Metadata;
+using TALXIS.Platform.Metadata.Controls;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Tests;
 
 public class SolutionTests
 {
+    private static CustomControl Control(string? name) => new()
+    {
+        Name = name,
+        Manifest = new ControlManifestInfo { Namespace = "TALXIS.PCF", Constructor = "Grid" },
+    };
+
+    [Fact]
+    public void AddControl_DuplicateName_Throws()
+    {
+        var solution = new Solution { UniqueName = "MySolution" };
+        solution.AddControl(Control("talxis_TALXIS.PCF.Grid"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => solution.AddControl(Control("TALXIS_talxis.pcf.grid")));
+        Assert.Contains("already exists", ex.Message);
+        Assert.Single(solution.Controls);
+    }
+
+    [Fact]
+    public void AddControl_UnnamedDuplicateQualifiedName_Throws()
+    {
+        var solution = new Solution { UniqueName = "MySolution" };
+        solution.AddControl(Control(null));
+
+        Assert.Throws<InvalidOperationException>(() => solution.AddControl(Control(null)));
+    }
+
     [Fact]
     public void Create_WithRequiredProperties_SetsValues()
     {
