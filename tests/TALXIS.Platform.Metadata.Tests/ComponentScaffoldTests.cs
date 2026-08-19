@@ -54,6 +54,33 @@ public class ComponentScaffoldTests : IDisposable
     }
 
     [Fact]
+    public void Apply_RegistryAlias_ResolvesToRegisteredApplier()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => ComponentScaffold.Apply(new ComponentScaffoldRequest
+        {
+            ComponentType = "Column",
+            SolutionRootPath = _root,
+            Files = new Dictionary<string, string> { ["attribute"] = "x.xml" },
+        }));
+        Assert.Contains("'entity'", ex.Message);
+    }
+
+    [Fact]
+    public void Register_CustomComponentType_IsDispatchable()
+    {
+        ComponentScaffold.Register("SandboxOnlyType", _ => new ScaffoldResult());
+
+        var result = ComponentScaffold.Apply(new ComponentScaffoldRequest
+        {
+            ComponentType = "sandboxonlytype",
+            SolutionRootPath = _root,
+        });
+
+        Assert.Empty(result.Warnings);
+        Assert.Contains("SandboxOnlyType", ComponentScaffold.SupportedComponentTypes);
+    }
+
+    [Fact]
     public void Apply_Attribute_DispatchesToEntityAttributeScaffold()
     {
         var attributeFile = Path.Combine(_root, "attribute.xml");

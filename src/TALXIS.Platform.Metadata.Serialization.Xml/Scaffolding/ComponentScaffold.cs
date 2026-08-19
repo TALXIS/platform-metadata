@@ -2,8 +2,11 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
 /// Dispatches a rendered component scaffold to the applier registered for its component type.
-/// Single entry point for all component templates: migrating another template means adding
-/// an applier here, not a new CLI command.
+/// Single entry point for all component templates: migrating another template means registering
+/// an applier for its type, not adding a new CLI command. Type names resolve through
+/// <see cref="ComponentDefinitionRegistry"/>, so registry aliases (e.g. <c>Column</c>) work too.
+/// Appliers are transitional adapters for the template migration; they move to the typed
+/// workspace model once the manipulation API (roadmap milestone 4) lands.
 /// </summary>
 public static class ComponentScaffold
 {
@@ -15,15 +18,26 @@ public static class ComponentScaffold
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
 
+    /// <summary>
+    /// Registers (or replaces) the scaffold applier for a component type.
+    /// </summary>
+    public static void Register(string componentType, Func<ComponentScaffoldRequest, ScaffoldResult> applier) =>
+        Appliers[Canonicalize(componentType)] = applier;
+
     public static ScaffoldResult Apply(ComponentScaffoldRequest request)
     {
-        if (!Appliers.TryGetValue(request.ComponentType, out var applier))
+        if (!Appliers.TryGetValue(Canonicalize(request.ComponentType), out var applier))
         {
             throw new NotSupportedException(
                 $"Component type '{request.ComponentType}' has no scaffold applier. Supported types: {string.Join(", ", Appliers.Keys)}.");
         }
         return applier(request);
     }
+
+    // The component-definition registry is the single component-name vocabulary; names it does
+    // not know pass through unchanged so an applier can still be registered under a custom key.
+    private static string Canonicalize(string componentType) =>
+        ComponentDefinitionRegistry.GetByName(componentType)?.Name ?? componentType;
 
     // Files: attribute (required), money-base, currency, exchange-rate, relationship, global-optionset.
     // Parameters: entity (required), options, global-optionset-name, relationship-name, referenced-entity.
