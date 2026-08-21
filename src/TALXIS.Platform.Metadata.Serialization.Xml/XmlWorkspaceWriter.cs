@@ -376,17 +376,61 @@ public sealed class XmlWorkspaceWriter
         var attributesEl = entityInfo.Element("attributes");
         if (attributesEl != null)
         {
+            var existingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var attrEl in attributesEl.Elements("attribute").ToList())
             {
                 var logicalName = attrEl.Element("LogicalName")?.Value;
                 if (logicalName == null) continue;
+                existingNames.Add(logicalName);
 
                 var modelAttr = entity.FindAttribute(logicalName);
                 if (modelAttr == null) continue;
 
                 PatchAttribute(attrEl, modelAttr);
             }
+
+            foreach (var attr in entity.Attributes)
+            {
+                if (!existingNames.Contains(attr.LogicalName))
+                    InsertAttributeSorted(attributesEl, attr);
+            }
         }
+    }
+
+    // Model attributes without an XML counterpart are inserted in SolutionPackager order
+    // (by PhysicalName), so entities loaded from disk can gain attributes via AddAttribute.
+    private static void InsertAttributeSorted(XElement attributesEl, AttributeMetadata attr)
+    {
+        var newEl = BuildAttribute(attr);
+        var physicalName = attr.SchemaName ?? attr.LogicalName;
+        var anchor = attributesEl.Elements("attribute").FirstOrDefault(e =>
+            string.Compare(
+                e.Attribute("PhysicalName")?.Value ?? e.Element("LogicalName")?.Value ?? string.Empty,
+                physicalName, StringComparison.OrdinalIgnoreCase) > 0);
+
+        var childIndent = attributesEl.Nodes()
+            .OfType<XText>()
+            .Select(text => text.Value)
+            .FirstOrDefault(ContainsNewLine);
+        var insert = childIndent != null ? ReindentElement(newEl, childIndent) : newEl;
+
+        if (anchor != null)
+        {
+            if (childIndent != null) anchor.AddBeforeSelf(insert, new XText(childIndent));
+            else anchor.AddBeforeSelf(insert);
+        }
+        else
+        {
+            AddChildElementPreservingWhitespace(attributesEl, insert);
+        }
+    }
+
+    // Whitespace-preserved documents skip the auto-formatter on save, so a freshly built
+    // element re-parses with its indentation shifted to the insertion depth.
+    private static XElement ReindentElement(XElement element, string childIndent)
+    {
+        var lines = element.ToString().Replace("\r\n", "\n").Split('\n');
+        return XElement.Parse(string.Join(childIndent, lines), LoadOptions.PreserveWhitespace);
     }
 
     private static void PatchAttribute(XElement attrEl, AttributeMetadata attr)
@@ -673,7 +717,7 @@ public sealed class XmlWorkspaceWriter
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
-    private static XElement BuildOptionElement(OptionMetadata opt)
+    internal static XElement BuildOptionElement(OptionMetadata opt)
     {
         var optEl = new XElement("option",
             new XAttribute("value", opt.Value),

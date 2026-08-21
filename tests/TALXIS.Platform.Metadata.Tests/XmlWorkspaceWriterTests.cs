@@ -377,6 +377,46 @@ public class XmlWorkspaceWriterTests
     }
 
     [Fact]
+    public void Write_AttributeAddedToLoadedEntity_IsPersistedInSortedPosition()
+    {
+        var reader = new XmlWorkspaceReader();
+        var workspace = reader.Load(SamplePath);
+        var entity = workspace.Entities[0];
+        var originalCount = entity.Attributes.Count;
+
+        entity.AddAttribute(new StringAttributeMetadata
+        {
+            LogicalName = "aaa_addedviamodel",
+            SchemaName = "aaa_AddedViaModel",
+            MaxLength = 250,
+        });
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"append-attr-{Guid.NewGuid():N}");
+        try
+        {
+            new XmlWorkspaceWriter().Write(workspace, outputPath);
+
+            var reloaded = reader.Load(outputPath).FindEntity(entity.LogicalName);
+            Assert.NotNull(reloaded);
+            Assert.Equal(originalCount + 1, reloaded.Attributes.Count);
+            var added = reloaded.FindAttribute("aaa_addedviamodel");
+            var stringAttr = Assert.IsType<StringAttributeMetadata>(added);
+            Assert.Equal(250, stringAttr.MaxLength);
+
+            var doc = XDocument.Load(Path.Combine(outputPath, "Entities", entity.LogicalName, "Entity.xml"));
+            var physicalNames = doc.Descendants("attributes").Elements("attribute")
+                .Select(a => (a.Attribute("PhysicalName")?.Value ?? string.Empty).ToLowerInvariant())
+                .ToList();
+            // Sorted insert: "aaa_" precedes every sample attribute, so it must land first.
+            Assert.Equal("aaa_addedviamodel", physicalNames[0]);
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath)) Directory.Delete(outputPath, true);
+        }
+    }
+
+    [Fact]
     public void Roundtrip_LoadWriteReload_EntityAndAttributeCountsMatch()
     {
         var reader = new XmlWorkspaceReader();

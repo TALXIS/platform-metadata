@@ -1,0 +1,39 @@
+namespace TALXIS.Platform.Metadata.Controls;
+
+/// <summary>
+/// Parsed PCF <c>ControlManifest.xml</c> — the runtime parameter schema of a custom control.
+/// The manifest ships with the control itself, so one generic bind operation can validate
+/// and emit parameters for any control.
+/// </summary>
+public sealed class ControlManifestInfo
+{
+    /// <summary>
+    /// Control namespace, e.g. <c>TALXIS.PCF</c>.
+    /// </summary>
+    public required string Namespace { get; init; }
+
+    /// <summary>
+    /// Control constructor, e.g. <c>Grid</c>.
+    /// </summary>
+    public required string Constructor { get; init; }
+
+    /// <summary>
+    /// Control version from the manifest.
+    /// </summary>
+    public string? Version { get; init; }
+
+    /// <summary>
+    /// Unprefixed qualified name, e.g. <c>TALXIS.PCF.Grid</c>.
+    /// </summary>
+    public string QualifiedName => $"{Namespace}.{Constructor}";
+
+    /// <summary>
+    /// Dataset bindings declared by the control, in document order (e.g. <c>Grid</c>, <c>RibbonGroupingDataset</c>).
+    /// </summary>
+    public IReadOnlyList<string> DataSets { get; init; } = [];
+
+    /// <summary>
+    /// Input properties declared by the control.
+    /// </summary>
+    public IReadOnlyList<ControlManifestProperty> Properties { get; init; } = [];
+}
