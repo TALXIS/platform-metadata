@@ -47,7 +47,7 @@ public static class SolutionArchiveReader
         var solution = CreateSolution(manifestElement);
         foreach (var (manifest, entryPath) in controls)
         {
-            solution.AddControl(new CustomControl
+            solution.AddControl(new CustomControlMetadata
             {
                 Name = ResolveControlName(manifest, entryPath, declaredNames),
                 Manifest = manifest,

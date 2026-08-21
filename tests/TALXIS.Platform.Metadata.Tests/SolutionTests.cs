@@ -6,7 +6,7 @@ namespace TALXIS.Platform.Metadata.Tests;
 
 public class SolutionTests
 {
-    private static CustomControl Control(string? name) => new()
+    private static CustomControlMetadata Control(string? name) => new()
     {
         Name = name,
         Manifest = new ControlManifestInfo { Namespace = "TALXIS.PCF", Constructor = "Grid" },

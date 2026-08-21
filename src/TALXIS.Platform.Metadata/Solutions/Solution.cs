@@ -50,21 +50,21 @@ public sealed class Solution : MetadataBase, ILocalizedMetadata
     /// <inheritdoc />
     public Label Description { get; set; } = new();
 
-    private readonly List<CustomControl> _controls = new();
+    private readonly List<CustomControlMetadata> _controls = new();
 
     /// <summary>
     /// Gets the custom controls contained in the solution. Populated only when the solution is
     /// read from a packed archive; a read-only convenience view that is not written back by the
     /// workspace writer and does not participate in solution layering.
     /// </summary>
-    public IReadOnlyList<CustomControl> Controls => _controls;
+    public IReadOnlyList<CustomControlMetadata> Controls => _controls;
 
     /// <summary>
     /// Adds a custom control to the solution.
     /// </summary>
     /// <param name="control">Control to add.</param>
     /// <exception cref="InvalidOperationException">A control with the same name is already present.</exception>
-    public void AddControl(CustomControl control)
+    public void AddControl(CustomControlMetadata control)
     {
         var key = control.Name ?? control.Manifest.QualifiedName;
         if (_controls.Any(c => string.Equals(c.Name ?? c.Manifest.QualifiedName, key, StringComparison.OrdinalIgnoreCase)))

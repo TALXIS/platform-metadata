@@ -10,7 +10,7 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Controls;
 /// </summary>
 public static class CustomControlReader
 {
-    public static CustomControl Read(string path)
+    public static CustomControlMetadata Read(string path)
     {
         if (Directory.Exists(path))
             return FromManifest(ControlManifestXmlReader.ReadProject(path));
@@ -38,5 +38,5 @@ public static class CustomControlReader
         return controls[0];
     }
 
-    private static CustomControl FromManifest(ControlManifestInfo manifest) => new() { Manifest = manifest };
+    private static CustomControlMetadata FromManifest(ControlManifestInfo manifest) => new() { Manifest = manifest };
 }
