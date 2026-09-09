@@ -52,6 +52,35 @@ public class SolutionValidatorTests
     }
 
     [Fact]
+    public void CmtDataSchemaRules_NotPartOfSolutionValidation()
+    {
+        // CMT packages ship in PD packages, never inside a solution, so the
+        // updateCompare rule belongs to workspace/pd-package validation only.
+        var tempDir = Path.Combine(Path.GetTempPath(), $"sol-test-cmt-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempDir, "Data"));
+            File.WriteAllText(Path.Combine(tempDir, "Data", "data_schema.xml"), """
+                <entities>
+                  <entity name="talxis_configuration">
+                    <fields>
+                      <field name="talxis_configurationid" type="guid" primaryKey="true" />
+                    </fields>
+                  </entity>
+                </entities>
+                """);
+
+            var report = new SolutionValidator().Validate(tempDir);
+
+            Assert.DoesNotContain(report.Results, r => r.Code == ValidationDiagnostics.CmtEntityMissingUpdateCompare);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
     public void RelationshipRules_NotPartOfSolutionValidation()
     {
         var ws = new Workspace("test");

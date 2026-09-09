@@ -143,6 +143,11 @@ public sealed class FlowNodeMetadata : MetadataBase
     public string? Type { get; set; }
 
     /// <summary>
+    /// Gets or sets the node description, when declared.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
     /// Gets or sets the operation identifier.
     /// </summary>
     public string? OperationId { get; set; }

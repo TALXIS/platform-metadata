@@ -24,4 +24,7 @@ public static class ValidationDiagnostics
 
     /// <summary>The directory passed to solution validation has no Other/Solution.xml manifest.</summary>
     public const string SolutionManifestFileAbsent = "TXM005";
+
+    /// <summary>A CMT data schema entity declares no field with updateCompare="true", so configuration imports cannot match existing records.</summary>
+    public const string CmtEntityMissingUpdateCompare = "TXM006";
 }
