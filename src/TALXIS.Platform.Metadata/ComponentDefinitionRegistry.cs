@@ -47,7 +47,7 @@ public static class ComponentDefinitionRegistry
 
         // SavedQuery — child of Entity
         Register(new ComponentDefinition(ComponentType.SavedQuery, "SavedQuery", "SavedQueries", "Entities", "$(PrimaryName)/SavedQueries.xml", IdentityStrategy.Guid,
-            Aliases: new[] { "View" },
+            Aliases: new[] { "View", "EntityView" },
             HasParent: true, RootComponent: 1,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "savedqueryid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "returnedtypecode"));

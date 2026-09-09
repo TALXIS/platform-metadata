@@ -14,6 +14,7 @@ public static class ComponentScaffold
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["Attribute"] = ApplyAttribute,
+            ["SavedQuery"] = ApplyEntityView,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -56,6 +57,14 @@ public static class ComponentScaffold
             LookupRelationshipFilePath = Optional(request.Files, "relationship"),
             LookupRelationshipName = Optional(request.Parameters, "relationship-name"),
             ReferencedEntityName = Optional(request.Parameters, "referenced-entity"),
+        });
+
+    // Parameters: entity (required).
+    private static ScaffoldResult ApplyEntityView(ComponentScaffoldRequest request) =>
+        EntityViewScaffold.Apply(new EntityViewScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = RequiredParameter(request, "entity"),
         });
 
     private static string RequiredParameter(ComponentScaffoldRequest request, string name) =>
