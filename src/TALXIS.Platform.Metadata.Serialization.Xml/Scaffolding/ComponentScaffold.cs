@@ -18,6 +18,7 @@ public static class ComponentScaffold
             ["FormCell"] = ApplyFormCell,
             ["FormControl"] = ApplyFormControl,
             ["FormColumn"] = ApplyFormColumn,
+            ["FormSection"] = ApplyFormSection,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -113,6 +114,21 @@ public static class ComponentScaffold
             FormId = OptionalId(request.Parameters, "form-id"),
             Placement = PlacementFrom(request),
             ColumnFilePath = RequiredFile(request, "column"),
+        });
+
+    // Files: section (required). Parameters: section-name (required); entity, form-type,
+    // form-id, section-id and the tab/column targeting, all optional.
+    private static ScaffoldResult ApplyFormSection(ComponentScaffoldRequest request) =>
+        FormSectionScaffold.Apply(new FormSectionScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            SectionId = OptionalKnown(request.Parameters, "section-id"),
+            SectionName = RequiredParameter(request, "section-name"),
+            SectionFilePath = RequiredFile(request, "section"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
