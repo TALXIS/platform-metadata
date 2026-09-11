@@ -1,9 +1,5 @@
-using System.Text.RegularExpressions;
 using System.Xml;
-using System.Xml.Linq;
-using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Layout;
-using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
@@ -17,10 +13,6 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 /// </summary>
 public static class EntityAttributeScaffold
 {
-    private const int AutoOptionValueStart = 100000000;
-    private const string EmptyRelationshipsXml =
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?><EntityRelationships xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"></EntityRelationships>";
-
     public static ScaffoldResult Apply(EntityAttributeScaffoldRequest request)
     {
         if (!Directory.Exists(request.SolutionRootPath))
@@ -47,94 +39,28 @@ public static class EntityAttributeScaffold
             AddLookupRelationship(request, result);
 
         // Cross-cutting normalization passes over the whole solution.
-        SortEntityAttributes(request.SolutionRootPath);
-        NormalizeNilTags(request.SolutionRootPath);
+        EntityAttributeSorter.SortAll(request.SolutionRootPath);
+        NilTagNormalizer.NormalizeSolutionXml(request.SolutionRootPath);
 
         return result;
     }
 
     private static void SetOptionSetOptions(EntityAttributeScaffoldRequest request)
     {
-        var options = ParseOptions(request.OptionSetOptions!);
+        var options = OptionSetOptionsApplier.ParseOptions(request.OptionSetOptions!);
         if (request.GlobalOptionSetFilePath != null)
-            SetGlobalOptionSetOptions(request, options);
+        {
+            OptionSetOptionsApplier.ApplyToGlobalOptionSet(
+                request.SolutionRootPath,
+                Path.GetFileNameWithoutExtension(request.GlobalOptionSetFilePath),
+                request.GlobalOptionSetSchemaName,
+                options);
+        }
         else
-            SetLocalOptionSetOptions(request.AttributeFilePath, options);
-    }
-
-    // Label:Value pairs pin explicit values; bare labels auto-increment from 100000000.
-    private static List<OptionMetadata> ParseOptions(string spec)
-    {
-        var options = new List<OptionMetadata>();
-        var nextAutoValue = AutoOptionValueStart;
-        foreach (var entry in ParseOptionEntries(spec))
         {
-            var match = Regex.Match(entry, @"^(.+):(\d+)$");
-            var label = match.Success ? match.Groups[1].Value.Trim() : entry;
-            var value = match.Success ? int.Parse(match.Groups[2].Value) : nextAutoValue++;
-            options.Add(new OptionMetadata
-            {
-                Value = value,
-                Label = new Label(label),
-                Description = new Label(""),
-            });
+            OptionSetOptionsApplier.ApplyToLocalAttribute(request.AttributeFilePath, options);
         }
-        return options;
     }
-
-    // Global sets go through the workspace model: the reader/writer own the option set
-    // file shape and the RootComponent (type 9) registration in Solution.xml.
-    private static void SetGlobalOptionSetOptions(EntityAttributeScaffoldRequest request, List<OptionMetadata> options)
-    {
-        var workspace = new XmlWorkspaceReader().Load(request.SolutionRootPath);
-
-        var name = Path.GetFileNameWithoutExtension(request.GlobalOptionSetFilePath!);
-        var optionSet = workspace.GlobalOptionSets.FirstOrDefault(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException($"Global option set '{name}' not found in '{request.SolutionRootPath}'.");
-        foreach (var option in options)
-        {
-            optionSet.AddOption(option);
-        }
-
-        if (request.GlobalOptionSetSchemaName != null)
-        {
-            var solution = workspace.Solutions.FirstOrDefault()
-                ?? throw new InvalidOperationException($"No solution manifest found in '{request.SolutionRootPath}'.");
-            var exists = solution.RootComponents.Any(rc =>
-                rc.Type == ComponentType.OptionSet &&
-                string.Equals(rc.SchemaName, request.GlobalOptionSetSchemaName, StringComparison.OrdinalIgnoreCase));
-            if (!exists)
-            {
-                solution.AddRootComponent(new RootComponent
-                {
-                    Type = ComponentType.OptionSet,
-                    SchemaName = request.GlobalOptionSetSchemaName,
-                    Behavior = 0,
-                });
-            }
-        }
-
-        new XmlWorkspaceWriter().Write(workspace, request.SolutionRootPath);
-    }
-
-    // Local sets stay file-level (the rendered attribute is not part of the workspace),
-    // but the option XML shape is borrowed from the writer.
-    private static void SetLocalOptionSetOptions(string attributeFilePath, List<OptionMetadata> options)
-    {
-        var doc = XDocument.Load(attributeFilePath);
-        var optionsElement = doc.Descendants("options").FirstOrDefault()
-            ?? throw new InvalidOperationException($"Options node not found in '{attributeFilePath}'.");
-        foreach (var option in options)
-        {
-            optionsElement.Add(XmlWorkspaceWriter.BuildOptionElement(option));
-        }
-        ScaffoldXmlFile.Save(doc, attributeFilePath);
-    }
-
-    private static IEnumerable<string> ParseOptionEntries(string spec) =>
-        spec.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(e => e.Replace("{", "").Replace("}", "").Trim())
-            .Where(e => e.Length > 0);
 
     // Appends the rendered <attribute> into Entity.xml; skips with a warning when an
     // attribute with the same LogicalName already exists (never overwrites metadata).
@@ -203,11 +129,11 @@ public static class EntityAttributeScaffold
         var referencedEntityFilePath = Path.Combine(otherDir, "Relationships", $"{referencedEntity}.xml");
         var relationshipsFilePath = Path.Combine(request.SolutionRootPath, SolutionPackagerLayout.RelationshipsXmlPath);
 
-        EnsureRelationshipsFile(referencedEntityFilePath);
-        EnsureRelationshipsFile(relationshipsFilePath);
+        RelationshipsXmlFile.EnsureExists(referencedEntityFilePath);
+        RelationshipsXmlFile.EnsureExists(relationshipsFilePath);
 
         var referencedDoc = ScaffoldXmlFile.Load(referencedEntityFilePath);
-        if (RelationshipExists(referencedDoc, relationshipName))
+        if (RelationshipsXmlFile.ContainsRelationship(referencedDoc, relationshipName))
         {
             result.AddWarning($"Relationship '{relationshipName}' already exists in '{referencedEntityFilePath}' - skipping.");
         }
@@ -220,78 +146,17 @@ public static class EntityAttributeScaffold
         }
 
         var relationshipsDoc = ScaffoldXmlFile.Load(relationshipsFilePath);
-        if (RelationshipExists(relationshipsDoc, relationshipName))
+        if (RelationshipsXmlFile.ContainsRelationship(relationshipsDoc, relationshipName))
         {
             result.AddWarning($"Relationship '{relationshipName}' already exists in '{relationshipsFilePath}' - skipping.");
         }
         else
         {
-            var stub = relationshipsDoc.CreateElement("EntityRelationship");
-            stub.SetAttribute("Name", relationshipName);
-            relationshipsDoc.DocumentElement!.AppendChild(stub);
+            RelationshipsXmlFile.AppendNameStub(relationshipsDoc, relationshipName);
         }
 
         ScaffoldXmlFile.Save(relationshipsDoc, relationshipsFilePath);
         ScaffoldXmlFile.Save(referencedDoc, referencedEntityFilePath);
-    }
-
-    private static void EnsureRelationshipsFile(string path)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (directory != null && !Directory.Exists(directory)) Directory.CreateDirectory(directory);
-        if (File.Exists(path)) return;
-
-        var doc = new XmlDocument();
-        doc.LoadXml(EmptyRelationshipsXml);
-        doc.Save(path);
-    }
-
-    private static bool RelationshipExists(XmlDocument doc, string relationshipName)
-    {
-        foreach (XmlElement node in doc.GetElementsByTagName("EntityRelationship"))
-        {
-            if (node.GetAttribute("Name") == relationshipName) return true;
-        }
-        return false;
-    }
-
-    // SolutionPackager keeps attributes sorted by PhysicalName; re-sort every Entity.xml.
-    private static void SortEntityAttributes(string solutionRootPath)
-    {
-        var entitiesDir = Path.Combine(solutionRootPath, SolutionPackagerLayout.EntitiesDirectory);
-        if (!Directory.Exists(entitiesDir)) return;
-
-        foreach (var entityXmlPath in Directory.GetFiles(entitiesDir, "Entity.xml", SearchOption.AllDirectories))
-        {
-            var doc = ScaffoldXmlFile.Load(entityXmlPath);
-            foreach (XmlNode attributesNode in doc.SelectNodes("//entity/attributes")!)
-            {
-                var attributes = attributesNode.SelectNodes("attribute")!.Cast<XmlElement>().ToList();
-                if (attributes.Count == 0) continue;
-
-                var sorted = attributes.OrderBy(a => a.GetAttribute("PhysicalName").ToLowerInvariant()).ToList();
-                foreach (var attribute in attributes)
-                {
-                    attributesNode.RemoveChild(attribute);
-                }
-                foreach (var attribute in sorted)
-                {
-                    attributesNode.AppendChild(attribute);
-                }
-            }
-            ScaffoldXmlFile.Save(doc, entityXmlPath);
-        }
-    }
-
-    // The template engine splits <Tag xsi:nil="true"></Tag> across two lines; collapse it back.
-    private static void NormalizeNilTags(string solutionRootPath)
-    {
-        var solutionPath = Path.Combine(solutionRootPath, SolutionPackagerLayout.SolutionXmlPath);
-        if (!File.Exists(solutionPath)) return;
-
-        var content = File.ReadAllText(solutionPath);
-        content = Regex.Replace(content, "(xsi:nil=\"true\")>\\s*\\r?\\n\\s*</", "$1></");
-        File.WriteAllText(solutionPath, content);
     }
 
     private static XmlNode GetAttributesContainer(XmlDocument entityDoc, string entityXmlPath) =>
@@ -307,5 +172,4 @@ public static class EntityAttributeScaffold
         }
         return false;
     }
-
 }
