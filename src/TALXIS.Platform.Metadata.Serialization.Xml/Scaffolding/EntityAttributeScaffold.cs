@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
@@ -129,7 +128,7 @@ public static class EntityAttributeScaffold
         {
             optionsElement.Add(XmlWorkspaceWriter.BuildOptionElement(option));
         }
-        SaveXml(doc, attributeFilePath);
+        ScaffoldXmlFile.Save(doc, attributeFilePath);
     }
 
     private static IEnumerable<string> ParseOptionEntries(string spec) =>
@@ -141,8 +140,8 @@ public static class EntityAttributeScaffold
     // attribute with the same LogicalName already exists (never overwrites metadata).
     private static void ImportAttribute(string entityXmlPath, string attributeFilePath, ScaffoldResult result)
     {
-        var entityDoc = LoadXml(entityXmlPath);
-        var attributeDoc = LoadXml(attributeFilePath);
+        var entityDoc = ScaffoldXmlFile.Load(entityXmlPath);
+        var attributeDoc = ScaffoldXmlFile.Load(attributeFilePath);
 
         var attributeElement = attributeDoc.DocumentElement
             ?? throw new InvalidOperationException($"No root element in '{attributeFilePath}'.");
@@ -156,14 +155,14 @@ public static class EntityAttributeScaffold
         }
 
         container.AppendChild(entityDoc.ImportNode(attributeElement, deep: true));
-        SaveXml(entityDoc, entityXmlPath);
+        ScaffoldXmlFile.Save(entityDoc, entityXmlPath);
     }
 
     // Money columns need up to three support attributes: transactioncurrencyid and
     // exchangerate (only on full entities) plus the _base shadow column (always).
     private static void AddMoneySupport(string entityXmlPath, EntityAttributeScaffoldRequest request)
     {
-        var entityDoc = LoadXml(entityXmlPath);
+        var entityDoc = ScaffoldXmlFile.Load(entityXmlPath);
         var container = GetAttributesContainer(entityDoc, entityXmlPath);
 
         // Stub entities (attributes only) must not receive the shared currency/exchange columns.
@@ -175,14 +174,14 @@ public static class EntityAttributeScaffold
         }
 
         AppendAttributeIfMissing(entityDoc, container, request.MoneyBaseAttributeFilePath);
-        SaveXml(entityDoc, entityXmlPath);
+        ScaffoldXmlFile.Save(entityDoc, entityXmlPath);
     }
 
     private static void AppendAttributeIfMissing(XmlDocument entityDoc, XmlNode container, string? attributeFilePath)
     {
         if (attributeFilePath == null) return;
 
-        var attributeDoc = LoadXml(attributeFilePath);
+        var attributeDoc = ScaffoldXmlFile.Load(attributeFilePath);
         var attributeElement = attributeDoc.DocumentElement
             ?? throw new InvalidOperationException($"No root element in '{attributeFilePath}'.");
         var logicalName = attributeElement.SelectSingleNode("LogicalName")?.InnerText;
@@ -207,20 +206,20 @@ public static class EntityAttributeScaffold
         EnsureRelationshipsFile(referencedEntityFilePath);
         EnsureRelationshipsFile(relationshipsFilePath);
 
-        var referencedDoc = LoadXml(referencedEntityFilePath);
+        var referencedDoc = ScaffoldXmlFile.Load(referencedEntityFilePath);
         if (RelationshipExists(referencedDoc, relationshipName))
         {
             result.AddWarning($"Relationship '{relationshipName}' already exists in '{referencedEntityFilePath}' - skipping.");
         }
         else
         {
-            var templateDoc = LoadXml(request.LookupRelationshipFilePath!);
+            var templateDoc = ScaffoldXmlFile.Load(request.LookupRelationshipFilePath!);
             var relationshipElement = templateDoc.DocumentElement
                 ?? throw new InvalidOperationException($"No root element in '{request.LookupRelationshipFilePath}'.");
             referencedDoc.DocumentElement!.AppendChild(referencedDoc.ImportNode(relationshipElement, deep: true));
         }
 
-        var relationshipsDoc = LoadXml(relationshipsFilePath);
+        var relationshipsDoc = ScaffoldXmlFile.Load(relationshipsFilePath);
         if (RelationshipExists(relationshipsDoc, relationshipName))
         {
             result.AddWarning($"Relationship '{relationshipName}' already exists in '{relationshipsFilePath}' - skipping.");
@@ -232,8 +231,8 @@ public static class EntityAttributeScaffold
             relationshipsDoc.DocumentElement!.AppendChild(stub);
         }
 
-        SaveXml(relationshipsDoc, relationshipsFilePath);
-        SaveXml(referencedDoc, referencedEntityFilePath);
+        ScaffoldXmlFile.Save(relationshipsDoc, relationshipsFilePath);
+        ScaffoldXmlFile.Save(referencedDoc, referencedEntityFilePath);
     }
 
     private static void EnsureRelationshipsFile(string path)
@@ -264,7 +263,7 @@ public static class EntityAttributeScaffold
 
         foreach (var entityXmlPath in Directory.GetFiles(entitiesDir, "Entity.xml", SearchOption.AllDirectories))
         {
-            var doc = LoadXml(entityXmlPath);
+            var doc = ScaffoldXmlFile.Load(entityXmlPath);
             foreach (XmlNode attributesNode in doc.SelectNodes("//entity/attributes")!)
             {
                 var attributes = attributesNode.SelectNodes("attribute")!.Cast<XmlElement>().ToList();
@@ -280,7 +279,7 @@ public static class EntityAttributeScaffold
                     attributesNode.AppendChild(attribute);
                 }
             }
-            SaveXml(doc, entityXmlPath);
+            ScaffoldXmlFile.Save(doc, entityXmlPath);
         }
     }
 
@@ -309,31 +308,4 @@ public static class EntityAttributeScaffold
         return false;
     }
 
-    private static XmlDocument LoadXml(string path)
-    {
-        var doc = new XmlDocument();
-        doc.Load(path);
-        return doc;
-    }
-
-    // Same writer settings as the original scripts, so output formatting stays byte-compatible.
-    private static void SaveXml(XmlDocument doc, string path)
-    {
-        using var writer = XmlWriter.Create(path, CreateWriterSettings());
-        doc.Save(writer);
-    }
-
-    private static void SaveXml(XDocument doc, string path)
-    {
-        using var writer = XmlWriter.Create(path, CreateWriterSettings());
-        doc.Save(writer);
-    }
-
-    private static XmlWriterSettings CreateWriterSettings() => new()
-    {
-        Indent = true,
-        NewLineHandling = NewLineHandling.None,
-        OmitXmlDeclaration = false,
-        Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
-    };
 }
