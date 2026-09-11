@@ -18,14 +18,21 @@ internal static class ScaffoldXmlFile
 
     public static void Save(XmlDocument doc, string path)
     {
-        var settings = new XmlWriterSettings
-        {
-            Indent = true,
-            NewLineHandling = NewLineHandling.None,
-            OmitXmlDeclaration = false,
-            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
-        };
-        using var writer = XmlWriter.Create(path, settings);
+        using var writer = XmlWriter.Create(path, CreateWriterSettings());
         doc.Save(writer);
     }
+
+    public static void Save(System.Xml.Linq.XDocument doc, string path)
+    {
+        using var writer = XmlWriter.Create(path, CreateWriterSettings());
+        doc.Save(writer);
+    }
+
+    private static XmlWriterSettings CreateWriterSettings() => new()
+    {
+        Indent = true,
+        NewLineHandling = NewLineHandling.None,
+        OmitXmlDeclaration = false,
+        Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
+    };
 }
