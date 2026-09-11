@@ -29,6 +29,19 @@ internal static class FormPlacementResolver
         ResolveByIdOrIndex(formDoc, "//tab", placement.TabId, placement.TabIndex)
             ?? throw new InvalidOperationException("Target tab not found.");
 
+    public static XmlNode ResolveTargetColumn(XmlDocument formDoc, FormPlacement placement)
+    {
+        var tab = ResolveTab(formDoc, placement);
+        if (placement.SetToTabFooter)
+        {
+            var footers = tab.SelectNodes("./tabfooter")!;
+            if (footers.Count == 0) throw new InvalidOperationException("Target tab footer not found.");
+            tab = footers[footers.Count - 1]!;
+        }
+        return ResolveByIndexOrLast(tab, "./columns/column", placement.ColumnIndex)
+            ?? throw new InvalidOperationException("Target column not found in the selected tab.");
+    }
+
     public static XmlNode ResolveTargetRow(XmlNode section, string? rowIndex) =>
         ResolveByIndexOrLast(section, "./rows/row", rowIndex)
             ?? throw new InvalidOperationException("Target row not found in the selected section.");
