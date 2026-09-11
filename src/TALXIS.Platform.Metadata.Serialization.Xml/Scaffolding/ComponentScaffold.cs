@@ -14,6 +14,7 @@ public static class ComponentScaffold
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["Attribute"] = ApplyAttribute,
+            ["FormRow"] = ApplyFormRow,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -57,6 +58,39 @@ public static class ComponentScaffold
             LookupRelationshipName = Optional(request.Parameters, "relationship-name"),
             ReferencedEntityName = Optional(request.Parameters, "referenced-entity"),
         });
+
+    // Files: row (required). Parameters: entity, form-type, form-id and the placement set, all optional.
+    private static ScaffoldResult ApplyFormRow(ComponentScaffoldRequest request) =>
+        FormRowScaffold.Apply(new FormRowScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            RowFilePath = RequiredFile(request, "row"),
+        });
+
+    private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
+    {
+        TabId = OptionalId(request.Parameters, "tab-id"),
+        TabIndex = OptionalKnown(request.Parameters, "tab-index"),
+        ColumnIndex = OptionalKnown(request.Parameters, "column-index"),
+        SectionId = OptionalId(request.Parameters, "section-id"),
+        SectionIndex = OptionalKnown(request.Parameters, "section-index"),
+        RowIndex = OptionalKnown(request.Parameters, "row-index"),
+        SetToTabFooter = string.Equals(Optional(request.Parameters, "set-to-tab-footer"), "True", StringComparison.OrdinalIgnoreCase),
+    };
+
+    private static string? OptionalId(IReadOnlyDictionary<string, string> map, string name) =>
+        OptionalKnown(map, name)?.Trim('{', '}');
+
+    // Rendered form templates pass "unknown"/"unknownFormId" for parameters the caller left out.
+    private static string? OptionalKnown(IReadOnlyDictionary<string, string> map, string name)
+    {
+        var value = Optional(map, name);
+        return string.IsNullOrEmpty(value) || value == "unknown" || value == "unknownFormId" ? null : value;
+    }
 
     private static string RequiredParameter(ComponentScaffoldRequest request, string name) =>
         Optional(request.Parameters, name)
