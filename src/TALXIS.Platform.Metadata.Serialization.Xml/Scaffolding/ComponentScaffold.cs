@@ -14,6 +14,7 @@ public static class ComponentScaffold
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["Attribute"] = ApplyAttribute,
+            ["FormSubgrid"] = ApplyFormSubgrid,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -56,6 +57,17 @@ public static class ComponentScaffold
             LookupRelationshipFilePath = Optional(request.Files, "relationship"),
             LookupRelationshipName = Optional(request.Parameters, "relationship-name"),
             ReferencedEntityName = Optional(request.Parameters, "referenced-entity"),
+        });
+
+    // Files: row (required). Parameters: entity, form-type, form-id (all required).
+    private static ScaffoldResult ApplyFormSubgrid(ComponentScaffoldRequest request) =>
+        FormSubgridScaffold.Apply(new FormSubgridScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntityLogicalName = RequiredParameter(request, "entity"),
+            FormType = RequiredParameter(request, "form-type"),
+            FormId = RequiredParameter(request, "form-id"),
+            RowFilePath = RequiredFile(request, "row"),
         });
 
     private static string RequiredParameter(ComponentScaffoldRequest request, string name) =>
