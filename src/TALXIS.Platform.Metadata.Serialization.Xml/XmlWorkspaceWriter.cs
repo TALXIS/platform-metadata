@@ -2024,6 +2024,17 @@ public sealed class XmlWorkspaceWriter
             .Select(text => text.Value)
             .LastOrDefault(ContainsNewLine);
 
+        // A previously childless container has no whitespace pattern to mimic -
+        // derive it from the container's own indentation so first-time children
+        // come out on indented lines instead of one inline run.
+        if ((childIndent == null || closingIndent == null)
+            && parent.PreviousNode is XText parentIndentText
+            && ContainsNewLine(parentIndentText.Value))
+        {
+            childIndent = parentIndentText.Value + "  ";
+            closingIndent = parentIndentText.Value;
+        }
+
         parent.RemoveNodes();
 
         if (childIndent == null || closingIndent == null || replacements.Count == 0)
