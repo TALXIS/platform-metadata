@@ -20,14 +20,14 @@ internal static class FormPlacementResolver
         }
 
         var column = ResolveByIndexOrLast(tab, "./columns/column", placement.ColumnIndex)
-            ?? throw new InvalidOperationException("Target column not found in the selected tab.");
+            ?? throw new InvalidOperationException("Target column not found in the selected tab. ColumnIndex is 1-based (the first column is 1).");
         return ResolveByIdOrIndex(column, "./sections/section", placement.SectionId, placement.SectionIndex)
-            ?? throw new InvalidOperationException("Target section not found in the selected column.");
+            ?? throw new InvalidOperationException("Target section not found in the selected column. SectionIndex is 1-based (the first section is 1).");
     }
 
     public static XmlNode ResolveTab(XmlDocument formDoc, FormPlacement placement) =>
         ResolveByIdOrIndex(formDoc, "//tab", placement.TabId, placement.TabIndex)
-            ?? throw new InvalidOperationException("Target tab not found.");
+            ?? throw new InvalidOperationException("Target tab not found. TabIndex is 1-based (the first tab is 1).");
 
     public static XmlNode ResolveTargetColumn(XmlDocument formDoc, FormPlacement placement)
     {
@@ -39,12 +39,12 @@ internal static class FormPlacementResolver
             tab = footers[footers.Count - 1]!;
         }
         return ResolveByIndexOrLast(tab, "./columns/column", placement.ColumnIndex)
-            ?? throw new InvalidOperationException("Target column not found in the selected tab.");
+            ?? throw new InvalidOperationException("Target column not found in the selected tab. ColumnIndex is 1-based (the first column is 1).");
     }
 
     public static XmlNode ResolveTargetRow(XmlNode section, string? rowIndex) =>
         ResolveByIndexOrLast(section, "./rows/row", rowIndex)
-            ?? throw new InvalidOperationException("Target row not found in the selected section.");
+            ?? throw new InvalidOperationException("Target row not found in the selected section. RowIndex is 1-based (the first row is 1).");
 
     // Id wins; an index is only a fallback when both were given. Neither given = last node.
     private static XmlNode? ResolveByIdOrIndex(XmlNode scope, string xpath, string? id, string? index)
@@ -65,10 +65,12 @@ internal static class FormPlacementResolver
         return nodes.Count > 0 ? nodes[nodes.Count - 1] : null;
     }
 
+    // Indexes are 1-based; 0 and negatives are treated as not found instead of
+    // wrapping around (the old scripts' [-1] silently targeted the last node).
     private static XmlNode? ResolveByIndex(XmlNode scope, string xpath, string index)
     {
         var nodes = scope.SelectNodes(xpath)!;
         var position = int.Parse(index);
-        return nodes.Count >= position ? nodes[position - 1] : null;
+        return position >= 1 && nodes.Count >= position ? nodes[position - 1] : null;
     }
 }
