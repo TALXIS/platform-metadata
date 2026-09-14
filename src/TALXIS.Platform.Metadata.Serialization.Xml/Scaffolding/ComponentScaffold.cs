@@ -21,6 +21,7 @@ public static class ComponentScaffold
             ["FormSection"] = ApplyFormSection,
             ["FormTab"] = ApplyFormTab,
             ["FormDialogTabFooter"] = ApplyFormDialogTabFooter,
+            ["FormParameter"] = ApplyFormParameter,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -156,6 +157,18 @@ public static class ComponentScaffold
             FormId = OptionalId(request.Parameters, "form-id"),
             Placement = PlacementFrom(request),
             TabFooterId = OptionalId(request.Parameters, "tab-footer-id"),
+        });
+
+    // Parameters: parameter-name, parameter-type (required); entity, form-type, form-id optional.
+    private static ScaffoldResult ApplyFormParameter(ComponentScaffoldRequest request) =>
+        FormParameterScaffold.Apply(new FormParameterScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            ParameterName = RequiredParameter(request, "parameter-name"),
+            ParameterType = RequiredParameter(request, "parameter-type"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
