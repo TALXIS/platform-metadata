@@ -24,6 +24,7 @@ public static class ComponentScaffold
             ["FormParameter"] = ApplyFormParameter,
             ["FormEventHandler"] = ApplyFormEventHandler,
             ["ControlParameter"] = ApplyControlParameter,
+            ["Role"] = ApplySecurityRole,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -201,6 +202,14 @@ public static class ComponentScaffold
             FormId = OptionalId(request.Parameters, "form-id"),
             Placement = PlacementFrom(request),
             ParametersFilePath = RequiredFile(request, "parameters"),
+        });
+
+    // Parameters: role-id (required).
+    private static ScaffoldResult ApplySecurityRole(ComponentScaffoldRequest request) =>
+        SecurityRoleScaffold.Apply(new SecurityRoleScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            RoleId = RequiredParameter(request, "role-id").Trim('{', '}'),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
