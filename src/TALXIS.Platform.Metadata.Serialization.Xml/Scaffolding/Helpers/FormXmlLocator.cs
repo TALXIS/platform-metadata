@@ -46,7 +46,8 @@ internal static class FormXmlLocator
             return files.OrderByDescending(f => f.LastWriteTime).First().FullName;
         }
 
-        var path = formType == "dialog"
+        // Case-insensitive like the PowerShell -eq the scripts used (pp-form-event-handler passes "Dialog").
+        var path = string.Equals(formType, "dialog", StringComparison.OrdinalIgnoreCase)
             ? Path.Combine(dialogsRoot, "{" + formId + "}.xml")
             : Path.Combine(entitiesRoot, entitySchemaName, "FormXml", formType, "{" + formId + "}.xml");
         if (!File.Exists(path)) throw new FileNotFoundException($"Form file not found: {path}");
