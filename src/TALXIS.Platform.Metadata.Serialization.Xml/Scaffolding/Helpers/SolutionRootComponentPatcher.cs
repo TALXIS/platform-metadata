@@ -21,7 +21,9 @@ public static class SolutionRootComponentPatcher
         if (solution.RootComponents.Any(rc => Matches(rc, component))) return false;
 
         solution.AddRootComponent(component);
-        new XmlWorkspaceWriter().Write(workspace, solutionRootPath);
+        // Only the manifest changed - a full workspace write would rewrite (and reformat)
+        // every other component file in the solution as collateral.
+        new XmlWorkspaceWriter().WriteSolutionManifest(workspace, solution.UniqueName, solutionRootPath);
         return true;
     }
 
