@@ -74,6 +74,60 @@ public class SolutionRootComponentPatcherTests : IDisposable
     }
 
     [Fact]
+    public void EnsureRootComponent_DoesNotTouchSiblingFiles()
+    {
+        var rolePath = Path.Combine(_root, "Roles", "Example.xml");
+        Directory.CreateDirectory(Path.Combine(_root, "Roles"));
+        File.WriteAllText(rolePath, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Role id="{c1b2c3d4-e5f6-4a1b-8c2d-000000000002}" name="Example" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <IsCustomizable>1</IsCustomizable>
+              <RolePrivileges>
+              </RolePrivileges>
+            </Role>
+            """);
+        var relationshipsPath = Path.Combine(_root, "Other", "Relationships.xml");
+        File.WriteAllText(relationshipsPath, """
+            <?xml version="1.0" encoding="utf-8"?>
+            <EntityRelationships xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" />
+            """);
+        var roleBytes = File.ReadAllBytes(rolePath);
+        var relationshipsBytes = File.ReadAllBytes(relationshipsPath);
+
+        SolutionRootComponentPatcher.EnsureRootComponent(_root, new RootComponent
+        {
+            Type = ComponentType.Role,
+            Id = RoleId,
+        });
+
+        Assert.Equal(roleBytes, File.ReadAllBytes(rolePath));
+        Assert.Equal(relationshipsBytes, File.ReadAllBytes(relationshipsPath));
+    }
+
+    [Fact]
+    public void EnsureRootComponent_IndentsFirstComponentInEmptyContainer()
+    {
+        File.WriteAllText(_solutionXmlPath, """
+            <ImportExportXml>
+              <SolutionManifest>
+                <UniqueName>udpp_Sandbox</UniqueName>
+                <RootComponents />
+              </SolutionManifest>
+            </ImportExportXml>
+            """);
+
+        SolutionRootComponentPatcher.EnsureRootComponent(_root, new RootComponent
+        {
+            Type = ComponentType.Role,
+            Id = RoleId,
+        });
+
+        var text = File.ReadAllText(_solutionXmlPath);
+        Assert.Contains("\n      <RootComponent ", text.Replace("\r\n", "\n"));
+        Assert.Contains("\n    </RootComponents>", text.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
     public void EnsureRootComponent_MissingManifest_Throws()
     {
         File.Delete(_solutionXmlPath);

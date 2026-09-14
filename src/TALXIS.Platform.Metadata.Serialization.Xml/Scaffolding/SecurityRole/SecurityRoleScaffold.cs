@@ -3,9 +3,8 @@ using TALXIS.Platform.Metadata.Solutions;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// In-process replacement for the pp-security-role template post-action script:
-/// registers the rendered role in Solution.xml as a root component (type 20, by id).
-/// Pilot of the SolutionRootComponentPatcher consumers - the applier only wires the patcher.
+/// Registers the rendered security role in Solution.xml as a root component
+/// (type 20, by id) using SolutionRootComponentPatcher.
 /// </summary>
 public static class SecurityRoleScaffold
 {
