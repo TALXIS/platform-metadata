@@ -6,9 +6,8 @@ using TALXIS.Platform.Metadata.Solutions;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Parses option specs and applies them to a local attribute file or a global
-/// option set; the SetOptionSetOptions.ps1 shared by the entity-attribute and
-/// optionset-global templates.
+/// Parses option specifications and applies them to a local attribute file
+/// or a global option set.
 /// </summary>
 internal static class OptionSetOptionsApplier
 {

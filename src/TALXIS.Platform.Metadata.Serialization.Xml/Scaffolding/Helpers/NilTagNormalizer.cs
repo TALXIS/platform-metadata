@@ -4,8 +4,7 @@ using TALXIS.Platform.Metadata.Layout;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Collapses xsi:nil tag pairs the template engine splits across two lines in
-/// Solution.xml; the NormalizeNilTags.ps1 shared by entity/attribute/solution templates.
+/// Collapses xsi:nil tag pairs split across two lines in Solution.xml.
 /// </summary>
 internal static class NilTagNormalizer
 {

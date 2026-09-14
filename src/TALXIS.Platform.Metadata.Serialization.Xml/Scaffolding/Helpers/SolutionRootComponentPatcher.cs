@@ -3,9 +3,8 @@ using TALXIS.Platform.Metadata.Solutions;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Registers a root component in the solution manifest through the typed workspace
-/// model (load, mutate, write), replacing the per-template AddXToSolutionXml
-/// post-action scripts. First scaffold piece on the metamodel path: no XML patching.
+/// Registers a root component in the solution manifest by loading, updating
+/// and writing the workspace model.
 /// </summary>
 public static class SolutionRootComponentPatcher
 {

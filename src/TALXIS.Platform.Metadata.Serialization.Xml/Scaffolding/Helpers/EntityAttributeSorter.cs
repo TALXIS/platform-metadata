@@ -4,9 +4,8 @@ using TALXIS.Platform.Metadata.Layout;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Re-sorts attributes by PhysicalName in every Entity.xml, the order
-/// SolutionPackager maintains; the SortEntityAttributes.ps1 shared by the
-/// entity and entity-attribute templates.
+/// Sorts attributes by PhysicalName in every Entity.xml, using the order
+/// maintained by SolutionPackager.
 /// </summary>
 internal static class EntityAttributeSorter
 {
