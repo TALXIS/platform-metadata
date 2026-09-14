@@ -22,6 +22,7 @@ public static class ComponentScaffold
             ["FormTab"] = ApplyFormTab,
             ["FormDialogTabFooter"] = ApplyFormDialogTabFooter,
             ["FormParameter"] = ApplyFormParameter,
+            ["FormEventHandler"] = ApplyFormEventHandler,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -169,6 +170,24 @@ public static class ComponentScaffold
             FormId = OptionalId(request.Parameters, "form-id"),
             ParameterName = RequiredParameter(request, "parameter-name"),
             ParameterType = RequiredParameter(request, "parameter-type"),
+        });
+
+    // Parameters: library-name, event-name, function-name (required); entity, form-type, form-id,
+    // attribute-name, library-unique-id, handler-unique-id and pass-execution-context optional.
+    private static ScaffoldResult ApplyFormEventHandler(ComponentScaffoldRequest request) =>
+        FormEventHandlerScaffold.Apply(new FormEventHandlerScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntityLogicalName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            LibraryName = RequiredParameter(request, "library-name"),
+            LibraryUniqueId = OptionalId(request.Parameters, "library-unique-id"),
+            EventName = RequiredParameter(request, "event-name"),
+            AttributeName = OptionalKnown(request.Parameters, "attribute-name"),
+            FunctionName = RequiredParameter(request, "function-name"),
+            HandlerUniqueId = OptionalId(request.Parameters, "handler-unique-id"),
+            PassExecutionContext = Optional(request.Parameters, "pass-execution-context") ?? "true",
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
