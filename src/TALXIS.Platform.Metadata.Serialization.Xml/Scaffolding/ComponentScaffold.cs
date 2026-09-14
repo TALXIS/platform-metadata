@@ -19,6 +19,7 @@ public static class ComponentScaffold
             ["FormControl"] = ApplyFormControl,
             ["FormColumn"] = ApplyFormColumn,
             ["FormSection"] = ApplyFormSection,
+            ["FormTab"] = ApplyFormTab,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -131,6 +132,21 @@ public static class ComponentScaffold
             SectionFilePath = RequiredFile(request, "section"),
         });
 
+    // Files: tab (required). Parameters: display-name (required); entity, form-type,
+    // form-id, tab-id and remove-default-tab, all optional.
+    private static ScaffoldResult ApplyFormTab(ComponentScaffoldRequest request) =>
+        FormTabScaffold.Apply(new FormTabScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            TabId = OptionalId(request.Parameters, "tab-id"),
+            DisplayName = RequiredParameter(request, "display-name"),
+            RemoveDefaultTab = string.Equals(Optional(request.Parameters, "remove-default-tab"), "True", StringComparison.OrdinalIgnoreCase),
+            TabFilePath = RequiredFile(request, "tab"),
+        });
+
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
     {
         TabId = OptionalId(request.Parameters, "tab-id"),
@@ -145,11 +161,11 @@ public static class ComponentScaffold
     private static string? OptionalId(IReadOnlyDictionary<string, string> map, string name) =>
         OptionalKnown(map, name)?.Trim('{', '}');
 
-    // Omitted form parameters are represented by "unknown" or "unknownFormId".
+    // Omitted form parameters are represented by "unknown", "unknownFormId" or "unknownTabId".
     private static string? OptionalKnown(IReadOnlyDictionary<string, string> map, string name)
     {
         var value = Optional(map, name);
-        return string.IsNullOrEmpty(value) || value == "unknown" || value == "unknownFormId" ? null : value;
+        return string.IsNullOrEmpty(value) || value == "unknown" || value == "unknownFormId" || value == "unknownTabId" ? null : value;
     }
 
     private static string RequiredParameter(ComponentScaffoldRequest request, string name) =>
