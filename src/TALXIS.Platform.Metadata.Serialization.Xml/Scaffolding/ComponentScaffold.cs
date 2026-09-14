@@ -23,6 +23,7 @@ public static class ComponentScaffold
             ["FormDialogTabFooter"] = ApplyFormDialogTabFooter,
             ["FormParameter"] = ApplyFormParameter,
             ["FormEventHandler"] = ApplyFormEventHandler,
+            ["ControlParameter"] = ApplyControlParameter,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -188,6 +189,18 @@ public static class ComponentScaffold
             FunctionName = RequiredParameter(request, "function-name"),
             HandlerUniqueId = OptionalId(request.Parameters, "handler-unique-id"),
             PassExecutionContext = Optional(request.Parameters, "pass-execution-context") ?? "true",
+        });
+
+    // Files: parameters (required). Parameters: entity, form-type, form-id and the placement set, all optional.
+    private static ScaffoldResult ApplyControlParameter(ComponentScaffoldRequest request) =>
+        ControlParameterScaffold.Apply(new ControlParameterScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            ParametersFilePath = RequiredFile(request, "parameters"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
