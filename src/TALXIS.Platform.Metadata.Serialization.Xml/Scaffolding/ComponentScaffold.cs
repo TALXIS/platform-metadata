@@ -20,6 +20,7 @@ public static class ComponentScaffold
             ["FormColumn"] = ApplyFormColumn,
             ["FormSection"] = ApplyFormSection,
             ["FormTab"] = ApplyFormTab,
+            ["FormDialogTabFooter"] = ApplyFormDialogTabFooter,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -145,6 +146,16 @@ public static class ComponentScaffold
             DisplayName = RequiredParameter(request, "display-name"),
             RemoveDefaultTab = string.Equals(Optional(request.Parameters, "remove-default-tab"), "True", StringComparison.OrdinalIgnoreCase),
             TabFilePath = RequiredFile(request, "tab"),
+        });
+
+    // Parameters: form-id, tab-id, tab-index and tab-footer-id, all optional.
+    private static ScaffoldResult ApplyFormDialogTabFooter(ComponentScaffoldRequest request) =>
+        FormDialogTabFooterScaffold.Apply(new FormDialogTabFooterScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            TabFooterId = OptionalId(request.Parameters, "tab-footer-id"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
