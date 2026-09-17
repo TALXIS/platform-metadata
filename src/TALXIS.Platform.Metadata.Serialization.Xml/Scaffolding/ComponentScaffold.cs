@@ -27,6 +27,7 @@ public static class ComponentScaffold
             ["Role"] = ApplySecurityRole,
             ["Workflow"] = ApplyFlow,
             ["OptionSet"] = ApplyOptionSetGlobal,
+            ["SystemForm"] = ApplyEntityForm,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -232,6 +233,20 @@ public static class ComponentScaffold
             SolutionRootPath = request.SolutionRootPath,
             OptionSetName = RequiredParameter(request, "optionset-name"),
             Options = RequiredParameter(request, "options"),
+        });
+
+    // Files: form (required). Parameters: form-type (required); form-id,
+    // form-name, dialog-unique-name and entity optional.
+    private static ScaffoldResult ApplyEntityForm(ComponentScaffoldRequest request) =>
+        EntityFormScaffold.Apply(new EntityFormScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            FormType = RequiredParameter(request, "form-type"),
+            FormFilePath = RequiredFile(request, "form"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            FormName = Optional(request.Parameters, "form-name"),
+            DialogUniqueName = OptionalKnown(request.Parameters, "dialog-unique-name"),
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()

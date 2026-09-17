@@ -82,6 +82,7 @@ public static class ComponentDefinitionRegistry
         // Users should use "SystemForm" or the type code 60.
         Register(new ComponentDefinition(ComponentType.SystemForm, "SystemForm", "SystemForms", "Entities", "$(PrimaryName)/FormXml", IdentityStrategy.Guid,
             SupportsMerge: true,
+            Aliases: new[] { "EntityForm" },
             IsMergeable: true, HasParent: true, RootComponent: 1,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "formid", GroupParentComponentType: 1, GroupParentComponentAttributeName: "objecttypecode"));
