@@ -33,6 +33,7 @@ public static class ComponentScaffold
             ["WebResource"] = ApplyWebResource,
             ["AppModule"] = ApplyAppModel,
             ["AppModuleComponent"] = ApplyAppModelComponent,
+            ["SiteMapArea"] = ApplySiteMapArea,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -277,6 +278,15 @@ public static class ComponentScaffold
             ComponentTypeId = RequiredParameter(request, "component-type-id"),
             EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
             ComponentId = OptionalId(request.Parameters, "component-id"),
+        });
+
+    // Files: sitemap, area (both required).
+    private static ScaffoldResult ApplySiteMapArea(ComponentScaffoldRequest request) =>
+        SiteMapAreaScaffold.Apply(new SiteMapAreaScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            SiteMapFilePath = RequiredFile(request, "sitemap"),
+            AreaFilePath = RequiredFile(request, "area"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
