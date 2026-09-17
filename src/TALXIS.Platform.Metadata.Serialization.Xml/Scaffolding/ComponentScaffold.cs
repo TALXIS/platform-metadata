@@ -30,6 +30,7 @@ public static class ComponentScaffold
             ["SystemForm"] = ApplyEntityForm,
             ["EnvironmentVariableDefinition"] = ApplyEnvironmentVariableDefinition,
             ["EnvironmentVariableValue"] = ApplyEnvironmentVariableValue,
+            ["WebResource"] = ApplyWebResource,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -254,6 +255,17 @@ public static class ComponentScaffold
             ValuesFilePath = RequiredFile(request, "values"),
             Value = RequiredParameter(request, "value"),
             ValueId = RequiredParameter(request, "value-id").Trim('{', '}'),
+        });
+
+    // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
+    private static ScaffoldResult ApplyWebResource(ComponentScaffoldRequest request) =>
+        WebResourceScaffold.Apply(new WebResourceScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            SourceFilePath = RequiredFile(request, "source"),
+            DataXmlFilePath = RequiredFile(request, "data"),
+            PublisherPrefix = RequiredParameter(request, "publisher-prefix"),
+            WebResourceId = OptionalId(request.Parameters, "wr-id"),
         });
 
     // Files: form (required). Parameters: form-type (required); form-id,
