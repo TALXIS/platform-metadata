@@ -43,6 +43,10 @@ public static class ComponentScaffold
             throw new NotSupportedException(
                 $"Component type '{request.ComponentType}' has no scaffold applier. Supported types: {string.Join(", ", Appliers.Keys)}.");
         }
+        // The wire value is only a hint: templates and the CLI no longer have to pass a
+        // real path - anything that is not an actual solution root is ignored and the
+        // root is auto-detected from the current directory.
+        request.SolutionRootPath = SolutionRootLocator.Resolve(request.SolutionRootPath, Directory.GetCurrentDirectory());
         return applier(request);
     }
 
