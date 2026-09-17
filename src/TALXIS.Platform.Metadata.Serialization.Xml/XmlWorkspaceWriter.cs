@@ -1993,7 +1993,24 @@ public sealed class XmlWorkspaceWriter
         {
             using var stream = File.Create(filePath);
             using var textWriter = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
-            doc.Save(textWriter, SaveOptions.DisableFormatting);
+            // XDocument drops the line break between the declaration and the root
+            // element, so write the declaration on its own line ourselves.
+            if (doc.Declaration != null)
+            {
+                textWriter.Write(doc.Declaration.ToString());
+                // A document loaded with the break preserved carries it as a
+                // document-level text node - don't double it.
+                if (!(doc.FirstNode is XText leading && ContainsNewLine(leading.Value)))
+                    textWriter.Write("\r\n");
+                foreach (var node in doc.Nodes())
+                {
+                    textWriter.Write(node.ToString(SaveOptions.DisableFormatting));
+                }
+            }
+            else
+            {
+                doc.Save(textWriter, SaveOptions.DisableFormatting);
+            }
             return;
         }
 
@@ -2019,14 +2036,20 @@ public sealed class XmlWorkspaceWriter
     private static void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children)
     {
         var replacements = children.ToList();
+        // A whitespace text can span several lines (e.g. a template's empty container);
+        // only its first/last newline run is the actual indentation pattern.
         var childIndent = parent.Nodes()
             .OfType<XText>()
             .Select(text => text.Value)
-            .FirstOrDefault(ContainsNewLine);
+            .Where(ContainsNewLine)
+            .Select(text => NewlineRun(text, first: true))
+            .FirstOrDefault();
         var closingIndent = parent.Nodes()
             .OfType<XText>()
             .Select(text => text.Value)
-            .LastOrDefault(ContainsNewLine);
+            .Where(ContainsNewLine)
+            .Select(text => NewlineRun(text, first: false))
+            .LastOrDefault();
 
         // A previously childless container has no whitespace pattern to mimic -
         // derive it from the container's own indentation so first-time children
@@ -2035,8 +2058,9 @@ public sealed class XmlWorkspaceWriter
             && parent.PreviousNode is XText parentIndentText
             && ContainsNewLine(parentIndentText.Value))
         {
-            childIndent = parentIndentText.Value + "  ";
-            closingIndent = parentIndentText.Value;
+            var parentIndent = NewlineRun(parentIndentText.Value, first: false);
+            childIndent = parentIndent + "  ";
+            closingIndent = parentIndent;
         }
 
         parent.RemoveNodes();
@@ -2055,9 +2079,34 @@ public sealed class XmlWorkspaceWriter
         {
             parent.Add(new XText(childIndent));
             parent.Add(child);
+            IndentFreshSubtree(child, childIndent);
         }
 
         parent.Add(new XText(closingIndent));
+    }
+
+    // A freshly built element (no whitespace of its own) would serialize as one inline
+    // run under DisableFormatting; give its subtree line breaks matching the container.
+    private static void IndentFreshSubtree(XElement element, string ownIndent)
+    {
+        if (!element.HasElements || element.Nodes().OfType<XText>().Any()) return;
+
+        var children = element.Elements().ToList();
+        element.RemoveNodes();
+        foreach (var child in children)
+        {
+            element.Add(new XText(ownIndent + "  "));
+            element.Add(child);
+            IndentFreshSubtree(child, ownIndent + "  ");
+        }
+
+        element.Add(new XText(ownIndent));
+    }
+
+    private static string NewlineRun(string whitespace, bool first)
+    {
+        var matches = System.Text.RegularExpressions.Regex.Matches(whitespace, "\r?\n[ \t]*");
+        return matches.Count == 0 ? whitespace : matches[first ? 0 : matches.Count - 1].Value;
     }
 
     private static bool ContainsNewLine(string value)
