@@ -29,6 +29,7 @@ public static class ComponentScaffold
             ["OptionSet"] = ApplyOptionSetGlobal,
             ["SystemForm"] = ApplyEntityForm,
             ["EnvironmentVariableDefinition"] = ApplyEnvironmentVariableDefinition,
+            ["EnvironmentVariableValue"] = ApplyEnvironmentVariableValue,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -243,6 +244,16 @@ public static class ComponentScaffold
             SolutionRootPath = request.SolutionRootPath,
             DefinitionFilePath = RequiredFile(request, "definition"),
             SchemaName = RequiredParameter(request, "schema-name"),
+        });
+
+    // Files: values (required). Parameters: value, value-id (both required).
+    private static ScaffoldResult ApplyEnvironmentVariableValue(ComponentScaffoldRequest request) =>
+        EnvironmentVariableValueScaffold.Apply(new EnvironmentVariableValueScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            ValuesFilePath = RequiredFile(request, "values"),
+            Value = RequiredParameter(request, "value"),
+            ValueId = RequiredParameter(request, "value-id").Trim('{', '}'),
         });
 
     // Files: form (required). Parameters: form-type (required); form-id,
