@@ -152,7 +152,7 @@ public sealed class XmlWorkspaceReader
                 {
                     Type = (ComponentType)typeCode,
                     SchemaName = rc.Attribute("schemaName")?.Value,
-                    Behavior = ParseInt(rc.Attribute("behavior")?.Value, 0)
+                    Behavior = rc.Attribute("behavior") is { } behaviorAttr ? ParseInt(behaviorAttr.Value, 0) : null
                 };
 
                 var idStr = rc.Attribute("id")?.Value;
