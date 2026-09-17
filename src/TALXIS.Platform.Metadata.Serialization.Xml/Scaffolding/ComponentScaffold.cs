@@ -25,6 +25,7 @@ public static class ComponentScaffold
             ["FormEventHandler"] = ApplyFormEventHandler,
             ["ControlParameter"] = ApplyControlParameter,
             ["Role"] = ApplySecurityRole,
+            ["Workflow"] = ApplyFlow,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -210,6 +211,14 @@ public static class ComponentScaffold
         {
             SolutionRootPath = request.SolutionRootPath,
             RoleId = RequiredParameter(request, "role-id").Trim('{', '}'),
+        });
+
+    // Parameters: workflow-id (required).
+    private static ScaffoldResult ApplyFlow(ComponentScaffoldRequest request) =>
+        FlowScaffold.Apply(new FlowScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            WorkflowId = RequiredParameter(request, "workflow-id").Trim('{', '}'),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
