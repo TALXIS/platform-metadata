@@ -43,6 +43,9 @@ public static class ComponentScaffold
             throw new NotSupportedException(
                 $"Component type '{request.ComponentType}' has no scaffold applier. Supported types: {string.Join(", ", Appliers.Keys)}.");
         }
+        // Uses the supplied path only when it identifies a solution root; otherwise
+        // auto-detects the root from the current directory.
+        request.SolutionRootPath = SolutionRootLocator.Resolve(request.SolutionRootPath, Directory.GetCurrentDirectory());
         return applier(request);
     }
 
