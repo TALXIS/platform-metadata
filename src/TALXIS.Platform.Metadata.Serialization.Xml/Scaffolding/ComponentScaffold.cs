@@ -26,6 +26,7 @@ public static class ComponentScaffold
             ["ControlParameter"] = ApplyControlParameter,
             ["Role"] = ApplySecurityRole,
             ["Workflow"] = ApplyFlow,
+            ["OptionSet"] = ApplyOptionSetGlobal,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -222,6 +223,15 @@ public static class ComponentScaffold
         {
             SolutionRootPath = request.SolutionRootPath,
             WorkflowId = RequiredParameter(request, "workflow-id").Trim('{', '}'),
+        });
+
+    // Parameters: optionset-name, options (both required).
+    private static ScaffoldResult ApplyOptionSetGlobal(ComponentScaffoldRequest request) =>
+        OptionSetGlobalScaffold.Apply(new OptionSetGlobalScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            OptionSetName = RequiredParameter(request, "optionset-name"),
+            Options = RequiredParameter(request, "options"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()

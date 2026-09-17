@@ -607,7 +607,11 @@ public sealed class XmlWorkspaceWriter
         };
     }
 
-    private void WriteGlobalOptionSets(Workspace workspace, string outputPath)
+    /// <summary>
+    /// Writes only the global option set files of the workspace to the output path,
+    /// patching the original documents when the workspace holds them.
+    /// </summary>
+    public void WriteGlobalOptionSets(Workspace workspace, string outputPath)
     {
         if (workspace.GlobalOptionSets.Count == 0) return;
 
