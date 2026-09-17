@@ -249,7 +249,8 @@ public sealed class XmlWorkspaceWriter
                     rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
                 if (rc.Id.HasValue)
                     rcEl.Add(new XAttribute("id", $"{{{rc.Id.Value}}}"));
-                rcEl.Add(new XAttribute("behavior", rc.Behavior.ToString()));
+                if (rc.Behavior.HasValue)
+                    rcEl.Add(new XAttribute("behavior", rc.Behavior.Value.ToString()));
                 return rcEl;
             }));
         }
@@ -285,7 +286,8 @@ public sealed class XmlWorkspaceWriter
                 rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
             if (rc.Id.HasValue)
                 rcEl.Add(new XAttribute("id", $"{{{rc.Id.Value}}}"));
-            rcEl.Add(new XAttribute("behavior", rc.Behavior.ToString()));
+            if (rc.Behavior.HasValue)
+                rcEl.Add(new XAttribute("behavior", rc.Behavior.Value.ToString()));
             rootComponents.Add(rcEl);
         }
         manifest.Add(rootComponents);

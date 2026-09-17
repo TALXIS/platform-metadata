@@ -42,18 +42,19 @@ public sealed class RootComponent
     public Guid? Id { get; set; }
 
     /// <summary>
-    /// Gets or sets the raw behavior value serialized in <c>solution.xml</c>.
+    /// Gets or sets the raw behavior value serialized in <c>solution.xml</c>;
+    /// null means the attribute is absent (some components, e.g. dialogs, omit it).
     /// Use <see cref="BehaviorOption"/> for a strongly typed view.
     /// </summary>
-    public int Behavior { get; set; }
+    public int? Behavior { get; set; }
 
     /// <summary>
     /// Gets or sets the strongly typed interpretation of <see cref="Behavior"/>.
     /// </summary>
     public RootComponentBehavior BehaviorOption
     {
-        get => Enum.IsDefined(typeof(RootComponentBehavior), Behavior)
-            ? (RootComponentBehavior)Behavior
+        get => Behavior.HasValue && Enum.IsDefined(typeof(RootComponentBehavior), Behavior.Value)
+            ? (RootComponentBehavior)Behavior.Value
             : RootComponentBehavior.IncludeSubcomponents;
         set => Behavior = (int)value;
     }
