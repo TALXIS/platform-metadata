@@ -12,13 +12,12 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 /// </summary>
 internal static class OptionSetOptionsApplier
 {
-    private const int AutoOptionValueStart = 100000000;
-
-    // Label:Value pairs pin explicit values; bare labels auto-increment from 100000000.
+    // Label:Value pairs pin explicit values; bare labels auto-increment from a random
+    // five-digit base * 10000 rolled once per call (old script + PCT reference canon).
     public static List<OptionMetadata> ParseOptions(string spec)
     {
         var options = new List<OptionMetadata>();
-        var nextAutoValue = AutoOptionValueStart;
+        var nextAutoValue = new Random().Next(10000, 99999) * 10000;
         foreach (var entry in ParseOptionEntries(spec))
         {
             var match = Regex.Match(entry, @"^(.+):(\d+)$");
@@ -47,6 +46,11 @@ internal static class OptionSetOptionsApplier
             optionSet.AddOption(option);
         }
 
+        // Only the option set files and (at most) the manifest changed - a full workspace
+        // write would rewrite every other component file in the solution as collateral.
+        var writer = new XmlWorkspaceWriter();
+        writer.WriteGlobalOptionSets(workspace, solutionRootPath);
+
         if (rootComponentSchemaName != null)
         {
             var solution = workspace.Solutions.FirstOrDefault()
@@ -62,10 +66,9 @@ internal static class OptionSetOptionsApplier
                     SchemaName = rootComponentSchemaName,
                     Behavior = 0,
                 });
+                writer.WriteSolutionManifest(workspace, solution.UniqueName, solutionRootPath);
             }
         }
-
-        new XmlWorkspaceWriter().Write(workspace, solutionRootPath);
     }
 
     // Local sets stay file-level (the rendered attribute is not part of the workspace),
