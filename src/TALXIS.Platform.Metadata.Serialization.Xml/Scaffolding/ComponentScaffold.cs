@@ -41,6 +41,7 @@ public static class ComponentScaffold
             ["RibbonButton"] = ApplyRibbonButton,
             ["RibbonButtonHide"] = ApplyRibbonButtonHide,
             ["RibbonCommandParameter"] = ApplyRibbonCommandParameter,
+            ["Entity"] = ApplyEntity,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -380,6 +381,20 @@ public static class ComponentScaffold
             ParametersFilePath = RequiredFile(request, "parameters"),
             CommandDefinitionId = RequiredParameter(request, "command-id"),
             FunctionName = RequiredParameter(request, "function-name"),
+        });
+
+    // Parameters: entity and behavior (required); quick-create-form-id, main-form-id,
+    // card-form-id and quick-form-id are passed only for rendered forms.
+    private static ScaffoldResult ApplyEntity(ComponentScaffoldRequest request) =>
+        EntityScaffold.Apply(new EntityScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = RequiredParameter(request, "entity"),
+            Behavior = int.Parse(RequiredParameter(request, "behavior")),
+            QuickCreateFormId = OptionalId(request.Parameters, "quick-create-form-id"),
+            MainFormId = OptionalId(request.Parameters, "main-form-id"),
+            CardFormId = OptionalId(request.Parameters, "card-form-id"),
+            QuickFormId = OptionalId(request.Parameters, "quick-form-id"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
