@@ -10,8 +10,7 @@ internal static class FormPlacementResolver
 {
     public static XmlNode ResolveTargetSection(XmlDocument formDoc, FormPlacement placement)
     {
-        var tab = ResolveByIdOrIndex(formDoc, "//tab", placement.TabId, placement.TabIndex)
-            ?? throw new InvalidOperationException("Target tab not found.");
+        var tab = ResolveTab(formDoc, placement);
 
         if (placement.SetToTabFooter)
         {
@@ -25,6 +24,10 @@ internal static class FormPlacementResolver
         return ResolveByIdOrIndex(column, "./sections/section", placement.SectionId, placement.SectionIndex)
             ?? throw new InvalidOperationException("Target section not found in the selected column.");
     }
+
+    public static XmlNode ResolveTab(XmlDocument formDoc, FormPlacement placement) =>
+        ResolveByIdOrIndex(formDoc, "//tab", placement.TabId, placement.TabIndex)
+            ?? throw new InvalidOperationException("Target tab not found.");
 
     public static XmlNode ResolveTargetRow(XmlNode section, string? rowIndex) =>
         ResolveByIndexOrLast(section, "./rows/row", rowIndex)
