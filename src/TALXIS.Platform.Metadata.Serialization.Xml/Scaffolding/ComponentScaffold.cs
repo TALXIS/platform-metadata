@@ -39,6 +39,7 @@ public static class ComponentScaffold
             ["SecurityRolePrivilege"] = ApplySecurityRolePrivilege,
             ["AppSecurityRole"] = ApplyAppSecurityRole,
             ["RibbonButton"] = ApplyRibbonButton,
+            ["RibbonButtonHide"] = ApplyRibbonButtonHide,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -358,6 +359,15 @@ public static class ComponentScaffold
             Image16by16 = Optional(request.Parameters, "icon-16"),
             Image32by32 = Optional(request.Parameters, "icon-32"),
             ModernImage = Optional(request.Parameters, "modern-image"),
+        });
+
+    // Files: ribbon, hide (both required).
+    private static ScaffoldResult ApplyRibbonButtonHide(ComponentScaffoldRequest request) =>
+        RibbonButtonHideScaffold.Apply(new RibbonButtonHideScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            RibbonDiffFilePath = RequiredFile(request, "ribbon"),
+            HideFilePath = RequiredFile(request, "hide"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
