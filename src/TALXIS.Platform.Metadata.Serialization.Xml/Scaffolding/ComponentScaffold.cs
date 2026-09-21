@@ -38,6 +38,7 @@ public static class ComponentScaffold
             ["SiteMapSubArea"] = ApplySiteMapSubArea,
             ["SecurityRolePrivilege"] = ApplySecurityRolePrivilege,
             ["AppSecurityRole"] = ApplyAppSecurityRole,
+            ["RibbonButton"] = ApplyRibbonButton,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -340,6 +341,23 @@ public static class ComponentScaffold
             SolutionRootPath = request.SolutionRootPath,
             AppModuleFilePath = RequiredFile(request, "app-module"),
             RoleIds = RequiredParameter(request, "role-ids"),
+        });
+
+    // Files: ribbon, empty-ribbon, command-definition, loc-labels, custom-action (all
+    // required). Parameters: button-label (required); icon-16, icon-32, modern-image optional.
+    private static ScaffoldResult ApplyRibbonButton(ComponentScaffoldRequest request) =>
+        RibbonButtonScaffold.Apply(new RibbonButtonScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            RibbonDiffFilePath = RequiredFile(request, "ribbon"),
+            EmptyRibbonFilePath = RequiredFile(request, "empty-ribbon"),
+            CommandDefinitionFilePath = RequiredFile(request, "command-definition"),
+            LocLabelsFilePath = RequiredFile(request, "loc-labels"),
+            CustomActionFilePath = RequiredFile(request, "custom-action"),
+            ButtonLabel = RequiredParameter(request, "button-label"),
+            Image16by16 = Optional(request.Parameters, "icon-16"),
+            Image32by32 = Optional(request.Parameters, "icon-32"),
+            ModernImage = Optional(request.Parameters, "modern-image"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
