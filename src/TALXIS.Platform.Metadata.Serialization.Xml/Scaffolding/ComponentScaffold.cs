@@ -40,6 +40,7 @@ public static class ComponentScaffold
             ["AppSecurityRole"] = ApplyAppSecurityRole,
             ["RibbonButton"] = ApplyRibbonButton,
             ["RibbonButtonHide"] = ApplyRibbonButtonHide,
+            ["RibbonCommandParameter"] = ApplyRibbonCommandParameter,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -368,6 +369,17 @@ public static class ComponentScaffold
             SolutionRootPath = request.SolutionRootPath,
             RibbonDiffFilePath = RequiredFile(request, "ribbon"),
             HideFilePath = RequiredFile(request, "hide"),
+        });
+
+    // Files: ribbon, parameters (both required). Parameters: command-id, function-name (both required).
+    private static ScaffoldResult ApplyRibbonCommandParameter(ComponentScaffoldRequest request) =>
+        RibbonCommandParameterScaffold.Apply(new RibbonCommandParameterScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            RibbonDiffFilePath = RequiredFile(request, "ribbon"),
+            ParametersFilePath = RequiredFile(request, "parameters"),
+            CommandDefinitionId = RequiredParameter(request, "command-id"),
+            FunctionName = RequiredParameter(request, "function-name"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
