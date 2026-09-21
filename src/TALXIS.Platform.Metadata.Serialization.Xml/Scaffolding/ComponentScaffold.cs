@@ -43,6 +43,7 @@ public static class ComponentScaffold
             ["RibbonCommandParameter"] = ApplyRibbonCommandParameter,
             ["Entity"] = ApplyEntity,
             ["AppCodeData"] = ApplyAppCodeData,
+            ["PluginAssembly"] = ApplyPluginAssembly,
         };
 
     // Appliers that target the invoking project folder itself - code app projects
@@ -405,6 +406,16 @@ public static class ComponentScaffold
             MainFormId = OptionalId(request.Parameters, "main-form-id"),
             CardFormId = OptionalId(request.Parameters, "card-form-id"),
             QuickFormId = OptionalId(request.Parameters, "quick-form-id"),
+        });
+
+    // Parameters: plugin-project-root, assembly-id (both required).
+    private static ScaffoldResult ApplyPluginAssembly(ComponentScaffoldRequest request) =>
+        PluginAssemblyScaffold.Apply(new PluginAssemblyScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            PluginProjectRootPath = RequiredParameter(request, "plugin-project-root"),
+            AssemblyId = OptionalId(request.Parameters, "assembly-id")
+                ?? throw new ArgumentException("Missing required parameter 'assembly-id' for component type 'PluginAssembly'."),
         });
 
     // Files: service, index-template, common-models (all required).
