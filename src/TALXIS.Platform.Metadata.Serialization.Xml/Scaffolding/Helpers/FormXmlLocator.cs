@@ -46,7 +46,8 @@ internal static class FormXmlLocator
             return files.OrderByDescending(f => f.LastWriteTime).First().FullName;
         }
 
-        var path = formType == "dialog"
+        // Compares form types case-insensitively so "Dialog" and "dialog" select the same behavior.
+        var path = string.Equals(formType, "dialog", StringComparison.OrdinalIgnoreCase)
             ? Path.Combine(dialogsRoot, "{" + formId + "}.xml")
             : Path.Combine(entitiesRoot, entitySchemaName, "FormXml", formType, "{" + formId + "}.xml");
         if (!File.Exists(path)) throw new FileNotFoundException($"Form file not found: {path}");
