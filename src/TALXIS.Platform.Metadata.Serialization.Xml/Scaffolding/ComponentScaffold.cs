@@ -35,6 +35,7 @@ public static class ComponentScaffold
             ["AppModuleComponent"] = ApplyAppModelComponent,
             ["SiteMapArea"] = ApplySiteMapArea,
             ["SiteMapGroup"] = ApplySiteMapGroup,
+            ["SiteMapSubArea"] = ApplySiteMapSubArea,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -298,6 +299,26 @@ public static class ComponentScaffold
             SiteMapFilePath = RequiredFile(request, "sitemap"),
             GroupFilePath = RequiredFile(request, "group"),
             AreaTitle = RequiredParameter(request, "area-title"),
+        });
+
+    // Files: sitemap (required). Parameters: area-title, group-title, page-type,
+    // subarea-title (required); the per-page-type ids and names optional.
+    private static ScaffoldResult ApplySiteMapSubArea(ComponentScaffoldRequest request) =>
+        SiteMapSubAreaScaffold.Apply(new SiteMapSubAreaScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            SiteMapFilePath = RequiredFile(request, "sitemap"),
+            AreaTitle = RequiredParameter(request, "area-title"),
+            GroupTitle = RequiredParameter(request, "group-title"),
+            PageType = RequiredParameter(request, "page-type"),
+            Title = RequiredParameter(request, "subarea-title"),
+            EntityLogicalName = OptionalKnown(request.Parameters, "entity"),
+            ViewId = OptionalKnown(request.Parameters, "view-id"),
+            DashboardId = OptionalKnown(request.Parameters, "dashboard-id"),
+            ControlName = OptionalKnown(request.Parameters, "control-name"),
+            GenPageId = OptionalKnown(request.Parameters, "genpage-id"),
+            CustomPageName = OptionalKnown(request.Parameters, "custom-page-name"),
+            WebResourceName = OptionalKnown(request.Parameters, "webresource-name"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
