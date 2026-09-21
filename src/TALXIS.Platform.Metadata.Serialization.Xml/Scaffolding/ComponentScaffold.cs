@@ -32,6 +32,7 @@ public static class ComponentScaffold
             ["EnvironmentVariableValue"] = ApplyEnvironmentVariableValue,
             ["WebResource"] = ApplyWebResource,
             ["AppModule"] = ApplyAppModel,
+            ["AppModuleComponent"] = ApplyAppModelComponent,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -265,6 +266,17 @@ public static class ComponentScaffold
             SolutionRootPath = request.SolutionRootPath,
             AppSchemaName = RequiredParameter(request, "app-name"),
             SiteMapFilePath = RequiredFile(request, "sitemap"),
+        });
+
+    // Files: app-module (required). Parameters: component-type-id (required); entity, component-id optional.
+    private static ScaffoldResult ApplyAppModelComponent(ComponentScaffoldRequest request) =>
+        AppModelComponentScaffold.Apply(new AppModelComponentScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            AppModuleFilePath = RequiredFile(request, "app-module"),
+            ComponentTypeId = RequiredParameter(request, "component-type-id"),
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            ComponentId = OptionalId(request.Parameters, "component-id"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
