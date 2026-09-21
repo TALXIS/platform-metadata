@@ -109,7 +109,7 @@ public static class ComponentDefinitionRegistry
 
         // SdkMessageProcessingStep — GUID-only identity, child of PluginAssembly
         Register(new ComponentDefinition(ComponentType.SdkMessageProcessingStep, "SdkMessageProcessingStep", "SdkMessageProcessingSteps", "SdkMessageProcessingSteps", "$(PrimaryName)", IdentityStrategy.Guid,
-            Aliases: new[] { "PluginStep" },
+            Aliases: new[] { "PluginStep", "PluginAssemblyStep" },
             HasParent: true, RootComponent: 91,
             AllowOverwriteCustomizations: true, IsCustomizable: true, CanBeDeleted: true,
             PrimaryKeyName: "sdkmessageprocessingstepid"));
