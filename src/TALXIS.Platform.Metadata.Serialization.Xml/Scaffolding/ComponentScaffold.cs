@@ -42,7 +42,15 @@ public static class ComponentScaffold
             ["RibbonButtonHide"] = ApplyRibbonButtonHide,
             ["RibbonCommandParameter"] = ApplyRibbonCommandParameter,
             ["Entity"] = ApplyEntity,
+            ["AppCodeData"] = ApplyAppCodeData,
         };
+
+    // Appliers that target the invoking project folder itself - code app projects
+    // carry no Other/Solution.xml for the locator to find.
+    private static readonly HashSet<string> CwdScopedAppliers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AppCodeData",
+    };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
 
@@ -61,7 +69,9 @@ public static class ComponentScaffold
         }
         // Uses the supplied path only when it identifies a solution root; otherwise
         // auto-detects the root from the current directory.
-        request.SolutionRootPath = SolutionRootLocator.Resolve(request.SolutionRootPath, Directory.GetCurrentDirectory());
+        request.SolutionRootPath = CwdScopedAppliers.Contains(Canonicalize(request.ComponentType))
+            ? Directory.GetCurrentDirectory()
+            : SolutionRootLocator.Resolve(request.SolutionRootPath, Directory.GetCurrentDirectory());
         return applier(request);
     }
 
@@ -395,6 +405,19 @@ public static class ComponentScaffold
             MainFormId = OptionalId(request.Parameters, "main-form-id"),
             CardFormId = OptionalId(request.Parameters, "card-form-id"),
             QuickFormId = OptionalId(request.Parameters, "quick-form-id"),
+        });
+
+    // Files: service, index-template, common-models (all required).
+    // Parameters: entity, model-solution-root (both required).
+    private static ScaffoldResult ApplyAppCodeData(ComponentScaffoldRequest request) =>
+        AppCodeDataScaffold.Apply(new AppCodeDataScaffoldRequest
+        {
+            AppProjectPath = request.SolutionRootPath,
+            EntityLogicalName = RequiredParameter(request, "entity"),
+            ModelSolutionRootPath = RequiredParameter(request, "model-solution-root"),
+            ServiceFilePath = RequiredFile(request, "service"),
+            IndexTemplateFilePath = RequiredFile(request, "index-template"),
+            CommonModelsFilePath = RequiredFile(request, "common-models"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
