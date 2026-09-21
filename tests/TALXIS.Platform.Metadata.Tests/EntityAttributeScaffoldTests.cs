@@ -132,12 +132,14 @@ public class EntityAttributeScaffoldTests : IDisposable
         Assert.Equal(2, options.Count);
         Assert.Equal("100000000", options[0].Attribute("value")?.Value);
         Assert.Equal("Active", options[0].Descendants("label").First().Attribute("description")?.Value);
-        Assert.Equal("100000000", options[1].Attribute("value")?.Value);
+        var autoValue = int.Parse(options[1].Attribute("value")?.Value!);
+        Assert.InRange(autoValue, 100000000, 999980000);
+        Assert.Equal(0, autoValue % 10000);
         Assert.Equal("Inactive", options[1].Descendants("label").First().Attribute("description")?.Value);
     }
 
     [Fact]
-    public void Apply_AutoIncrementOptions_StartAt100000000()
+    public void Apply_AutoIncrementOptions_UseRandomFiveDigitBase()
     {
         var attributeFile = WriteAttributeFile("udpp_status", "<optionset Name=\"x\"><options></options></optionset>");
         var request = Request(attributeFile);
@@ -145,8 +147,12 @@ public class EntityAttributeScaffoldTests : IDisposable
 
         EntityAttributeScaffold.Apply(request);
 
-        var values = EntityXml().Descendants("option").Select(o => o.Attribute("value")?.Value).ToList();
-        Assert.Equal(["100000000", "100000001", "100000002"], values);
+        var values = EntityXml().Descendants("option").Select(o => int.Parse(o.Attribute("value")!.Value)).ToList();
+        Assert.Equal(3, values.Count);
+        Assert.InRange(values[0], 100000000, 999980000);
+        Assert.Equal(0, values[0] % 10000);
+        Assert.Equal(values[0] + 1, values[1]);
+        Assert.Equal(values[0] + 2, values[2]);
     }
 
     [Fact]
