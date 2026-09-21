@@ -37,6 +37,7 @@ public static class ComponentScaffold
             ["SiteMapGroup"] = ApplySiteMapGroup,
             ["SiteMapSubArea"] = ApplySiteMapSubArea,
             ["SecurityRolePrivilege"] = ApplySecurityRolePrivilege,
+            ["AppSecurityRole"] = ApplyAppSecurityRole,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -330,6 +331,15 @@ public static class ComponentScaffold
             RoleFilePath = RequiredFile(request, "role"),
             EntityLogicalName = RequiredParameter(request, "entity"),
             Privileges = RequiredParameter(request, "privileges"),
+        });
+
+    // Files: app-module (required). Parameters: role-ids (required).
+    private static ScaffoldResult ApplyAppSecurityRole(ComponentScaffoldRequest request) =>
+        AppSecurityRoleScaffold.Apply(new AppSecurityRoleScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            AppModuleFilePath = RequiredFile(request, "app-module"),
+            RoleIds = RequiredParameter(request, "role-ids"),
         });
 
     // Files: source, data (both required). Parameters: publisher-prefix (required), wr-id optional.
