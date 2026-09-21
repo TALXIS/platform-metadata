@@ -44,6 +44,7 @@ public static class ComponentScaffold
             ["Entity"] = ApplyEntity,
             ["AppCodeData"] = ApplyAppCodeData,
             ["PluginAssembly"] = ApplyPluginAssembly,
+            ["SdkMessageProcessingStep"] = ApplyPluginAssemblyStep,
         };
 
     // Appliers that target the invoking project folder itself - code app projects
@@ -416,6 +417,20 @@ public static class ComponentScaffold
             PluginProjectRootPath = RequiredParameter(request, "plugin-project-root"),
             AssemblyId = OptionalId(request.Parameters, "assembly-id")
                 ?? throw new ArgumentException("Missing required parameter 'assembly-id' for component type 'PluginAssembly'."),
+        });
+
+    // Files: step (required). Parameters: step-id, assembly-name, plugin-class-name
+    // (required), filtering-attributes optional.
+    private static ScaffoldResult ApplyPluginAssemblyStep(ComponentScaffoldRequest request) =>
+        PluginAssemblyStepScaffold.Apply(new PluginAssemblyStepScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            StepFilePath = RequiredFile(request, "step"),
+            StepId = OptionalId(request.Parameters, "step-id")
+                ?? throw new ArgumentException("Missing required parameter 'step-id' for component type 'SdkMessageProcessingStep'."),
+            AssemblyName = RequiredParameter(request, "assembly-name"),
+            PluginClassName = RequiredParameter(request, "plugin-class-name"),
+            FilteringAttributes = Optional(request.Parameters, "filtering-attributes") ?? "",
         });
 
     // Files: service, index-template, common-models (all required).
