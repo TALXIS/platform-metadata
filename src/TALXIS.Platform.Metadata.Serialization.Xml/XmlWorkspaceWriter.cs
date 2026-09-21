@@ -245,10 +245,11 @@ public sealed class XmlWorkspaceWriter
             {
                 var rcEl = new XElement("RootComponent",
                     new XAttribute("type", ((int)rc.Type).ToString()));
-                if (rc.SchemaName != null)
-                    rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
+                // Writes the id attribute before schemaName for dual-identity components (type 91).
                 if (rc.Id.HasValue)
                     rcEl.Add(new XAttribute("id", $"{{{rc.Id.Value}}}"));
+                if (rc.SchemaName != null)
+                    rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
                 if (rc.Behavior.HasValue)
                     rcEl.Add(new XAttribute("behavior", rc.Behavior.Value.ToString()));
                 return rcEl;
@@ -282,10 +283,10 @@ public sealed class XmlWorkspaceWriter
         {
             var rcEl = new XElement("RootComponent",
                 new XAttribute("type", ((int)rc.Type).ToString()));
-            if (rc.SchemaName != null)
-                rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
             if (rc.Id.HasValue)
                 rcEl.Add(new XAttribute("id", $"{{{rc.Id.Value}}}"));
+            if (rc.SchemaName != null)
+                rcEl.Add(new XAttribute("schemaName", rc.SchemaName));
             if (rc.Behavior.HasValue)
                 rcEl.Add(new XAttribute("behavior", rc.Behavior.Value.ToString()));
             rootComponents.Add(rcEl);
