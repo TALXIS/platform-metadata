@@ -16,6 +16,7 @@ public static class ComponentScaffold
             ["Attribute"] = ApplyAttribute,
             ["FormRow"] = ApplyFormRow,
             ["FormCell"] = ApplyFormCell,
+            ["FormControl"] = ApplyFormControl,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -83,6 +84,22 @@ public static class ComponentScaffold
             Placement = PlacementFrom(request),
             CellFilePath = RequiredFile(request, "cell"),
             DialogCellFilePath = Optional(request.Files, "dialog-cell"),
+        });
+
+    // Files: control (required), dialog-control. Parameters: entity, form-type, form-id, the placement set,
+    // plus row-span/col-span passed only for SubGrid controls.
+    private static ScaffoldResult ApplyFormControl(ComponentScaffoldRequest request) =>
+        FormControlScaffold.Apply(new FormControlScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            ControlFilePath = RequiredFile(request, "control"),
+            DialogControlFilePath = Optional(request.Files, "dialog-control"),
+            RowSpan = OptionalKnown(request.Parameters, "row-span"),
+            ColumnSpan = OptionalKnown(request.Parameters, "col-span"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
