@@ -15,6 +15,7 @@ public static class ComponentScaffold
         {
             ["Attribute"] = ApplyAttribute,
             ["FormRow"] = ApplyFormRow,
+            ["FormCell"] = ApplyFormCell,
         };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -69,6 +70,19 @@ public static class ComponentScaffold
             FormId = OptionalId(request.Parameters, "form-id"),
             Placement = PlacementFrom(request),
             RowFilePath = RequiredFile(request, "row"),
+        });
+
+    // Files: cell (required), dialog-cell. Parameters: entity, form-type, form-id and the placement set, all optional.
+    private static ScaffoldResult ApplyFormCell(ComponentScaffoldRequest request) =>
+        FormCellScaffold.Apply(new FormCellScaffoldRequest
+        {
+            SolutionRootPath = request.SolutionRootPath,
+            EntitySchemaName = OptionalKnown(request.Parameters, "entity"),
+            FormType = OptionalKnown(request.Parameters, "form-type"),
+            FormId = OptionalId(request.Parameters, "form-id"),
+            Placement = PlacementFrom(request),
+            CellFilePath = RequiredFile(request, "cell"),
+            DialogCellFilePath = Optional(request.Files, "dialog-cell"),
         });
 
     private static FormPlacement PlacementFrom(ComponentScaffoldRequest request) => new()
