@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SecurityRoleMetadata : MetadataBase, IVersionedMetadata
+public sealed class SecurityRoleMetadata : MetadataBase, IVersionedMetadata, ISolutionComponent
 {
     public required string RoleId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.Role, RoleId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Role:{RoleId}";
     public required string Name { get; set; }
     public bool IsInherited { get; set; }
     public string? IntroducedVersion { get; set; }

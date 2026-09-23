@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SavedQueryMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
+public sealed class SavedQueryMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata, ISolutionComponent
 {
     public required string SavedQueryId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.SavedQuery, SavedQueryId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"View:{EntityLogicalName}:{SavedQueryId}";
     public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();
     public string? EntityLogicalName { get; set; }

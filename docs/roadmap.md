@@ -41,9 +41,9 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 ### Component access
 One entry point for everything a mutation needs to know about a component (architecture.md, "Solution Layering").
 
-- [ ] `Identity` (type + object id) and `DocumentKey` on every typed component
-- [ ] `Workspace.GetComponent(type, id)` returning Metadata, Layers, ActiveState, Memberships, Snapshots
-- [ ] `ActiveState` resolved through the layer manager (top-wins, or merge for forms, site maps, app modules, ribbons)
+- [x] `Identity` (type + object id) and `DocumentKey` on every typed component
+- [x] `Workspace.GetComponent(type, id)` returning Metadata, Layers, ActiveState, Memberships, Snapshots
+- [x] `ActiveState` resolved through the layer manager (top-wins, or merge for forms, site maps, app modules, ribbons)
 
 ### IWorkspaceContext interface
 Abstraction layer for I/O — model never touches filesystem directly.

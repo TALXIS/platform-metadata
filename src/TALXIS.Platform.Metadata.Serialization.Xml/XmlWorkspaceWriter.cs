@@ -313,7 +313,7 @@ public sealed class XmlWorkspaceWriter
             Directory.CreateDirectory(entityDir);
             var filePath = Path.Combine(entityDir, "Entity.xml");
 
-            var key = $"Entity:{entity.LogicalName}";
+            var key = entity.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc)
                 ? origDoc
                 : null;
@@ -625,7 +625,7 @@ public sealed class XmlWorkspaceWriter
         {
             var filePath = Path.Combine(optionSetsDir, $"{optionSet.Name}.xml");
 
-            var key = $"OptionSet:{optionSet.Name}";
+            var key = optionSet.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc)
                 ? origDoc
                 : null;
@@ -1057,7 +1057,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var form in workspace.Forms)
         {
-            var key = $"Form:{form.EntityLogicalName}:{form.FormId}";
+            var key = form.DocumentKey;
             if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
                 continue; // Forms have complex XML bodies — skip if no original
 
@@ -1115,7 +1115,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var view in workspace.Views)
         {
-            var key = $"View:{view.EntityLogicalName}:{view.SavedQueryId}";
+            var key = view.DocumentKey;
             if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
                 continue; // Views have complex XML bodies — skip if no original
 
@@ -1159,7 +1159,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var webResource in workspace.WebResources)
         {
-            var key = $"WebResource:{webResource.Name}";
+            var key = webResource.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
@@ -1232,7 +1232,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var workflow in workspace.Workflows)
         {
-            var key = $"Workflow:{workflow.WorkflowId}";
+            var key = workflow.DocumentKey;
             if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
                 continue; // Workflows have complex XAML bodies — skip if no original
 
@@ -1294,7 +1294,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var assembly in workspace.PluginAssemblies)
         {
-            var key = $"PluginAssembly:{assembly.Name}";
+            var key = assembly.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
@@ -1417,7 +1417,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var step in workspace.SdkMessageProcessingSteps)
         {
-            var key = $"Step:{step.SdkMessageProcessingStepId}";
+            var key = step.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
@@ -1562,7 +1562,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var role in workspace.SecurityRoles)
         {
-            var key = $"Role:{role.RoleId}";
+            var key = role.DocumentKey;
             var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
@@ -1637,7 +1637,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var appModule in workspace.AppModules)
         {
-            var key = $"AppModule:{appModule.UniqueName}";
+            var key = appModule.DocumentKey;
             if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
                 continue; // AppModules have complex XML bodies — skip if no original
 
@@ -1713,7 +1713,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var siteMap in workspace.SiteMaps)
         {
-            var key = $"SiteMap:{siteMap.UniqueName}";
+            var key = siteMap.DocumentKey;
             if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
                 continue; // SiteMaps have complex XML bodies — skip if no original
 
@@ -1762,7 +1762,7 @@ public sealed class XmlWorkspaceWriter
     {
         foreach (var ribbon in workspace.Ribbons)
         {
-            var key = $"Ribbon:{ribbon.EntityLogicalName}";
+            var key = ribbon.DocumentKey;
             var doc = workspace.OriginalDocuments.TryGetValue(key, out var original)
                 ? new XDocument(original)
                 : BuildRibbonFromScratch(ribbon);
@@ -1881,7 +1881,7 @@ public sealed class XmlWorkspaceWriter
         {
             if (component.FilePath == null) continue;
 
-            var key = $"Generic:{component.FilePath}";
+            var key = component.DocumentKey;
             XDocument doc;
 
             if (workspace.OriginalDocuments.TryGetValue(key, out var origDoc))

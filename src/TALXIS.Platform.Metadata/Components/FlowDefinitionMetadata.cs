@@ -1,10 +1,14 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
 /// Parsed Power Automate flow definition JSON.
 /// </summary>
-public sealed class FlowDefinitionMetadata : MetadataBase
+public sealed class FlowDefinitionMetadata : MetadataBase, ISolutionComponent
 {
+    private const string FallbackObjectId = "flow";
+
     private readonly List<FlowConnectionReferenceMetadata> _connectionReferences = new();
     private readonly List<FlowNodeMetadata> _triggers = new();
     private readonly List<FlowNodeMetadata> _actions = new();
@@ -19,6 +23,14 @@ public sealed class FlowDefinitionMetadata : MetadataBase
     /// Gets or sets the relative path of the source JSON file.
     /// </summary>
     public string? FilePath { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.GenericComponent, ObjectId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"FlowDefinition:{ObjectId}";
+
+    private string ObjectId => FilePath ?? Name ?? FallbackObjectId;
 
     /// <summary>
     /// Gets or sets the schema-version marker from the outer JSON payload.

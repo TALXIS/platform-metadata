@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class PluginAssemblyMetadata : MetadataBase, IVersionedMetadata
+public sealed class PluginAssemblyMetadata : MetadataBase, IVersionedMetadata, ISolutionComponent
 {
     public required string PluginAssemblyId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.PluginAssembly, PluginAssemblyId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"PluginAssembly:{Name}";
     public string? FullName { get; set; }
     public string? Name { get; set; }
     public int? IsolationMode { get; set; }

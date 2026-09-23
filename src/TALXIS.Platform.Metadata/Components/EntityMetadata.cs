@@ -1,14 +1,22 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
 /// In-memory representation of a Dataverse table definition.
 /// </summary>
-public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata
+public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata, ISolutionComponent
 {
     /// <summary>
     /// Gets or sets the logical table name.
     /// </summary>
     public required string LogicalName { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.Entity, LogicalName);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Entity:{LogicalName}";
 
     /// <summary>
     /// Gets or sets the schema name.

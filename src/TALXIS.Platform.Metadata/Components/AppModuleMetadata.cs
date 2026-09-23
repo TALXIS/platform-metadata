@@ -1,16 +1,23 @@
 using TALXIS.Platform.Metadata.Merging;
+using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
 /// Model-driven app module metadata.
 /// </summary>
-public sealed class AppModuleMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata
+public sealed class AppModuleMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata, ISolutionComponent
 {
     /// <summary>
     /// Gets or sets the app-module unique name.
     /// </summary>
     public required string UniqueName { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.AppModule, UniqueName);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"AppModule:{UniqueName}";
 
     /// <inheritdoc />
     public Label DisplayName { get; set; } = new();

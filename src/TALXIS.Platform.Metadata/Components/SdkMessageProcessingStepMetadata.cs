@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class SdkMessageProcessingStepMetadata : MetadataBase, IVersionedMetadata, ICustomizableMetadata
+public sealed class SdkMessageProcessingStepMetadata : MetadataBase, IVersionedMetadata, ICustomizableMetadata, ISolutionComponent
 {
     public required string SdkMessageProcessingStepId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.SdkMessageProcessingStep, SdkMessageProcessingStepId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Step:{SdkMessageProcessingStepId}";
     public string? Name { get; set; }
     public string? SdkMessageId { get; set; }
     public string? PluginTypeName { get; set; }

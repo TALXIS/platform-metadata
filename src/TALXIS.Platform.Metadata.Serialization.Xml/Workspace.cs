@@ -157,6 +157,51 @@ public sealed class Workspace
     /// </summary>
     public IReadOnlyList<GenericComponentMetadata> GenericComponents => _genericComponents;
 
+    /// <summary>
+    /// Enumerates every loaded component through the shared <see cref="ISolutionComponent"/> contract, in layer-descriptor order.
+    /// </summary>
+    public IEnumerable<ISolutionComponent> Components =>
+        _entities.Cast<ISolutionComponent>()
+            .Concat(_globalOptionSets)
+            .Concat(_relationships)
+            .Concat(_forms)
+            .Concat(_views)
+            .Concat(_pluginAssemblies)
+            .Concat(_sdkMessageProcessingSteps)
+            .Concat(_securityRoles)
+            .Concat(_appModules)
+            .Concat(_siteMaps)
+            .Concat(_webResources)
+            .Concat(_workflows)
+            .Concat(_ribbons)
+            .Concat(_flowDefinitions)
+            .Concat(_genericComponents);
+
+    /// <summary>
+    /// Gets a loaded component with its layers, resolved state, memberships and source snapshots; null when no such component is loaded.
+    /// </summary>
+    public WorkspaceComponent? GetComponent(ComponentType type, string objectId) =>
+        GetComponent(new ComponentIdentity(type, objectId));
+
+    /// <summary>
+    /// Gets a loaded component by identity; object ids compare case-insensitively.
+    /// </summary>
+    public WorkspaceComponent? GetComponent(ComponentIdentity identity)
+    {
+        if (identity == null) throw new ArgumentNullException(nameof(identity));
+        var component = Components.FirstOrDefault(candidate => Matches(candidate.Identity, identity));
+        return component == null ? null : new WorkspaceComponent(this, component);
+    }
+
+    internal IReadOnlyList<SolutionComponentMembership> GetMemberships(ComponentIdentity identity) =>
+        _solutionComponents.Where(membership => Matches(membership.Identity, identity)).ToArray();
+
+    internal IReadOnlyList<ComponentSourceSnapshot> GetSourceSnapshots(ComponentIdentity identity) =>
+        _componentSources.Where(snapshot => Matches(snapshot.Identity, identity)).ToArray();
+
+    private static bool Matches(ComponentIdentity left, ComponentIdentity right) =>
+        left.Type == right.Type && string.Equals(left.ObjectId, right.ObjectId, StringComparison.OrdinalIgnoreCase);
+
     private readonly List<WorkspaceLoadError> _loadErrors = new();
 
     /// <summary>
@@ -389,7 +434,7 @@ public sealed class Workspace
         if (entity == null) return false;
 
         _entities.Remove(entity);
-        OriginalDocuments.Remove($"Entity:{entity.LogicalName}");
+        OriginalDocuments.Remove(entity.DocumentKey);
 
         foreach (var form in _forms.Where(f => string.Equals(f.EntityLogicalName, logicalName, StringComparison.OrdinalIgnoreCase)).ToArray())
         {
@@ -409,80 +454,81 @@ public sealed class Workspace
     /// Removes a global option set by name.
     /// </summary>
     public bool RemoveGlobalOptionSet(string name) =>
-        RemoveByKey(_globalOptionSets, o => o.Name, name, o => $"OptionSet:{o.Name}");
+        RemoveByKey(_globalOptionSets, o => o.Name, name, removeDocument: true);
 
     /// <summary>
-    /// Removes a relationship by schema name.
+    /// Removes a relationship by schema name. Relationships share one document, so it is kept.
     /// </summary>
     public bool RemoveRelationship(string schemaName) =>
-        RemoveByKey(_relationships, r => r.SchemaName, schemaName, documentKey: null);
+        RemoveByKey(_relationships, r => r.SchemaName, schemaName, removeDocument: false);
 
     /// <summary>
     /// Removes a form by form ID.
     /// </summary>
     public bool RemoveForm(string formId) =>
-        RemoveByKey(_forms, f => f.FormId, formId, f => $"Form:{f.EntityLogicalName}:{f.FormId}");
+        RemoveByKey(_forms, f => f.FormId, formId, removeDocument: true);
 
     /// <summary>
     /// Removes a view by saved-query ID.
     /// </summary>
     public bool RemoveView(string savedQueryId) =>
-        RemoveByKey(_views, v => v.SavedQueryId, savedQueryId, v => $"View:{v.EntityLogicalName}:{v.SavedQueryId}");
+        RemoveByKey(_views, v => v.SavedQueryId, savedQueryId, removeDocument: true);
 
     /// <summary>
     /// Removes a plugin assembly by ID.
     /// </summary>
     public bool RemovePluginAssembly(string pluginAssemblyId) =>
-        RemoveByKey(_pluginAssemblies, p => p.PluginAssemblyId, pluginAssemblyId, p => $"PluginAssembly:{p.Name}");
+        RemoveByKey(_pluginAssemblies, p => p.PluginAssemblyId, pluginAssemblyId, removeDocument: true);
 
     /// <summary>
     /// Removes an SDK message processing step by ID.
     /// </summary>
     public bool RemoveSdkMessageProcessingStep(string stepId) =>
-        RemoveByKey(_sdkMessageProcessingSteps, s => s.SdkMessageProcessingStepId, stepId, s => $"Step:{s.SdkMessageProcessingStepId}");
+        RemoveByKey(_sdkMessageProcessingSteps, s => s.SdkMessageProcessingStepId, stepId, removeDocument: true);
 
     /// <summary>
     /// Removes a security role by role ID.
     /// </summary>
     public bool RemoveSecurityRole(string roleId) =>
-        RemoveByKey(_securityRoles, r => r.RoleId, roleId, r => $"Role:{r.RoleId}");
+        RemoveByKey(_securityRoles, r => r.RoleId, roleId, removeDocument: true);
 
     /// <summary>
     /// Removes an app module by unique name.
     /// </summary>
     public bool RemoveAppModule(string uniqueName) =>
-        RemoveByKey(_appModules, a => a.UniqueName, uniqueName, a => $"AppModule:{a.UniqueName}");
+        RemoveByKey(_appModules, a => a.UniqueName, uniqueName, removeDocument: true);
 
     /// <summary>
     /// Removes a site map by unique name.
     /// </summary>
     public bool RemoveSiteMap(string uniqueName) =>
-        RemoveByKey(_siteMaps, s => s.UniqueName, uniqueName, s => $"SiteMap:{s.UniqueName}");
+        RemoveByKey(_siteMaps, s => s.UniqueName, uniqueName, removeDocument: true);
 
     /// <summary>
     /// Removes a web resource by ID.
     /// </summary>
     public bool RemoveWebResource(string webResourceId) =>
-        RemoveByKey(_webResources, w => w.WebResourceId, webResourceId, w => $"WebResource:{w.Name}");
+        RemoveByKey(_webResources, w => w.WebResourceId, webResourceId, removeDocument: true);
 
     /// <summary>
     /// Removes a workflow by ID.
     /// </summary>
     public bool RemoveWorkflow(string workflowId) =>
-        RemoveByKey(_workflows, w => w.WorkflowId, workflowId, w => $"Workflow:{w.WorkflowId}");
+        RemoveByKey(_workflows, w => w.WorkflowId, workflowId, removeDocument: true);
 
     /// <summary>
     /// Removes a ribbon customization by target entity logical name.
     /// </summary>
     public bool RemoveRibbon(string entityLogicalName) =>
-        RemoveByKey(_ribbons, r => r.EntityLogicalName, entityLogicalName, r => $"Ribbon:{r.EntityLogicalName}");
+        RemoveByKey(_ribbons, r => r.EntityLogicalName, entityLogicalName, removeDocument: true);
 
-    private bool RemoveByKey<T>(List<T> items, Func<T, string?> getKey, string key, Func<T, string>? documentKey)
+    private bool RemoveByKey<T>(List<T> items, Func<T, string?> getKey, string key, bool removeDocument)
+        where T : ISolutionComponent
     {
         var index = items.FindIndex(item => string.Equals(getKey(item), key, StringComparison.OrdinalIgnoreCase));
         if (index < 0) return false;
 
-        if (documentKey != null) OriginalDocuments.Remove(documentKey(items[index]));
+        if (removeDocument) OriginalDocuments.Remove(items[index].DocumentKey);
         items.RemoveAt(index);
         return true;
     }
@@ -490,39 +536,8 @@ public sealed class Workspace
     /// <summary>
     /// Enumerates components in a shape suitable for solution-layer import.
     /// </summary>
-    public IEnumerable<LayerComponentDescriptor> EnumerateLayerComponents()
-    {
-        foreach (var entity in _entities)
-            yield return new LayerComponentDescriptor(ComponentType.Entity, entity.LogicalName, entity, $"Entity:{entity.LogicalName}");
-        foreach (var optionSet in _globalOptionSets)
-            yield return new LayerComponentDescriptor(ComponentType.OptionSet, optionSet.Name, optionSet, $"OptionSet:{optionSet.Name}");
-        foreach (var relationship in _relationships)
-            yield return new LayerComponentDescriptor(ComponentType.EntityRelationship, relationship.SchemaName, relationship, $"Relationship:{relationship.SchemaName}");
-        foreach (var form in _forms)
-            yield return new LayerComponentDescriptor(ComponentType.SystemForm, form.FormId, form, $"Form:{form.EntityLogicalName}:{form.FormId}");
-        foreach (var view in _views)
-            yield return new LayerComponentDescriptor(ComponentType.SavedQuery, view.SavedQueryId, view, $"View:{view.EntityLogicalName}:{view.SavedQueryId}");
-        foreach (var pluginAssembly in _pluginAssemblies)
-            yield return new LayerComponentDescriptor(ComponentType.PluginAssembly, pluginAssembly.PluginAssemblyId, pluginAssembly, $"PluginAssembly:{pluginAssembly.Name}");
-        foreach (var step in _sdkMessageProcessingSteps)
-            yield return new LayerComponentDescriptor(ComponentType.SdkMessageProcessingStep, step.SdkMessageProcessingStepId, step, $"Step:{step.SdkMessageProcessingStepId}");
-        foreach (var role in _securityRoles)
-            yield return new LayerComponentDescriptor(ComponentType.Role, role.RoleId, role, $"Role:{role.RoleId}");
-        foreach (var appModule in _appModules)
-            yield return new LayerComponentDescriptor(ComponentType.AppModule, appModule.UniqueName, appModule, $"AppModule:{appModule.UniqueName}");
-        foreach (var siteMap in _siteMaps)
-            yield return new LayerComponentDescriptor(ComponentType.SiteMap, siteMap.UniqueName, siteMap, $"SiteMap:{siteMap.UniqueName}");
-        foreach (var webResource in _webResources)
-            yield return new LayerComponentDescriptor(ComponentType.WebResource, webResource.WebResourceId, webResource, $"WebResource:{webResource.Name}");
-        foreach (var workflow in _workflows)
-            yield return new LayerComponentDescriptor(ComponentType.Workflow, workflow.WorkflowId, workflow, $"Workflow:{workflow.WorkflowId}");
-        foreach (var ribbon in _ribbons)
-            yield return new LayerComponentDescriptor(ComponentType.RibbonCustomization, ribbon.EntityLogicalName ?? "global", ribbon, $"Ribbon:{ribbon.EntityLogicalName ?? "global"}");
-        foreach (var flowDefinition in _flowDefinitions)
-            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, flowDefinition.FilePath ?? flowDefinition.Name ?? "flow", flowDefinition, $"FlowDefinition:{flowDefinition.FilePath ?? flowDefinition.Name ?? "flow"}");
-        foreach (var component in _genericComponents)
-            yield return new LayerComponentDescriptor(ComponentType.GenericComponent, component.FilePath ?? component.Id ?? component.ComponentTypeName ?? "generic", component, $"Generic:{component.FilePath ?? component.Id ?? component.ComponentTypeName ?? "generic"}");
-    }
+    public IEnumerable<LayerComponentDescriptor> EnumerateLayerComponents() =>
+        Components.Select(component => new LayerComponentDescriptor(component.Identity, (MetadataBase)component, component.DocumentKey));
 
     internal void MergeComponentsFrom(Workspace source, bool preferSource)
     {

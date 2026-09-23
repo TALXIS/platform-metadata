@@ -1,9 +1,17 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class WebResourceMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
+public sealed class WebResourceMetadata : MetadataBase, IDisplayNamedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata, ISolutionComponent
 {
     public required string WebResourceId { get; set; }
     public required string Name { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.WebResource, WebResourceId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"WebResource:{Name}";
     public Label DisplayName { get; set; } = new();
     public int WebResourceType { get; set; }
     public string? FileName { get; set; }

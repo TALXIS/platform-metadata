@@ -1,10 +1,17 @@
 using TALXIS.Platform.Metadata.Merging;
+using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class FormMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata
+public sealed class FormMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, IDeletableMetadata, ISolutionComponent
 {
     public required string FormId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.SystemForm, FormId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Form:{EntityLogicalName}:{FormId}";
     public string? FormType { get; set; }
     public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();

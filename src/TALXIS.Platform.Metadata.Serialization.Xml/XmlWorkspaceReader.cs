@@ -195,7 +195,7 @@ public sealed class XmlWorkspaceReader
             if (entity != null && doc != null)
             {
                 workspace.AddEntity(entity);
-                workspace.OriginalDocuments[$"Entity:{entity.LogicalName}"] = doc;
+                workspace.OriginalDocuments[entity.DocumentKey] = doc;
             }
         }
     }
@@ -469,7 +469,7 @@ public sealed class XmlWorkspaceReader
             if (optionSet != null && doc != null)
             {
                 workspace.AddGlobalOptionSet(optionSet);
-                workspace.OriginalDocuments[$"OptionSet:{optionSet.Name}"] = doc;
+                workspace.OriginalDocuments[optionSet.DocumentKey] = doc;
             }
         }
     }
@@ -723,7 +723,7 @@ public sealed class XmlWorkspaceReader
                         form.Body = MergeableNodeXmlConverter.FromXElement(formBody);
 
                     workspace.AddForm(form);
-                    workspace.OriginalDocuments[$"Form:{entityLogicalName}:{formId}"] = doc;
+                    workspace.OriginalDocuments[form.DocumentKey] = doc;
                 }
             }
         }
@@ -768,7 +768,7 @@ public sealed class XmlWorkspaceReader
                 if (descLabel != null) view.Description = descLabel;
 
                 workspace.AddView(view);
-                workspace.OriginalDocuments[$"View:{entityLogicalName}:{savedQueryId}"] = doc;
+                workspace.OriginalDocuments[view.DocumentKey] = doc;
             }
         }
     }
@@ -800,7 +800,7 @@ public sealed class XmlWorkspaceReader
             };
 
             workspace.AddWebResource(webResource);
-            workspace.OriginalDocuments[$"WebResource:{name}"] = doc;
+            workspace.OriginalDocuments[webResource.DocumentKey] = doc;
         }
     }
 
@@ -843,7 +843,7 @@ public sealed class XmlWorkspaceReader
             if (descLabel != null) workflow.Description = descLabel;
 
             workspace.AddWorkflow(workflow);
-            workspace.OriginalDocuments[$"Workflow:{workflowId}"] = doc;
+            workspace.OriginalDocuments[workflow.DocumentKey] = doc;
         }
     }
 
@@ -897,7 +897,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddPluginAssembly(assembly);
-            workspace.OriginalDocuments[$"PluginAssembly:{name}"] = doc;
+            workspace.OriginalDocuments[assembly.DocumentKey] = doc;
         }
     }
 
@@ -952,7 +952,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddSdkMessageProcessingStep(step);
-            workspace.OriginalDocuments[$"Step:{stepId}"] = doc;
+            workspace.OriginalDocuments[step.DocumentKey] = doc;
         }
     }
 
@@ -991,7 +991,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddSecurityRole(role);
-            workspace.OriginalDocuments[$"Role:{roleId}"] = doc;
+            workspace.OriginalDocuments[role.DocumentKey] = doc;
         }
     }
 
@@ -1059,7 +1059,7 @@ public sealed class XmlWorkspaceReader
                 }
 
                 workspace.AddAppModule(appModule);
-                workspace.OriginalDocuments[$"AppModule:{uniqueName}"] = doc;
+                workspace.OriginalDocuments[appModule.DocumentKey] = doc;
             }
         }
     }
@@ -1116,7 +1116,7 @@ public sealed class XmlWorkspaceReader
         siteMap.Body = MergeableNodeXmlConverter.FromXElement(root);
 
         workspace.AddSiteMap(siteMap);
-        workspace.OriginalDocuments[$"SiteMap:{uniqueName}"] = doc;
+        workspace.OriginalDocuments[siteMap.DocumentKey] = doc;
     }
 
     private static void LoadRoundtripPassthroughFiles(Workspace workspace, string rootPath)
@@ -1160,7 +1160,7 @@ public sealed class XmlWorkspaceReader
                     Source = CreateSourceLocation(ribbonDiffFile, root)
                 };
                 workspace.AddRibbon(ribbon);
-                workspace.OriginalDocuments[$"Ribbon:{entityLogicalName}"] = doc;
+                workspace.OriginalDocuments[ribbon.DocumentKey] = doc;
             }
         }
     }

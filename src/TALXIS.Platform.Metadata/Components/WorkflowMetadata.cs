@@ -1,14 +1,22 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
 /// Workflow, action, business-rule, or modern-flow metadata loaded from workflow XML.
 /// </summary>
-public sealed class WorkflowMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata
+public sealed class WorkflowMetadata : MetadataBase, ILocalizedMetadata, IVersionedMetadata, ICustomizableMetadata, ISolutionComponent
 {
     /// <summary>
     /// Gets or sets the workflow identifier.
     /// </summary>
     public required string WorkflowId { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.Workflow, WorkflowId);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Workflow:{WorkflowId}";
 
     /// <inheritdoc />
     public Label DisplayName { get; set; } = new();

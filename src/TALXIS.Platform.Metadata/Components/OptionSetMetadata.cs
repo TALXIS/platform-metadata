@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public sealed class OptionSetMetadata : MetadataBase, ILocalizedMetadata
+public sealed class OptionSetMetadata : MetadataBase, ILocalizedMetadata, ISolutionComponent
 {
     public required string Name { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.OptionSet, Name);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"OptionSet:{Name}";
     public string? OptionSetId { get; set; }
     public Label DisplayName { get; set; } = new();
     public Label Description { get; set; } = new();

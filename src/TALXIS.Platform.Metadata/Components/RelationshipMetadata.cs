@@ -1,8 +1,16 @@
+using TALXIS.Platform.Metadata.Solutions;
+
 namespace TALXIS.Platform.Metadata.Components;
 
-public abstract class RelationshipMetadata : MetadataBase
+public abstract class RelationshipMetadata : MetadataBase, ISolutionComponent
 {
     public required string SchemaName { get; set; }
+
+    /// <inheritdoc />
+    public ComponentIdentity Identity => new(ComponentType.EntityRelationship, SchemaName);
+
+    /// <inheritdoc />
+    public string DocumentKey => $"Relationship:{SchemaName}";
     public bool IsCustomRelationship { get; set; }
     public bool IsCustomizable { get; set; }
     public string? IntroducedVersion { get; set; }
