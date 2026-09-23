@@ -51,8 +51,8 @@ Abstraction layer for I/O — model never touches filesystem directly.
 - [x] `TALXIS.Platform.Metadata.Workspace` package (namespace `Workspaces`) hosting `Workspace` and the contexts
 - [x] Define `IWorkspaceContext` (read/write/delete/list/exists)
 - [x] `FileSystemContext` implementation (scripts, `dotnet new`, direct disk)
-- [ ] `InMemoryContext` implementation (language server, tests, no disk; single-file update for incremental reload)
-- [ ] `TransactionalContext` implementation (CLI — buffered writes, rollback on failure)
+- [x] `InMemoryContext` implementation (language server, tests, no disk; single-file update for incremental reload)
+- [x] `TransactionalContext` implementation (CLI — buffered writes, rollback on failure)
 - [x] Migrate `XmlWorkspaceReader` / `XmlWorkspaceWriter` to `IWorkspaceContext`
 
 ### Dirty tracking
