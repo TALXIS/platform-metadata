@@ -310,8 +310,10 @@ Comprehensive XML deserialization model for `customizations.xml`. Covers entitie
 | Package | Status | Deps | Purpose |
 |---------|--------|------|---------|
 | `TALXIS.Platform.Metadata` | Published | none | Core model, merging, layering, registry |
-| `.Serialization.Xml` | Published | core | SolutionPackager XML read/write |
-| `.Validation` | Published | core | XSD schemas + structural validators |
+| `.Workspace` | Planned | core | Multi-solution workspace container, I/O contexts, builders (namespace `Workspaces`) |
+| `.Serialization.Xml` | Published | core + Workspace | SolutionPackager XML read/write |
+| `.Validation` | Published | core + Xml | XSD schemas + structural validators |
+| `.Packaging` | Published | PowerApps CLI packager (net10.0) | SolutionPackagerLib wrapper for solution ZIP pack/unpack |
 | `.Serialization.Zip` | Planned | core + Xml | Solution ZIP pack/unpack |
 | `.Serialization.Snap` | Planned | core | CDN-optimized snapshot format |
 | `.Provider.Dataverse` | Planned | core | Load/push metadata via Dataverse SDK |

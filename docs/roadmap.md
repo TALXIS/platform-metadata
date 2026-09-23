@@ -19,7 +19,7 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 - IComponentMerger interface + FormMerger using TreeMergeEngine
 - MergeableNode: format-agnostic tree for merge operations (no XML dependency in core)
 - Label data-loss bug fixed (multi-language support)
-- 228 tests passing
+- 228 tests passing at milestone close (663 on the scaffold-migration stack, 2026-09)
 
 ## Milestone 3: MetadataRuntime + Solution Import
 
@@ -38,26 +38,36 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 
 **Goal:** Type-safe component manipulation for CLI and template engine.
 
+### Component access
+One entry point for everything a mutation needs to know about a component (architecture.md, "Solution Layering").
+
+- [ ] `Identity` (type + object id) and `DocumentKey` on every typed component
+- [ ] `Workspace.GetComponent(type, id)` returning Metadata, Layers, ActiveState, Memberships, Snapshots
+- [ ] `ActiveState` resolved through the layer manager (top-wins, or merge for forms, site maps, app modules, ribbons)
+
 ### IWorkspaceContext interface
 Abstraction layer for I/O — model never touches filesystem directly.
 
+- [ ] `TALXIS.Platform.Metadata.Workspace` package (namespace `Workspaces`) hosting `Workspace` and the contexts
 - [ ] Define `IWorkspaceContext` (read/write/delete/list/exists)
 - [ ] `FileSystemContext` implementation (scripts, `dotnet new`, direct disk)
-- [ ] `InMemoryContext` implementation (language server, tests — no disk)
+- [ ] `InMemoryContext` implementation (language server, tests, no disk; single-file update for incremental reload)
 - [ ] `TransactionalContext` implementation (CLI — buffered writes, rollback on failure)
 - [ ] Migrate `XmlWorkspaceReader` / `XmlWorkspaceWriter` to `IWorkspaceContext`
 
 ### Dirty tracking
 Write only modified files. `Load → Save` with no changes = zero git diff.
 
-- [ ] Dirty flag per component
+- [ ] Dirty flag per component, set on property mutation
 - [ ] `Workspace.GetModifiedFiles()` — list files to write
 - [ ] Writer respects dirty flag — skips unmodified
 
 ### Component builders (fluent API)
+Declarative solution framework components only; project-type templates (plugin, PCF, script library, code app) stay `dotnet new` templates.
+
 - [ ] `EntityBuilder` — fluent API for entity + attribute creation
 - [ ] `FormBuilder` — fluent API for form construction (add/remove/move control, add tab/section)
-- [ ] Migrate template post-action scripts to typed API
+- [ ] Migrate the apply-scaffold appliers to the typed API (load, typed mutations, targeted save)
 
 ### MergeableNode manipulation API
 Extended API for editing the form body tree.

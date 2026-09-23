@@ -14,23 +14,15 @@ Microsoft's SolutionPackager has 35+ dedicated processor classes built up over 1
 - **Only ~5 components have special serialization** - Entity (subfolders for forms/views), AppModule (navigation subfolder), PluginAssembly/WebResource (binary + .data.xml), Template (sub-elements as files). Everything else is "extract element → write file."
 - **SCF and GenericComponent already prove the simplified model works** - one handler with dynamic config, not a class per type.
 
-So instead of a processor-per-type hierarchy, we use a **data-driven component registry**:
+So instead of a processor-per-type hierarchy, we use a **data-driven component registry**. Each entry is a `ComponentDefinition` record (`src/TALXIS.Platform.Metadata/ComponentDefinition.cs`):
 
-```csharp
-record ComponentDefinition(
-    int TypeCode,
-    string Name,
-    string XmlElementName,       // "Entities", "Roles", "Workflows", "SCF"
-    string Directory,            // "Entities", "Roles", "Workflows"
-    string FilePattern,          // "$(PrimaryName)/Entity.xml", "$(PrimaryName).xml"
-    IdentityStrategy Identity,   // GUID, Name, or Composite
-    bool SupportsMerge = false,  // only Entity, SiteMap, AppModule, AppModuleSiteMap
-    bool IsFileBacked = false,   // binary + .data.xml (WebResource, Plugin, Report)
-    bool HasSubfolders = false   // Entity (forms/views/visualizations), AppModule
-);
-```
+- identity and layout: type code, name, serialized name, directory, file pattern, identity strategy (GUID, name, composite), aliases
+- behavioral flags ported from Dataverse's `IComponentDefinition`: `IsMergeable`, `HasParent`, `RootComponent`, `IsCustomizable`, `CanBeDeleted`, export keys, group parent
+- serialization hints: `IsFileBacked` (binary + .data.xml), `HasSubfolders` (Entity, AppModule)
 
-A registry of ~95 definitions replaces the entire processor class hierarchy. The 5 special cases get an `IComponentSerializer` override. Everything else uses the default serializer.
+Merge applies to Form/SystemForm, SiteMap, AppModule, AppModuleSiteMap and RibbonCustomization. Everything else, including Entity, is top-wins (see Solution Layering below).
+
+A registry of ~95 definitions replaces the entire processor class hierarchy. The 5 special cases get an `IComponentSerializer` override; everything else uses the default serializer. Today the reader and writer still carry one method per type; the registry-driven default serializer is the target the serialization layer converges to.
 
 ## Two Component Architectures
 
@@ -72,26 +64,34 @@ System                      ← Microsoft out-of-box
 - **Forms, sitemaps, model-driven apps: merge** - layers are combined, not replaced
 - **Managed properties** control what downstream layers can customize
 
-Our model represents layers explicitly:
+Our model represents layers explicitly. A workspace loads any number of solution projects (managed ones become managed layers, unmanaged ones become source snapshots of the shared Active layer) and answers for every component:
 
 ```csharp
 var component = workspace.GetComponent(ComponentType.Entity, "udpp_warehouse");
-component.Layers       // [System, ManagedSolution1, Active]
-component.ActiveState  // resolved/merged result
+component.Metadata     // the typed EntityMetadata to read or mutate
+component.Layers       // [System, ManagedSolution1, Active] in layer order
+component.ActiveState  // resolved/merged result, what the environment shows
+component.Memberships  // Solution.xml root-component rows that reference it
+component.Snapshots    // source projects that own its files (write-back targets)
 ```
+
+Each typed component knows only itself (`Identity` = type + object id, `DocumentKey` = the source document it owns). Everything about its surroundings comes from the workspace, so components can be created before they belong to any solution.
 
 ## Components as Objects
 
 Each component is a C# object, not a raw XML node. The object enforces constraints and tracks state:
 
 ```csharp
-var workspace = Workspace.Load("src/Solutions.DataModel");
+var workspace = new XmlWorkspaceReader().Load("src/Solutions.DataModel");
 
-var entity = workspace.Entities["udpp_warehouse"];
-entity.AddAttribute(new StringAttribute("udpp_name") { MaxLength = 200 });
+var entity = workspace.FindEntity("udpp_warehouse")!;
+entity.AddAttribute(new StringAttributeMetadata { LogicalName = "udpp_name", MaxLength = 200 });
 
-workspace.Save(); // only writes changed files, zero diff on untouched files
+new XmlWorkspaceWriter().Write(workspace, "src/Solutions.DataModel"); // only writes changed files, zero diff on untouched files
+// multi-solution workspaces write per project: writer.WriteSolution(workspace, "Solutions.DataModel", path)
 ```
+
+The container stays format-agnostic: loading and saving belong to the serialization packages, never to the container itself. Fluent builders (`EntityBuilder`, `FormBuilder`) will wrap these typed mutations for scaffolding.
 
 ### Roundtrip-safe serialization
 
@@ -100,7 +100,7 @@ The model preserves XML elements and attributes it doesn't understand:
 - Unknown children are preserved (forward compatibility)
 - Only modified files are written (dirty tracking)
 
-Implementation: model classes wrap the original `XElement`. Known properties read/write through it. Unknown nodes pass through untouched.
+Target implementation: each component has one authoritative persisted document; typed properties are projections over it, unknown nodes pass through untouched. Today the typed classes are plain objects and the serializer keeps the original documents in a per-workspace roundtrip cache that it patches on write. Flow definitions already follow the target (the JSON is authoritative, the typed projection is derived); the XML components converge the same way.
 
 ## Workspace Context
 
@@ -111,53 +111,57 @@ The model doesn't touch the filesystem directly. I/O goes through `IWorkspaceCon
 | `FileSystemContext` | Standalone scripts, `dotnet new`, direct disk |
 | `TransactionalContext` | CLI - buffered writes, rollback on failure |
 | `InMemoryContext` | Language server, tests - no disk |
-| `ApiContext` | Live environment metadata (future) |
+| `ApiContext` | Live environment metadata (Milestone 6, Provider.Dataverse) |
 
-## Namespace Structure
+## Packages and Namespaces
+
+One package per layer; the namespace follows the package except where noted.
 
 ```
-TALXIS.Platform.Metadata
-├── ComponentType (enum - all ~95 type codes)
-├── ComponentDefinition, ComponentDefinitionRegistry
-├── IdentityStrategy (enum - GUID, Name, Composite)
-├── Label, LocalizedLabel
-└── enums: OwnershipType, AttributeType, RelationshipType, ...
+TALXIS.Platform.Metadata                         package: core, zero dependencies
+├── ComponentType (enum), ComponentDefinition, ComponentDefinitionRegistry, IdentityStrategy
+├── MetadataBase, Label, metadata contracts (ILocalizedMetadata, IVersionedMetadata, ...)
+├── Components/   EntityMetadata, AttributeMetadata + Attributes/* typed subclasses,
+│                 RelationshipMetadata, OptionSetMetadata, FormMetadata, SavedQueryMetadata,
+│                 SiteMapMetadata, RibbonMetadata, AppModuleMetadata, WebResourceMetadata,
+│                 WorkflowMetadata, FlowDefinitionMetadata, PluginAssemblyMetadata, PluginTypeMetadata,
+│                 SdkMessageProcessingStepMetadata (+Image), SecurityRoleMetadata, GenericComponentMetadata
+├── Solutions/    Solution, Publisher, RootComponent, ComponentIdentity, SolutionComponentMembership,
+│                 ComponentSourceSnapshot, ComponentLayer, LayerStack, SolutionLayerManager,
+│                 LayerComponentDescriptor, ComponentState, SolutionLayerKind
+├── Merging/      MergeableNode, TreeMergeEngine, IComponentMerger + Form/SiteMap/AppModule/Ribbon mergers
+├── Controls/     CustomControlMetadata, FormControlBinding
+├── Layout/       SolutionPackagerLayout, PathTemplate
+└── Schema/       ComponentSchema, ISchemaIntrospector
 
-TALXIS.Platform.Metadata.Components
-├── EntityMetadata, AttributeMetadata (typed subclasses)
-├── RelationshipMetadata, OptionSetMetadata
-├── FormMetadata, ViewMetadata
-├── PluginAssemblyMetadata, SecurityRoleMetadata
-└── ScfComponentMetadata (generic for SCF types)
+TALXIS.Platform.Metadata.Workspaces              package: TALXIS.Platform.Metadata.Workspace, deps: core (planned)
+├── Workspace (multi-solution container), WorkspaceLoadError
+├── IWorkspaceContext, FileSystemContext, TransactionalContext, InMemoryContext
+└── WorkspaceBuilder, EntityBuilder, FormBuilder (fluent API for creating components)
+    The namespace is plural because the Workspace type cannot share the name of its own namespace.
+    Workspace lives in Serialization.Xml until this package exists.
 
-TALXIS.Platform.Metadata.Solutions
-├── Solution, Publisher
-├── SolutionComponent, ComponentLayer
-├── LayerStack (resolution logic)
-└── ComponentState, ComponentOperation (enums)
+TALXIS.Platform.Metadata.Serialization.Xml       package; deps: core, Workspace, Newtonsoft.Json, System.Text.Json, System.Reflection.MetadataLoadContext
+├── XmlWorkspaceReader      - SolutionPackager folder → model (Load, LoadMany)
+├── XmlWorkspaceWriter      - model → folder (Write, WriteSolution, roundtrip-safe)
+├── IComponentSerializer    - override for the 5 special cases (planned)
+└── Scaffolding/            - apply-scaffold appliers (transitional, move onto the typed API)
 
-TALXIS.Platform.Metadata.Serialization
-├── SolutionPackagerReader  - disk → model
-├── SolutionPackagerWriter  - model → disk (roundtrip-safe)
-└── IComponentSerializer    - override for the 5 special cases
+TALXIS.Platform.Metadata.Validation              package; deps: core, Serialization.Xml
+├── WorkspaceValidator, SolutionValidator, SolutionManifestValidator, RelationshipValidator
+├── SchemaValidator (XSD), JsonValidator, GuidValidator, Xsd/JsonSchemaIntrospector
+└── Schemas/                - embedded XSD resources (36 schemas)
 
-TALXIS.Platform.Metadata.Validation
-├── SchemaValidator         - XSD-based
-├── StructuralValidator     - cross-file consistency
-└── Schemas/                - embedded XSD resources (23 schemas)
-
-TALXIS.Platform.Metadata.Workspace
-├── IWorkspaceContext
-├── FileSystemContext, TransactionalContext, InMemoryContext
-└── WorkspaceBuilder (fluent API for creating components)
+TALXIS.Platform.Metadata.Packaging               package; net10.0; wraps SolutionPackagerLib from the PowerApps CLI
+└── SolutionPackagerService - pack/unpack solution ZIPs
 ```
 
 ## Target Framework
 
-`netstandard2.0` - maximum compatibility:
+`netstandard2.0` for every package except Packaging - maximum compatibility:
 - MSBuild tasks (build SDK)
 - Template post-action scripts (.NET 10 file-based apps)
 - CLI, language server (.NET 10)
 - Runtime services (future)
 
-Zero external dependencies beyond `System.Xml.Linq` and `System.Text.Json`.
+The core package has zero package dependencies (PolySharp is compile-time only) and no System.Xml usage, so it stays AOT and WASM safe. Serialization.Xml adds Newtonsoft.Json, System.Text.Json and System.Reflection.MetadataLoadContext. Packaging targets net10.0 because it hosts the PowerApps CLI packager.
