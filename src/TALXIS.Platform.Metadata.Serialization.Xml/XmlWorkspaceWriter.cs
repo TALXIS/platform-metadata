@@ -16,6 +16,23 @@ public sealed class XmlWorkspaceWriter
 {
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
+    private readonly IWorkspaceContext _context;
+
+    /// <summary>
+    /// Creates a writer over the local file system.
+    /// </summary>
+    public XmlWorkspaceWriter() : this(FileSystemContext.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates a writer that performs all file access through the supplied context.
+    /// </summary>
+    public XmlWorkspaceWriter(IWorkspaceContext context)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+    }
+
     /// <summary>
     /// Writes a workspace to disk in SolutionPackager XML format.
     /// </summary>
@@ -29,7 +46,7 @@ public sealed class XmlWorkspaceWriter
         if (workspace.Solutions.Count > 1)
             throw new InvalidOperationException("The workspace contains multiple solutions. Use WriteSolution(workspace, solutionUniqueName, outputPath) to choose the solution project to export.");
 
-        Directory.CreateDirectory(outputPath);
+        _context.CreateDirectory(outputPath);
 
         if (workspace.Solutions.Count == 1)
             WriteSolutionManifest(workspace.Solutions[0], outputPath, workspace);
@@ -72,7 +89,7 @@ public sealed class XmlWorkspaceWriter
             ?? throw new InvalidOperationException($"Solution '{solutionUniqueName}' is not loaded in the workspace.");
 
         var sourceRoot = FindSourceRoot(workspace, solution.UniqueName);
-        if (sourceRoot != null && Directory.Exists(sourceRoot) && !PathsEqual(sourceRoot, outputPath))
+        if (sourceRoot != null && _context.DirectoryExists(sourceRoot) && !PathsEqual(sourceRoot, outputPath))
         {
             CopyDirectory(sourceRoot, outputPath);
         }
@@ -82,7 +99,7 @@ public sealed class XmlWorkspaceWriter
         }
         else
         {
-            Directory.CreateDirectory(outputPath);
+            _context.CreateDirectory(outputPath);
         }
 
         if (sourceRoot != null)
@@ -93,7 +110,7 @@ public sealed class XmlWorkspaceWriter
         WriteSolutionManifest(solution, outputPath, workspace);
     }
 
-    private static Workspace CreateSolutionExportWorkspace(Workspace workspace, Solution solution, string sourceRoot)
+    private Workspace CreateSolutionExportWorkspace(Workspace workspace, Solution solution, string sourceRoot)
     {
         var exportWorkspace = new Workspace(sourceRoot);
         exportWorkspace.AddSolution(solution);
@@ -109,7 +126,7 @@ public sealed class XmlWorkspaceWriter
         return exportWorkspace;
     }
 
-    private static void AddMetadata(Workspace workspace, MetadataBase metadata)
+    private void AddMetadata(Workspace workspace, MetadataBase metadata)
     {
         switch (metadata)
         {
@@ -185,7 +202,7 @@ public sealed class XmlWorkspaceWriter
     private void WriteSolutionManifest(Solution solution, string outputPath, Workspace workspace)
     {
         var otherDir = Path.Combine(outputPath, "Other");
-        Directory.CreateDirectory(otherDir);
+        _context.CreateDirectory(otherDir);
         var filePath = Path.Combine(otherDir, "Solution.xml");
 
         var originalKey = Workspace.GetSolutionDocumentKey(solution.UniqueName);
@@ -207,7 +224,7 @@ public sealed class XmlWorkspaceWriter
         SaveDocument(doc, filePath);
     }
 
-    private static void PatchSolution(XDocument doc, Solution solution)
+    private void PatchSolution(XDocument doc, Solution solution)
     {
         var manifest = doc.Root?.Element("SolutionManifest");
         if (manifest == null) return;
@@ -257,7 +274,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XDocument BuildSolutionFromScratch(Solution solution)
+    private XDocument BuildSolutionFromScratch(Solution solution)
     {
         var manifest = new XElement("SolutionManifest",
             new XElement("UniqueName", solution.UniqueName),
@@ -310,7 +327,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var entity in workspace.Entities)
         {
             var entityDir = Path.Combine(outputPath, "Entities", entity.LogicalName);
-            Directory.CreateDirectory(entityDir);
+            _context.CreateDirectory(entityDir);
             var filePath = Path.Combine(entityDir, "Entity.xml");
 
             var key = entity.DocumentKey;
@@ -333,7 +350,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void PatchEntity(XDocument doc, EntityMetadata entity)
+    private void PatchEntity(XDocument doc, EntityMetadata entity)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -402,7 +419,7 @@ public sealed class XmlWorkspaceWriter
 
     // Model attributes without an XML counterpart are inserted in SolutionPackager order
     // (by PhysicalName), so entities loaded from disk can gain attributes via AddAttribute.
-    private static void InsertAttributeSorted(XElement attributesEl, AttributeMetadata attr)
+    private void InsertAttributeSorted(XElement attributesEl, AttributeMetadata attr)
     {
         var newEl = BuildAttribute(attr);
         var physicalName = attr.SchemaName ?? attr.LogicalName;
@@ -430,13 +447,13 @@ public sealed class XmlWorkspaceWriter
 
     // Whitespace-preserved documents skip the auto-formatter on save, so a freshly built
     // element re-parses with its indentation shifted to the insertion depth.
-    private static XElement ReindentElement(XElement element, string childIndent)
+    private XElement ReindentElement(XElement element, string childIndent)
     {
         var lines = element.ToString().Replace("\r\n", "\n").Split('\n');
         return XElement.Parse(string.Join(childIndent, lines), LoadOptions.PreserveWhitespace);
     }
 
-    private static void PatchAttribute(XElement attrEl, AttributeMetadata attr)
+    private void PatchAttribute(XElement attrEl, AttributeMetadata attr)
     {
         // Patch display name
         var displaynames = attrEl.Element("displaynames");
@@ -456,7 +473,7 @@ public sealed class XmlWorkspaceWriter
         SetElementValueIfExists(attrEl, "RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel));
     }
 
-    private static XDocument BuildEntityFromScratch(EntityMetadata entity)
+    private XDocument BuildEntityFromScratch(EntityMetadata entity)
     {
         var displayName = entity.DisplayName.Default ?? entity.LogicalName;
 
@@ -496,7 +513,7 @@ public sealed class XmlWorkspaceWriter
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
-    private static XElement BuildAttribute(AttributeMetadata attr)
+    private XElement BuildAttribute(AttributeMetadata attr)
     {
         var physicalName = attr.SchemaName ?? attr.LogicalName;
         var attrEl = new XElement("attribute",
@@ -534,7 +551,7 @@ public sealed class XmlWorkspaceWriter
         return attrEl;
     }
 
-    private static void AddTypeSpecificElements(XElement attrEl, AttributeMetadata attr)
+    private void AddTypeSpecificElements(XElement attrEl, AttributeMetadata attr)
     {
         switch (attr)
         {
@@ -585,7 +602,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static string GetXmlTypeName(AttributeMetadata attr)
+    private string GetXmlTypeName(AttributeMetadata attr)
     {
         return attr.AttributeType switch
         {
@@ -619,7 +636,7 @@ public sealed class XmlWorkspaceWriter
         if (workspace.GlobalOptionSets.Count == 0) return;
 
         var optionSetsDir = Path.Combine(outputPath, "OptionSets");
-        Directory.CreateDirectory(optionSetsDir);
+        _context.CreateDirectory(optionSetsDir);
 
         foreach (var optionSet in workspace.GlobalOptionSets)
         {
@@ -645,7 +662,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void PatchOptionSet(XDocument doc, OptionSetMetadata optionSet)
+    private void PatchOptionSet(XDocument doc, OptionSetMetadata optionSet)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -699,7 +716,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XDocument BuildOptionSetFromScratch(OptionSetMetadata optionSet)
+    private XDocument BuildOptionSetFromScratch(OptionSetMetadata optionSet)
     {
         var root = new XElement("optionset",
             new XAttribute("Name", optionSet.Name),
@@ -774,11 +791,11 @@ public sealed class XmlWorkspaceWriter
             return;
         }
 
-        Directory.CreateDirectory(Path.Combine(outputPath, "Other"));
+        _context.CreateDirectory(Path.Combine(outputPath, "Other"));
         SaveDocument(doc, filePath);
     }
 
-    private static void PatchRelationships(XDocument doc, IReadOnlyList<RelationshipMetadata> relationships, IReadOnlyCollection<string>? preservedNames = null)
+    private void PatchRelationships(XDocument doc, IReadOnlyList<RelationshipMetadata> relationships, IReadOnlyCollection<string>? preservedNames = null)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -820,7 +837,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void AddChildElementPreservingWhitespace(XElement parent, XElement child)
+    private void AddChildElementPreservingWhitespace(XElement parent, XElement child)
     {
         var childIndent = parent.Nodes()
             .OfType<XText>()
@@ -836,7 +853,7 @@ public sealed class XmlWorkspaceWriter
         parent.Add(child);
     }
 
-    private static void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
+    private void PatchRelationshipChildren(XElement relEl, RelationshipMetadata rel)
     {
         // If-exists: bare <EntityRelationship Name="..."/> stubs must stay bare on roundtrip
         SetElementValueIfExists(relEl, "EntityRelationshipType", rel is ManyToManyRelationshipMetadata ? "ManyToMany" : "OneToMany");
@@ -878,7 +895,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XElement BuildRelationshipElement(RelationshipMetadata rel)
+    private XElement BuildRelationshipElement(RelationshipMetadata rel)
     {
         var relEl = new XElement("EntityRelationship",
             new XAttribute("Name", rel.SchemaName));
@@ -931,7 +948,7 @@ public sealed class XmlWorkspaceWriter
         return relEl;
     }
 
-    private static XElement BuildRelationshipRoleElement(RelationshipRoleMetadata role)
+    private XElement BuildRelationshipRoleElement(RelationshipRoleMetadata role)
     {
         var roleEl = new XElement("EntityRelationshipRole");
         if (role.NavPaneDisplayOption != null)
@@ -947,7 +964,7 @@ public sealed class XmlWorkspaceWriter
         return roleEl;
     }
 
-    private static XDocument BuildRelationshipsFromScratch(IReadOnlyList<RelationshipMetadata> relationships)
+    private XDocument BuildRelationshipsFromScratch(IReadOnlyList<RelationshipMetadata> relationships)
     {
         var root = new XElement("EntityRelationships",
             new XAttribute(XNamespace.Xmlns + "xsi", Xsi.NamespaceName));
@@ -974,7 +991,7 @@ public sealed class XmlWorkspaceWriter
 
         if (grouped.Count > 0)
         {
-            Directory.CreateDirectory(relationshipsDir);
+            _context.CreateDirectory(relationshipsDir);
 
             foreach (var group in grouped)
             {
@@ -1001,22 +1018,22 @@ public sealed class XmlWorkspaceWriter
             DeleteFileIfExists(Path.Combine(outputPath, key.Substring("Relationships:".Length)));
         }
 
-        if (Directory.Exists(relationshipsDir) && !Directory.EnumerateFileSystemEntries(relationshipsDir).Any())
-            Directory.Delete(relationshipsDir);
+        if (_context.DirectoryExists(relationshipsDir) && IsEmptyDirectory(relationshipsDir))
+            _context.DeleteDirectory(relationshipsDir, recursive: false);
     }
 
-    private static string GetPerEntityRelationshipFileEntityName(string documentKey) =>
+    private string GetPerEntityRelationshipFileEntityName(string documentKey) =>
         Path.GetFileNameWithoutExtension(documentKey.Substring("Relationships:".Length));
 
-    private static void DeleteFileIfExists(string path)
-    {
-        if (File.Exists(path)) File.Delete(path);
-    }
+    private void DeleteFileIfExists(string path) => _context.DeleteFile(path);
+
+    private bool IsEmptyDirectory(string path) =>
+        !_context.EnumerateFiles(path, "*", recursive: false).Any() && !_context.EnumerateDirectories(path, recursive: false).Any();
 
     // A relationship's full definition must live in exactly one file, otherwise SolutionPackager
     // pack fails with a duplicate-name error. Each relationship stays in the per-entity file it
     // was loaded from; relationships without a per-entity home belong to the main Relationships.xml.
-    private static Dictionary<string, IReadOnlyList<RelationshipMetadata>> GroupRelationshipsByEntity(IReadOnlyList<RelationshipMetadata> relationships)
+    private Dictionary<string, IReadOnlyList<RelationshipMetadata>> GroupRelationshipsByEntity(IReadOnlyList<RelationshipMetadata> relationships)
     {
         var grouped = new Dictionary<string, List<RelationshipMetadata>>(StringComparer.OrdinalIgnoreCase);
 
@@ -1036,7 +1053,7 @@ public sealed class XmlWorkspaceWriter
         return grouped.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyList<RelationshipMetadata>)kvp.Value, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string? GetPerEntityRelationshipHome(RelationshipMetadata relationship)
+    private string? GetPerEntityRelationshipHome(RelationshipMetadata relationship)
     {
         var filePath = relationship.Source?.FilePath;
         if (string.IsNullOrEmpty(filePath)) return null;
@@ -1069,17 +1086,17 @@ public sealed class XmlWorkspaceWriter
             {
                 var formType = form.FormType ?? "main";
                 var entityDir = Path.Combine(outputPath, "Entities", form.EntityLogicalName ?? "Unknown", "FormXml", formType);
-                Directory.CreateDirectory(entityDir);
+                _context.CreateDirectory(entityDir);
                 var fileName = form.FormId.StartsWith("{") ? $"{form.FormId}.xml" : $"{{{form.FormId}}}.xml";
                 filePath = Path.Combine(entityDir, fileName);
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchForm(XDocument doc, FormMetadata form)
+    private void PatchForm(XDocument doc, FormMetadata form)
     {
         var systemForm = doc.Root?.Element("systemform");
         if (systemForm == null) return;
@@ -1123,14 +1140,14 @@ public sealed class XmlWorkspaceWriter
             PatchView(doc, view);
 
             var entityDir = Path.Combine(outputPath, "Entities", view.EntityLogicalName ?? "Unknown", "SavedQueries");
-            Directory.CreateDirectory(entityDir);
+            _context.CreateDirectory(entityDir);
             var fileName = view.SavedQueryId.StartsWith("{") ? $"{view.SavedQueryId}.xml" : $"{{{view.SavedQueryId}}}.xml";
             var filePath = Path.Combine(entityDir, fileName);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchView(XDocument doc, SavedQueryMetadata view)
+    private void PatchView(XDocument doc, SavedQueryMetadata view)
     {
         var savedQuery = doc.Root?.Element("savedquery");
         if (savedQuery == null) return;
@@ -1174,16 +1191,16 @@ public sealed class XmlWorkspaceWriter
             }
 
             var webResourcesDir = Path.Combine(outputPath, "WebResources");
-            Directory.CreateDirectory(webResourcesDir);
+            _context.CreateDirectory(webResourcesDir);
             // Use the Name with slashes replaced for file path, keeping .data.xml extension
             var safeName = webResource.Name.Replace('/', Path.DirectorySeparatorChar);
             var filePath = Path.Combine(webResourcesDir, safeName + ".data.xml");
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchWebResource(XDocument doc, WebResourceMetadata webResource)
+    private void PatchWebResource(XDocument doc, WebResourceMetadata webResource)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -1205,7 +1222,7 @@ public sealed class XmlWorkspaceWriter
         SetElementValueIfExists(root, "IsAvailableForMobileOffline", webResource.IsAvailableForMobileOffline ? "1" : "0");
     }
 
-    private static XDocument BuildWebResourceFromScratch(WebResourceMetadata webResource)
+    private XDocument BuildWebResourceFromScratch(WebResourceMetadata webResource)
     {
         var displayName = webResource.DisplayName.Default;
         var root = new XElement("WebResource",
@@ -1244,17 +1261,17 @@ public sealed class XmlWorkspaceWriter
             if (filePath == null)
             {
                 var workflowsDir = Path.Combine(outputPath, "Workflows");
-                Directory.CreateDirectory(workflowsDir);
+                _context.CreateDirectory(workflowsDir);
                 var fileName = workflow.UniqueName ?? workflow.WorkflowId;
                 filePath = Path.Combine(workflowsDir, $"{fileName}.data.xml");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchWorkflow(XDocument doc, WorkflowMetadata workflow)
+    private void PatchWorkflow(XDocument doc, WorkflowMetadata workflow)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -1314,16 +1331,16 @@ public sealed class XmlWorkspaceWriter
             {
                 var assemblyName = assembly.Name ?? assembly.PluginAssemblyId;
                 var assemblyDir = Path.Combine(outputPath, "PluginAssemblies", assemblyName);
-                Directory.CreateDirectory(assemblyDir);
+                _context.CreateDirectory(assemblyDir);
                 filePath = Path.Combine(assemblyDir, $"{assemblyName}.data.xml");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchPluginAssembly(XDocument doc, PluginAssemblyMetadata assembly)
+    private void PatchPluginAssembly(XDocument doc, PluginAssemblyMetadata assembly)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -1369,7 +1386,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XDocument BuildPluginAssemblyFromScratch(PluginAssemblyMetadata assembly)
+    private XDocument BuildPluginAssemblyFromScratch(PluginAssemblyMetadata assembly)
     {
         var root = new XElement("PluginAssembly",
             new XAttribute("PluginAssemblyId", assembly.PluginAssemblyId));
@@ -1432,7 +1449,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             var stepsDir = Path.Combine(outputPath, "SdkMessageProcessingSteps");
-            Directory.CreateDirectory(stepsDir);
+            _context.CreateDirectory(stepsDir);
             var fileName = step.SdkMessageProcessingStepId.StartsWith("{")
                 ? $"{step.SdkMessageProcessingStepId}.xml"
                 : $"{{{step.SdkMessageProcessingStepId}}}.xml";
@@ -1441,7 +1458,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void PatchSdkMessageProcessingStep(XDocument doc, SdkMessageProcessingStepMetadata step)
+    private void PatchSdkMessageProcessingStep(XDocument doc, SdkMessageProcessingStepMetadata step)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -1499,7 +1516,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XDocument BuildSdkMessageProcessingStepFromScratch(SdkMessageProcessingStepMetadata step)
+    private XDocument BuildSdkMessageProcessingStepFromScratch(SdkMessageProcessingStepMetadata step)
     {
         var root = new XElement("SdkMessageProcessingStep",
             new XAttribute("SdkMessageProcessingStepId", step.SdkMessageProcessingStepId));
@@ -1577,13 +1594,13 @@ public sealed class XmlWorkspaceWriter
             }
 
             var rolesDir = Path.Combine(outputPath, "Roles");
-            Directory.CreateDirectory(rolesDir);
+            _context.CreateDirectory(rolesDir);
             var filePath = Path.Combine(rolesDir, $"{role.Name}.xml");
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchSecurityRole(XDocument doc, SecurityRoleMetadata role)
+    private void PatchSecurityRole(XDocument doc, SecurityRoleMetadata role)
     {
         var root = doc.Root;
         if (root == null) return;
@@ -1611,7 +1628,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static XDocument BuildSecurityRoleFromScratch(SecurityRoleMetadata role)
+    private XDocument BuildSecurityRoleFromScratch(SecurityRoleMetadata role)
     {
         var root = new XElement("Role",
             new XAttribute("id", role.RoleId),
@@ -1648,16 +1665,16 @@ public sealed class XmlWorkspaceWriter
             if (filePath == null)
             {
                 var appModuleDir = Path.Combine(outputPath, "AppModules", appModule.UniqueName);
-                Directory.CreateDirectory(appModuleDir);
+                _context.CreateDirectory(appModuleDir);
                 filePath = Path.Combine(appModuleDir, "AppModule.xml");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchAppModule(XDocument doc, AppModuleMetadata appModule)
+    private void PatchAppModule(XDocument doc, AppModuleMetadata appModule)
     {
         if (appModule.Body != null)
         {
@@ -1724,16 +1741,16 @@ public sealed class XmlWorkspaceWriter
             if (filePath == null)
             {
                 var siteMapDir = Path.Combine(outputPath, "AppModuleSiteMaps", siteMap.UniqueName);
-                Directory.CreateDirectory(siteMapDir);
+                _context.CreateDirectory(siteMapDir);
                 filePath = Path.Combine(siteMapDir, $"{siteMap.UniqueName}.xml");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchSiteMap(XDocument doc, SiteMapMetadata siteMap)
+    private void PatchSiteMap(XDocument doc, SiteMapMetadata siteMap)
     {
         if (siteMap.Body != null)
         {
@@ -1773,16 +1790,16 @@ public sealed class XmlWorkspaceWriter
             if (filePath == null)
             {
                 var entityDir = Path.Combine(outputPath, "Entities", ribbon.EntityLogicalName ?? "Unknown", "RibbonDiffXml");
-                Directory.CreateDirectory(entityDir);
+                _context.CreateDirectory(entityDir);
                 filePath = Path.Combine(entityDir, "RibbonDiff.xml");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             SaveDocument(doc, filePath);
         }
     }
 
-    private static void PatchRibbon(XDocument doc, RibbonMetadata ribbon)
+    private void PatchRibbon(XDocument doc, RibbonMetadata ribbon)
     {
         if (ribbon.Body == null) return;
 
@@ -1793,7 +1810,7 @@ public sealed class XmlWorkspaceWriter
             doc.Add(replacementRoot);
     }
 
-    private static XDocument BuildRibbonFromScratch(RibbonMetadata ribbon)
+    private XDocument BuildRibbonFromScratch(RibbonMetadata ribbon)
     {
         var root = ribbon.Body != null
             ? MergeableNodeXmlConverter.ToXElement(ribbon.Body)
@@ -1803,7 +1820,7 @@ public sealed class XmlWorkspaceWriter
 
     // --- Helpers ---
 
-    private static void SetElementValue(XElement parent, string elementName, string value)
+    private void SetElementValue(XElement parent, string elementName, string value)
     {
         var el = parent.Element(elementName);
         if (el != null)
@@ -1815,7 +1832,7 @@ public sealed class XmlWorkspaceWriter
     /// <summary>
     /// Updates an element's content, preserving CDATA wrapping if the original content used it.
     /// </summary>
-    private static void SetElementContentPreserveCData(XElement parent, string elementName, string? value)
+    private void SetElementContentPreserveCData(XElement parent, string elementName, string? value)
     {
         if (value == null) return;
         var el = parent.Element(elementName);
@@ -1834,7 +1851,7 @@ public sealed class XmlWorkspaceWriter
         }
     }
 
-    private static void SetElementValueIfExists(XElement parent, string elementName, string? value)
+    private void SetElementValueIfExists(XElement parent, string elementName, string? value)
     {
         if (value == null) return;
         var el = parent.Element(elementName);
@@ -1842,7 +1859,7 @@ public sealed class XmlWorkspaceWriter
             el.Value = value;
     }
 
-    private static void PatchLocalizedNames(XElement container, string childName, Label label)
+    private void PatchLocalizedNames(XElement container, string childName, Label label)
     {
         foreach (var kvp in label.LocalizedLabels)
         {
@@ -1907,7 +1924,7 @@ public sealed class XmlWorkspaceWriter
 
             var filePath = Path.Combine(outputPath, component.FilePath);
             var dir = Path.GetDirectoryName(filePath);
-            if (dir != null) Directory.CreateDirectory(dir);
+            if (dir != null) _context.CreateDirectory(dir);
             SaveDocument(doc, filePath);
         }
     }
@@ -1916,7 +1933,7 @@ public sealed class XmlWorkspaceWriter
     /// If the metadata was loaded from a file under <paramref name="originalRoot"/>,
     /// returns the equivalent path under <paramref name="outputRoot"/>; otherwise null.
     /// </summary>
-    private static string? TryGetOriginalRelativePath(SourceLocation? source, string originalRoot, string outputRoot)
+    private string? TryGetOriginalRelativePath(SourceLocation? source, string originalRoot, string outputRoot)
     {
         if (source?.FilePath == null) return null;
 
@@ -1931,7 +1948,7 @@ public sealed class XmlWorkspaceWriter
         return Path.Combine(outputRoot, relativePath);
     }
 
-    private static string? FindSourceRoot(Workspace workspace, string solutionUniqueName)
+    private string? FindSourceRoot(Workspace workspace, string solutionUniqueName)
     {
         var sourceRoot = workspace.ComponentSourceSnapshots
             .Where(source => string.Equals(source.SourceSolutionUniqueName, solutionUniqueName, StringComparison.OrdinalIgnoreCase))
@@ -1947,26 +1964,26 @@ public sealed class XmlWorkspaceWriter
             .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
     }
 
-    private static void CopyDirectory(string sourcePath, string outputPath)
+    private void CopyDirectory(string sourcePath, string outputPath)
     {
-        Directory.CreateDirectory(outputPath);
+        _context.CreateDirectory(outputPath);
 
-        foreach (var directory in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
+        foreach (var directory in _context.EnumerateDirectories(sourcePath, recursive: true))
         {
             var relativeDirectory = GetRelativePath(sourcePath, directory);
-            Directory.CreateDirectory(Path.Combine(outputPath, relativeDirectory));
+            _context.CreateDirectory(Path.Combine(outputPath, relativeDirectory));
         }
 
-        foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))
+        foreach (var file in _context.EnumerateFiles(sourcePath, "*", recursive: true))
         {
             var relativeFile = GetRelativePath(sourcePath, file);
             var targetFile = Path.Combine(outputPath, relativeFile);
-            Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-            File.Copy(file, targetFile, overwrite: true);
+            _context.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+            _context.CopyFile(file, targetFile, overwrite: true);
         }
     }
 
-    private static string GetRelativePath(string basePath, string path)
+    private string GetRelativePath(string basePath, string path)
     {
         var baseUri = new Uri(AppendDirectorySeparator(Path.GetFullPath(basePath)));
         var pathUri = new Uri(Path.GetFullPath(path));
@@ -1974,7 +1991,7 @@ public sealed class XmlWorkspaceWriter
             .Replace('/', Path.DirectorySeparatorChar);
     }
 
-    private static string AppendDirectorySeparator(string path)
+    private string AppendDirectorySeparator(string path)
     {
         if (path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             || path.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
@@ -1983,18 +2000,18 @@ public sealed class XmlWorkspaceWriter
         return path + Path.DirectorySeparatorChar;
     }
 
-    private static bool PathsEqual(string left, string right)
+    private bool PathsEqual(string left, string right)
     {
         var leftFull = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void SaveDocument(XDocument doc, string filePath)
+    private void SaveDocument(XDocument doc, string filePath)
     {
         if (HasPreservedWhitespace(doc))
         {
-            using var stream = File.Create(filePath);
+            using var stream = _context.Create(filePath);
             using var textWriter = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
             // XDocument drops the line break between the declaration and the root
             // element, so write the declaration on its own line ourselves.
@@ -2025,18 +2042,19 @@ public sealed class XmlWorkspaceWriter
             OmitXmlDeclaration = false
         };
 
-        using var writer = XmlWriter.Create(filePath, settings);
+        using var output = _context.Create(filePath);
+        using var writer = XmlWriter.Create(output, settings);
         doc.Save(writer);
     }
 
-    private static bool HasPreservedWhitespace(XDocument doc)
+    private bool HasPreservedWhitespace(XDocument doc)
     {
         return (doc.Root?.DescendantNodesAndSelf() ?? Enumerable.Empty<XNode>())
             .OfType<XText>()
             .Any(static text => string.IsNullOrWhiteSpace(text.Value));
     }
 
-    private static void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children)
+    private void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children)
     {
         var replacements = children.ToList();
         // Whitespace text can span several lines, as in an empty container;
@@ -2090,7 +2108,7 @@ public sealed class XmlWorkspaceWriter
 
     // A freshly built element (no whitespace of its own) would serialize as one inline
     // run under DisableFormatting; give its subtree line breaks matching the container.
-    private static void IndentFreshSubtree(XElement element, string ownIndent)
+    private void IndentFreshSubtree(XElement element, string ownIndent)
     {
         if (!element.HasElements || element.Nodes().OfType<XText>().Any()) return;
 
@@ -2106,13 +2124,13 @@ public sealed class XmlWorkspaceWriter
         element.Add(new XText(ownIndent));
     }
 
-    private static string NewlineRun(string whitespace, bool first)
+    private string NewlineRun(string whitespace, bool first)
     {
         var matches = System.Text.RegularExpressions.Regex.Matches(whitespace, "\r?\n[ \t]*");
         return matches.Count == 0 ? whitespace : matches[first ? 0 : matches.Count - 1].Value;
     }
 
-    private static bool ContainsNewLine(string value)
+    private bool ContainsNewLine(string value)
     {
         return value.Contains('\n') || value.Contains('\r');
     }

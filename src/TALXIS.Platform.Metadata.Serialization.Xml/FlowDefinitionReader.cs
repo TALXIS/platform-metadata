@@ -8,17 +8,17 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml;
 
 internal static class FlowDefinitionReader
 {
-    public static void Load(Workspace workspace, string rootPath)
+    public static void Load(Workspace workspace, string rootPath, IWorkspaceContext context)
     {
         var workflowsDir = Path.Combine(rootPath, "Workflows");
-        if (!Directory.Exists(workflowsDir)) return;
+        if (!context.DirectoryExists(workflowsDir)) return;
 
-        foreach (var file in Directory.EnumerateFiles(workflowsDir, "*.json", SearchOption.AllDirectories))
+        foreach (var file in context.EnumerateFiles(workflowsDir, "*.json", recursive: true))
         {
             JObject root;
             try
             {
-                root = LoadJsonDocument(file);
+                root = LoadJsonDocument(file, context);
             }
             catch (JsonReaderException ex)
             {
@@ -395,9 +395,9 @@ internal static class FlowDefinitionReader
             workflow.FlowDefinition = flow;
     }
 
-    private static JObject LoadJsonDocument(string filePath)
+    private static JObject LoadJsonDocument(string filePath, IWorkspaceContext context)
     {
-        using var textReader = File.OpenText(filePath);
+        using var textReader = new StreamReader(context.OpenRead(filePath));
         using var jsonReader = new JsonTextReader(textReader)
         {
             DateParseHandling = DateParseHandling.None

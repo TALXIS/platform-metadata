@@ -48,12 +48,12 @@ One entry point for everything a mutation needs to know about a component (archi
 ### IWorkspaceContext interface
 Abstraction layer for I/O — model never touches filesystem directly.
 
-- [ ] `TALXIS.Platform.Metadata.Workspace` package (namespace `Workspaces`) hosting `Workspace` and the contexts
-- [ ] Define `IWorkspaceContext` (read/write/delete/list/exists)
-- [ ] `FileSystemContext` implementation (scripts, `dotnet new`, direct disk)
+- [x] `TALXIS.Platform.Metadata.Workspace` package (namespace `Workspaces`) hosting `Workspace` and the contexts
+- [x] Define `IWorkspaceContext` (read/write/delete/list/exists)
+- [x] `FileSystemContext` implementation (scripts, `dotnet new`, direct disk)
 - [ ] `InMemoryContext` implementation (language server, tests, no disk; single-file update for incremental reload)
 - [ ] `TransactionalContext` implementation (CLI — buffered writes, rollback on failure)
-- [ ] Migrate `XmlWorkspaceReader` / `XmlWorkspaceWriter` to `IWorkspaceContext`
+- [x] Migrate `XmlWorkspaceReader` / `XmlWorkspaceWriter` to `IWorkspaceContext`
 
 ### Dirty tracking
 Write only modified files. `Load → Save` with no changes = zero git diff.

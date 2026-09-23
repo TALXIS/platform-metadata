@@ -106,6 +106,8 @@ Target implementation: each component has one authoritative persisted document; 
 
 The model doesn't touch the filesystem directly. I/O goes through `IWorkspaceContext`:
 
+`XmlWorkspaceReader` and `XmlWorkspaceWriter` take an `IWorkspaceContext`; their parameterless constructors use `FileSystemContext`, so existing callers keep working while tests, the CLI and the language server can swap the implementation.
+
 | Implementation | Use case |
 |---|---|
 | `FileSystemContext` | Standalone scripts, `dotnet new`, direct disk |

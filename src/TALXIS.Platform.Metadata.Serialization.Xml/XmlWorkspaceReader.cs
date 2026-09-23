@@ -14,6 +14,23 @@ public sealed class XmlWorkspaceReader
 {
     private const LoadOptions XmlLoadOptions = LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo;
 
+    private readonly IWorkspaceContext _context;
+
+    /// <summary>
+    /// Creates a reader over the local file system.
+    /// </summary>
+    public XmlWorkspaceReader() : this(FileSystemContext.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates a reader that performs all file access through the supplied context.
+    /// </summary>
+    public XmlWorkspaceReader(IWorkspaceContext context)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+    }
+
     /// <summary>
     /// Loads a solution workspace from disk.
     /// </summary>
@@ -25,7 +42,7 @@ public sealed class XmlWorkspaceReader
 
     private Workspace LoadCore(string workspacePath, bool registerSolutionSource)
     {
-        if (!Directory.Exists(workspacePath))
+        if (!_context.DirectoryExists(workspacePath))
             throw new DirectoryNotFoundException($"Workspace directory not found: {workspacePath}");
 
         var workspace = new Workspace(workspacePath);
@@ -72,7 +89,7 @@ public sealed class XmlWorkspaceReader
 
         foreach (var source in orderedSources)
         {
-            if (!Directory.Exists(source.Path))
+            if (!_context.DirectoryExists(source.Path))
                 throw new DirectoryNotFoundException($"Workspace directory not found: {source.Path}");
         }
 
@@ -97,10 +114,10 @@ public sealed class XmlWorkspaceReader
         return workspace;
     }
 
-    private static void LoadSolution(Workspace workspace, string rootPath)
+    private void LoadSolution(Workspace workspace, string rootPath)
     {
         var solutionFile = Path.Combine(rootPath, "Other", "Solution.xml");
-        if (!File.Exists(solutionFile)) return;
+        if (!_context.FileExists(solutionFile)) return;
 
         var doc = LoadDocument(solutionFile);
         var manifest = doc.Root?.Element("SolutionManifest");
@@ -167,7 +184,7 @@ public sealed class XmlWorkspaceReader
         workspace.AddSolution(solution);
     }
 
-    private static void RegisterLoadedSolutionSource(
+    private void RegisterLoadedSolutionSource(
         Workspace workspace,
         string workspacePath,
         int order,
@@ -181,15 +198,15 @@ public sealed class XmlWorkspaceReader
         workspace.RegisterSolutionSource(solution, order, workspacePath, components ?? workspace.EnumerateLayerComponents());
     }
 
-    private static void LoadEntities(Workspace workspace, string rootPath)
+    private void LoadEntities(Workspace workspace, string rootPath)
     {
         var entitiesDir = Path.Combine(rootPath, "Entities");
-        if (!Directory.Exists(entitiesDir)) return;
+        if (!_context.DirectoryExists(entitiesDir)) return;
 
-        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        foreach (var entityDir in _context.EnumerateDirectories(entitiesDir, recursive: false))
         {
             var entityFile = Path.Combine(entityDir, "Entity.xml");
-            if (!File.Exists(entityFile)) continue;
+            if (!_context.FileExists(entityFile)) continue;
 
             var (entity, doc) = ParseEntityFile(entityFile);
             if (entity != null && doc != null)
@@ -200,7 +217,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static (EntityMetadata? entity, XDocument? doc) ParseEntityFile(string filePath)
+    private (EntityMetadata? entity, XDocument? doc) ParseEntityFile(string filePath)
     {
         var doc = LoadDocument(filePath);
         var root = doc.Root; // <Entity>
@@ -285,7 +302,7 @@ public sealed class XmlWorkspaceReader
         return (entity, doc);
     }
 
-    private static AttributeMetadata? ParseAttribute(XElement attrEl, string filePath)
+    private AttributeMetadata? ParseAttribute(XElement attrEl, string filePath)
     {
         var typeStr = attrEl.Element("Type")?.Value?.ToLowerInvariant() ?? "";
         var logicalName = attrEl.Element("LogicalName")?.Value;
@@ -314,7 +331,7 @@ public sealed class XmlWorkspaceReader
         return attr;
     }
 
-    private static AttributeMetadata? CreateTypedAttribute(string typeStr, XElement attrEl, string logicalName)
+    private AttributeMetadata? CreateTypedAttribute(string typeStr, XElement attrEl, string logicalName)
     {
         switch (typeStr)
         {
@@ -458,12 +475,12 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadGlobalOptionSets(Workspace workspace, string rootPath)
+    private void LoadGlobalOptionSets(Workspace workspace, string rootPath)
     {
         var optionSetsDir = Path.Combine(rootPath, "OptionSets");
-        if (!Directory.Exists(optionSetsDir)) return;
+        if (!_context.DirectoryExists(optionSetsDir)) return;
 
-        foreach (var file in Directory.GetFiles(optionSetsDir, "*.xml"))
+        foreach (var file in _context.EnumerateFiles(optionSetsDir, "*.xml", recursive: false))
         {
             var (optionSet, doc) = ParseOptionSetFile(file);
             if (optionSet != null && doc != null)
@@ -474,7 +491,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static (OptionSetMetadata? optionSet, XDocument? doc) ParseOptionSetFile(string filePath)
+    private (OptionSetMetadata? optionSet, XDocument? doc) ParseOptionSetFile(string filePath)
     {
         var doc = LoadDocument(filePath);
         var root = doc.Root; // <optionset>
@@ -523,11 +540,11 @@ public sealed class XmlWorkspaceReader
         return (optionSet, doc);
     }
 
-    private static void LoadRelationships(Workspace workspace, string rootPath)
+    private void LoadRelationships(Workspace workspace, string rootPath)
     {
         var relationshipsByName = new Dictionary<string, RelationshipMetadata>(StringComparer.OrdinalIgnoreCase);
         var relationshipsFile = Path.Combine(rootPath, "Other", "Relationships.xml");
-        if (File.Exists(relationshipsFile))
+        if (_context.FileExists(relationshipsFile))
         {
             var doc = LoadDocument(relationshipsFile);
             workspace.OriginalDocuments()["Relationships.xml"] = doc;
@@ -535,9 +552,9 @@ public sealed class XmlWorkspaceReader
         }
 
         var relationshipsDir = Path.Combine(rootPath, "Other", "Relationships");
-        if (Directory.Exists(relationshipsDir))
+        if (_context.DirectoryExists(relationshipsDir))
         {
-            foreach (var file in Directory.GetFiles(relationshipsDir, "*.xml", SearchOption.AllDirectories))
+            foreach (var file in _context.EnumerateFiles(relationshipsDir, "*.xml", recursive: true))
             {
                 var doc = LoadDocument(file);
                 var relativePath = GetRelativePath(rootPath, file);
@@ -553,7 +570,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadRelationshipElements(
+    private void LoadRelationshipElements(
         Dictionary<string, RelationshipMetadata> relationshipsByName,
         XElement? root,
         string sourceFile,
@@ -573,7 +590,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static RelationshipMetadata? ParseRelationship(XElement relEl, string sourceFile)
+    private RelationshipMetadata? ParseRelationship(XElement relEl, string sourceFile)
     {
         var name = relEl.Attribute("Name")?.Value;
         if (string.IsNullOrEmpty(name)) return null;
@@ -641,7 +658,7 @@ public sealed class XmlWorkspaceReader
         return relationship;
     }
 
-    private static void AttachRelationshipToEntities(Workspace workspace, RelationshipMetadata relationship)
+    private void AttachRelationshipToEntities(Workspace workspace, RelationshipMetadata relationship)
     {
         foreach (var entity in workspace.Entities)
         {
@@ -652,7 +669,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
+    private bool IsRelationshipParticipant(RelationshipMetadata relationship, string logicalName)
     {
         if (relationship is OneToManyRelationshipMetadata oneToMany)
         {
@@ -669,29 +686,29 @@ public sealed class XmlWorkspaceReader
         return false;
     }
 
-    private static CascadeType ParseCascade(string? value, CascadeType defaultValue)
+    private CascadeType ParseCascade(string? value, CascadeType defaultValue)
     {
         return Enum.TryParse<CascadeType>(value, ignoreCase: true, out var cascade)
             ? cascade
             : defaultValue;
     }
 
-    private static void LoadForms(Workspace workspace, string rootPath)
+    private void LoadForms(Workspace workspace, string rootPath)
     {
         var entitiesDir = Path.Combine(rootPath, "Entities");
-        if (!Directory.Exists(entitiesDir)) return;
+        if (!_context.DirectoryExists(entitiesDir)) return;
 
-        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        foreach (var entityDir in _context.EnumerateDirectories(entitiesDir, recursive: false))
         {
             var entityLogicalName = Path.GetFileName(entityDir);
             var formXmlDir = Path.Combine(entityDir, "FormXml");
-            if (!Directory.Exists(formXmlDir)) continue;
+            if (!_context.DirectoryExists(formXmlDir)) continue;
 
-            foreach (var formTypeDir in Directory.GetDirectories(formXmlDir))
+            foreach (var formTypeDir in _context.EnumerateDirectories(formXmlDir, recursive: false))
             {
                 var formType = Path.GetFileName(formTypeDir);
                 var loadedFormIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var formFile in OrderManagedVariantFiles(Directory.GetFiles(formTypeDir, "*.xml")))
+                foreach (var formFile in OrderManagedVariantFiles(_context.EnumerateFiles(formTypeDir, "*.xml", recursive: false)))
                 {
                     var doc = LoadDocument(formFile);
                     var systemForm = doc.Root?.Element("systemform");
@@ -729,18 +746,18 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadViews(Workspace workspace, string rootPath)
+    private void LoadViews(Workspace workspace, string rootPath)
     {
         var entitiesDir = Path.Combine(rootPath, "Entities");
-        if (!Directory.Exists(entitiesDir)) return;
+        if (!_context.DirectoryExists(entitiesDir)) return;
 
-        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        foreach (var entityDir in _context.EnumerateDirectories(entitiesDir, recursive: false))
         {
             var entityLogicalName = Path.GetFileName(entityDir);
             var savedQueriesDir = Path.Combine(entityDir, "SavedQueries");
-            if (!Directory.Exists(savedQueriesDir)) continue;
+            if (!_context.DirectoryExists(savedQueriesDir)) continue;
 
-            foreach (var viewFile in Directory.GetFiles(savedQueriesDir, "*.xml"))
+            foreach (var viewFile in _context.EnumerateFiles(savedQueriesDir, "*.xml", recursive: false))
             {
                 var doc = LoadDocument(viewFile);
                 var savedQuery = doc.Root?.Element("savedquery");
@@ -773,7 +790,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadWebResources(Workspace workspace, string rootPath)
+    private void LoadWebResources(Workspace workspace, string rootPath)
     {
         foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "WebResources"), "*.data.xml", SearchOption.AllDirectories))
         {
@@ -804,7 +821,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadWorkflows(Workspace workspace, string rootPath)
+    private void LoadWorkflows(Workspace workspace, string rootPath)
     {
         foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "Workflows"), "*.data.xml"))
         {
@@ -847,12 +864,12 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadFlowDefinitions(Workspace workspace, string rootPath)
+    private void LoadFlowDefinitions(Workspace workspace, string rootPath)
     {
-        FlowDefinitionReader.Load(workspace, rootPath);
+        FlowDefinitionReader.Load(workspace, rootPath, _context);
     }
 
-    private static void LoadPluginAssemblies(Workspace workspace, string rootPath)
+    private void LoadPluginAssemblies(Workspace workspace, string rootPath)
     {
         foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "PluginAssemblies"), "*.data.xml", SearchOption.AllDirectories))
         {
@@ -901,7 +918,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadSdkMessageProcessingSteps(Workspace workspace, string rootPath)
+    private void LoadSdkMessageProcessingSteps(Workspace workspace, string rootPath)
     {
         foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "SdkMessageProcessingSteps")))
         {
@@ -956,7 +973,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadSecurityRoles(Workspace workspace, string rootPath)
+    private void LoadSecurityRoles(Workspace workspace, string rootPath)
     {
         foreach (var (file, doc, root) in LoadXmlFiles(workspace, Path.Combine(rootPath, "Roles")))
         {
@@ -995,15 +1012,15 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadAppModules(Workspace workspace, string rootPath)
+    private void LoadAppModules(Workspace workspace, string rootPath)
     {
         var appModulesDir = Path.Combine(rootPath, "AppModules");
-        if (!Directory.Exists(appModulesDir)) return;
+        if (!_context.DirectoryExists(appModulesDir)) return;
 
-        foreach (var appModuleDir in Directory.GetDirectories(appModulesDir))
+        foreach (var appModuleDir in _context.EnumerateDirectories(appModulesDir, recursive: false))
         {
             var loadedUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var appModuleFile in OrderManagedVariantFiles(Directory.GetFiles(appModuleDir, "AppModule*.xml", SearchOption.TopDirectoryOnly)))
+            foreach (var appModuleFile in OrderManagedVariantFiles(_context.EnumerateFiles(appModuleDir, "AppModule*.xml", recursive: false)))
             {
                 var doc = LoadDocument(appModuleFile);
                 var root = doc.Root; // <AppModule>
@@ -1064,15 +1081,15 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadSiteMaps(Workspace workspace, string rootPath)
+    private void LoadSiteMaps(Workspace workspace, string rootPath)
     {
         var loadedUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var siteMapDir = Path.Combine(rootPath, "AppModuleSiteMaps");
-        if (Directory.Exists(siteMapDir))
+        if (_context.DirectoryExists(siteMapDir))
         {
-            foreach (var subDir in Directory.GetDirectories(siteMapDir))
+            foreach (var subDir in _context.EnumerateDirectories(siteMapDir, recursive: false))
             {
-                foreach (var file in OrderManagedVariantFiles(Directory.GetFiles(subDir, "*.xml")))
+                foreach (var file in OrderManagedVariantFiles(_context.EnumerateFiles(subDir, "*.xml", recursive: false)))
                 {
                     LoadSiteMapFile(workspace, file, loadedUniqueNames);
                 }
@@ -1083,14 +1100,14 @@ public sealed class XmlWorkspaceReader
         {
             Path.Combine(rootPath, "Other", "SiteMap.xml"),
             Path.Combine(rootPath, "Other", "SiteMap_managed.xml")
-        }.Where(File.Exists);
+        }.Where(_context.FileExists);
         foreach (var file in OrderManagedVariantFiles(legacySiteMaps))
         {
             LoadSiteMapFile(workspace, file, loadedUniqueNames);
         }
     }
 
-    private static void LoadSiteMapFile(Workspace workspace, string file, ISet<string> loadedUniqueNames)
+    private void LoadSiteMapFile(Workspace workspace, string file, ISet<string> loadedUniqueNames)
     {
         var doc = LoadDocument(file);
         var root = doc.Root; // <AppModuleSiteMap>
@@ -1119,25 +1136,25 @@ public sealed class XmlWorkspaceReader
         workspace.OriginalDocuments()[siteMap.DocumentKey] = doc;
     }
 
-    private static void LoadRoundtripPassthroughFiles(Workspace workspace, string rootPath)
+    private void LoadRoundtripPassthroughFiles(Workspace workspace, string rootPath)
     {
         var customizationsFile = Path.Combine(rootPath, "Other", "Customizations.xml");
-        if (File.Exists(customizationsFile))
+        if (_context.FileExists(customizationsFile))
         {
             LoadGenericComponentFile(workspace, customizationsFile, GetRelativePath(rootPath, customizationsFile));
         }
 
     }
 
-    private static void LoadRibbons(Workspace workspace, string rootPath)
+    private void LoadRibbons(Workspace workspace, string rootPath)
     {
         var entitiesDir = Path.Combine(rootPath, "Entities");
-        if (!Directory.Exists(entitiesDir)) return;
+        if (!_context.DirectoryExists(entitiesDir)) return;
 
-        foreach (var entityDir in Directory.GetDirectories(entitiesDir))
+        foreach (var entityDir in _context.EnumerateDirectories(entitiesDir, recursive: false))
         {
             var entityLogicalName = Path.GetFileName(entityDir);
-            foreach (var ribbonDiffFile in Directory.GetFiles(entityDir, "RibbonDiff.xml", SearchOption.AllDirectories))
+            foreach (var ribbonDiffFile in _context.EnumerateFiles(entityDir, "RibbonDiff.xml", recursive: true))
             {
                 XDocument doc;
                 try
@@ -1170,7 +1187,7 @@ public sealed class XmlWorkspaceReader
     /// Handles all Dataverse XML patterns: LocalizedNames/LocalizedName,
     /// displaynames/displayname, labels/label, Descriptions/Description, etc.
     /// </summary>
-    private static Label? ReadLabel(XElement? container, string childName,
+    private Label? ReadLabel(XElement? container, string childName,
         string textAttribute = "description", string lcidAttribute = "languagecode")
     {
         if (container == null) return null;
@@ -1219,13 +1236,13 @@ public sealed class XmlWorkspaceReader
     /// Scans the workspace for XML files not already covered by dedicated loaders
     /// and loads them as generic components to preserve through roundtrip.
     /// </summary>
-    private static void LoadGenericComponents(Workspace workspace, string rootPath)
+    private void LoadGenericComponents(Workspace workspace, string rootPath)
     {
         // Scan Other/ directory for files not handled by dedicated loaders
         var otherDir = Path.Combine(rootPath, "Other");
-        if (Directory.Exists(otherDir))
+        if (_context.DirectoryExists(otherDir))
         {
-            foreach (var file in Directory.GetFiles(otherDir, "*.xml"))
+            foreach (var file in _context.EnumerateFiles(otherDir, "*.xml", recursive: false))
             {
                 var fileName = Path.GetFileName(file);
                 if (DedicatedOtherFiles.Contains(fileName)) continue;
@@ -1236,14 +1253,14 @@ public sealed class XmlWorkspaceReader
         }
 
         // Scan top-level directories that aren't covered by dedicated loaders
-        foreach (var dir in Directory.GetDirectories(rootPath))
+        foreach (var dir in _context.EnumerateDirectories(rootPath, recursive: false))
         {
             var dirName = Path.GetFileName(dir);
             if (DedicatedDirectories.Contains(dirName)) continue;
             if (IgnoredDirectories.Contains(dirName)) continue;
             if (dirName.StartsWith(".", StringComparison.Ordinal)) continue;
 
-            foreach (var file in Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories))
+            foreach (var file in _context.EnumerateFiles(dir, "*.xml", recursive: true))
             {
                 var relativePath = file.Substring(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length + 1);
                 LoadGenericComponentFile(workspace, file, relativePath);
@@ -1251,7 +1268,7 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static void LoadGenericComponentFile(Workspace workspace, string file, string relativePath)
+    private void LoadGenericComponentFile(Workspace workspace, string file, string relativePath)
     {
         var key = $"Generic:{relativePath}";
         if (workspace.OriginalDocuments().ContainsKey(key)) return;
@@ -1298,12 +1315,12 @@ public sealed class XmlWorkspaceReader
         workspace.OriginalDocuments()[key] = doc;
     }
 
-    private static bool IsManagedVariantFile(string filePath)
+    private bool IsManagedVariantFile(string filePath)
     {
         return Path.GetFileName(filePath).EndsWith("_managed.xml", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static IEnumerable<string> OrderManagedVariantFiles(IEnumerable<string> filePaths)
+    private IEnumerable<string> OrderManagedVariantFiles(IEnumerable<string> filePaths)
     {
         return filePaths
             .OrderByDescending(IsManagedVariantFile)
@@ -1314,12 +1331,12 @@ public sealed class XmlWorkspaceReader
     /// Enumerates XML files in a directory, loading each as an XDocument with PreserveWhitespace and SetLineInfo.
     /// Skips files that are malformed XML or have no root element.
     /// </summary>
-    private static IEnumerable<(string filePath, XDocument doc, XElement root)> LoadXmlFiles(
+    private IEnumerable<(string filePath, XDocument doc, XElement root)> LoadXmlFiles(
         Workspace workspace, string directory, string pattern = "*.xml",
         SearchOption searchOption = SearchOption.TopDirectoryOnly)
     {
-        if (!Directory.Exists(directory)) yield break;
-        foreach (var file in Directory.EnumerateFiles(directory, pattern, searchOption))
+        if (!_context.DirectoryExists(directory)) yield break;
+        foreach (var file in _context.EnumerateFiles(directory, pattern, searchOption == SearchOption.AllDirectories))
         {
             XDocument doc;
             try { doc = LoadDocument(file); }
@@ -1334,19 +1351,23 @@ public sealed class XmlWorkspaceReader
         }
     }
 
-    private static int ParseInt(string? value, int defaultValue)
+    private int ParseInt(string? value, int defaultValue)
     {
         return int.TryParse(value, out var result) ? result : defaultValue;
     }
 
-    private static int? ParseInt(string? value)
+    private int? ParseInt(string? value)
     {
         return int.TryParse(value, out var result) ? result : null;
     }
 
-    private static XDocument LoadDocument(string filePath) => XDocument.Load(filePath, XmlLoadOptions);
+    private XDocument LoadDocument(string filePath)
+    {
+        using var stream = _context.OpenRead(filePath);
+        return XDocument.Load(stream, XmlLoadOptions);
+    }
 
-    private static SourceLocation CreateSourceLocation(string filePath, XObject? source)
+    private SourceLocation CreateSourceLocation(string filePath, XObject? source)
     {
         if (source is IXmlLineInfo lineInfo && lineInfo.HasLineInfo())
             return new SourceLocation(filePath, lineInfo.LineNumber, lineInfo.LinePosition);
@@ -1354,7 +1375,7 @@ public sealed class XmlWorkspaceReader
         return new SourceLocation(filePath, 1, 1);
     }
 
-    private static string GetRelativePath(string rootPath, string filePath)
+    private string GetRelativePath(string rootPath, string filePath)
     {
         return filePath.Substring(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length + 1);
     }
