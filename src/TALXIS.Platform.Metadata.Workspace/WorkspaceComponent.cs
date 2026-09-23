@@ -1,6 +1,6 @@
 using TALXIS.Platform.Metadata.Solutions;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml;
+namespace TALXIS.Platform.Metadata.Workspaces;
 
 /// <summary>
 /// A loaded component seen through its workspace: the typed metadata plus the layers, memberships and source snapshots that surround it.

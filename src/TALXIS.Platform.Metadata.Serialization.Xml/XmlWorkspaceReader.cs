@@ -163,7 +163,7 @@ public sealed class XmlWorkspaceReader
             }
         }
 
-        workspace.OriginalDocuments[Workspace.GetSolutionDocumentKey(solution.UniqueName)] = doc;
+        workspace.OriginalDocuments()[Workspace.GetSolutionDocumentKey(solution.UniqueName)] = doc;
         workspace.AddSolution(solution);
     }
 
@@ -195,7 +195,7 @@ public sealed class XmlWorkspaceReader
             if (entity != null && doc != null)
             {
                 workspace.AddEntity(entity);
-                workspace.OriginalDocuments[entity.DocumentKey] = doc;
+                workspace.OriginalDocuments()[entity.DocumentKey] = doc;
             }
         }
     }
@@ -469,7 +469,7 @@ public sealed class XmlWorkspaceReader
             if (optionSet != null && doc != null)
             {
                 workspace.AddGlobalOptionSet(optionSet);
-                workspace.OriginalDocuments[optionSet.DocumentKey] = doc;
+                workspace.OriginalDocuments()[optionSet.DocumentKey] = doc;
             }
         }
     }
@@ -530,7 +530,7 @@ public sealed class XmlWorkspaceReader
         if (File.Exists(relationshipsFile))
         {
             var doc = LoadDocument(relationshipsFile);
-            workspace.OriginalDocuments["Relationships.xml"] = doc;
+            workspace.OriginalDocuments()["Relationships.xml"] = doc;
             LoadRelationshipElements(relationshipsByName, doc.Root, relationshipsFile, replaceExisting: false);
         }
 
@@ -541,7 +541,7 @@ public sealed class XmlWorkspaceReader
             {
                 var doc = LoadDocument(file);
                 var relativePath = GetRelativePath(rootPath, file);
-                workspace.OriginalDocuments[$"Relationships:{relativePath}"] = doc;
+                workspace.OriginalDocuments()[$"Relationships:{relativePath}"] = doc;
                 LoadRelationshipElements(relationshipsByName, doc.Root, file, replaceExisting: true);
             }
         }
@@ -723,7 +723,7 @@ public sealed class XmlWorkspaceReader
                         form.Body = MergeableNodeXmlConverter.FromXElement(formBody);
 
                     workspace.AddForm(form);
-                    workspace.OriginalDocuments[form.DocumentKey] = doc;
+                    workspace.OriginalDocuments()[form.DocumentKey] = doc;
                 }
             }
         }
@@ -768,7 +768,7 @@ public sealed class XmlWorkspaceReader
                 if (descLabel != null) view.Description = descLabel;
 
                 workspace.AddView(view);
-                workspace.OriginalDocuments[view.DocumentKey] = doc;
+                workspace.OriginalDocuments()[view.DocumentKey] = doc;
             }
         }
     }
@@ -800,7 +800,7 @@ public sealed class XmlWorkspaceReader
             };
 
             workspace.AddWebResource(webResource);
-            workspace.OriginalDocuments[webResource.DocumentKey] = doc;
+            workspace.OriginalDocuments()[webResource.DocumentKey] = doc;
         }
     }
 
@@ -843,7 +843,7 @@ public sealed class XmlWorkspaceReader
             if (descLabel != null) workflow.Description = descLabel;
 
             workspace.AddWorkflow(workflow);
-            workspace.OriginalDocuments[workflow.DocumentKey] = doc;
+            workspace.OriginalDocuments()[workflow.DocumentKey] = doc;
         }
     }
 
@@ -897,7 +897,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddPluginAssembly(assembly);
-            workspace.OriginalDocuments[assembly.DocumentKey] = doc;
+            workspace.OriginalDocuments()[assembly.DocumentKey] = doc;
         }
     }
 
@@ -952,7 +952,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddSdkMessageProcessingStep(step);
-            workspace.OriginalDocuments[step.DocumentKey] = doc;
+            workspace.OriginalDocuments()[step.DocumentKey] = doc;
         }
     }
 
@@ -991,7 +991,7 @@ public sealed class XmlWorkspaceReader
             }
 
             workspace.AddSecurityRole(role);
-            workspace.OriginalDocuments[role.DocumentKey] = doc;
+            workspace.OriginalDocuments()[role.DocumentKey] = doc;
         }
     }
 
@@ -1059,7 +1059,7 @@ public sealed class XmlWorkspaceReader
                 }
 
                 workspace.AddAppModule(appModule);
-                workspace.OriginalDocuments[appModule.DocumentKey] = doc;
+                workspace.OriginalDocuments()[appModule.DocumentKey] = doc;
             }
         }
     }
@@ -1116,7 +1116,7 @@ public sealed class XmlWorkspaceReader
         siteMap.Body = MergeableNodeXmlConverter.FromXElement(root);
 
         workspace.AddSiteMap(siteMap);
-        workspace.OriginalDocuments[siteMap.DocumentKey] = doc;
+        workspace.OriginalDocuments()[siteMap.DocumentKey] = doc;
     }
 
     private static void LoadRoundtripPassthroughFiles(Workspace workspace, string rootPath)
@@ -1160,7 +1160,7 @@ public sealed class XmlWorkspaceReader
                     Source = CreateSourceLocation(ribbonDiffFile, root)
                 };
                 workspace.AddRibbon(ribbon);
-                workspace.OriginalDocuments[ribbon.DocumentKey] = doc;
+                workspace.OriginalDocuments()[ribbon.DocumentKey] = doc;
             }
         }
     }
@@ -1254,7 +1254,7 @@ public sealed class XmlWorkspaceReader
     private static void LoadGenericComponentFile(Workspace workspace, string file, string relativePath)
     {
         var key = $"Generic:{relativePath}";
-        if (workspace.OriginalDocuments.ContainsKey(key)) return;
+        if (workspace.OriginalDocuments().ContainsKey(key)) return;
 
         XDocument doc;
         try
@@ -1295,7 +1295,7 @@ public sealed class XmlWorkspaceReader
         };
 
         workspace.AddGenericComponent(component);
-        workspace.OriginalDocuments[key] = doc;
+        workspace.OriginalDocuments()[key] = doc;
     }
 
     private static bool IsManagedVariantFile(string filePath)

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata.Workspaces</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata.Workspace</PackageId>
+    <Description>In-memory workspace for TALXIS Platform Metadata: the multi-solution component container, layered component access and the I/O context abstraction. Format-agnostic, zero dependencies.</Description>
+    <Title>TALXIS Platform Metadata Workspace</Title>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.15.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+  </ItemGroup>
+
+</Project>

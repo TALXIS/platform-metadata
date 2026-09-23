@@ -210,7 +210,7 @@ public sealed class ExportNormalizer
         {
             var sourceEntity = source.FindEntity(entity.LogicalName);
             if (sourceEntity == null) continue;
-            if (!exported.OriginalDocuments.TryGetValue(entity.DocumentKey, out var document)) continue;
+            if (!exported.OriginalDocuments().TryGetValue(entity.DocumentKey, out var document)) continue;
 
             var attributesElement = document.Root?.Element("EntityInfo")?.Element("entity")?.Element("attributes");
             if (attributesElement == null) continue;
@@ -248,7 +248,7 @@ public sealed class ExportNormalizer
             if (!string.IsNullOrEmpty(attribute.LogicalName)) names.Add(attribute.LogicalName);
         }
 
-        if (source.OriginalDocuments.TryGetValue(sourceEntity.DocumentKey, out var document))
+        if (source.OriginalDocuments().TryGetValue(sourceEntity.DocumentKey, out var document))
         {
             var attributeElements = document.Root?.Element("EntityInfo")?.Element("entity")?.Element("attributes")?.Elements("attribute")
                 ?? Enumerable.Empty<XElement>();
@@ -363,7 +363,7 @@ public sealed class ExportNormalizer
 
     private static void StripRootAttributes(Workspace workspace, string documentKey, string displayName, List<ExportNormalizationChange> changes)
     {
-        if (!workspace.OriginalDocuments.TryGetValue(documentKey, out var document)) return;
+        if (!workspace.OriginalDocuments().TryGetValue(documentKey, out var document)) return;
 
         var root = document.Root;
         if (root == null) return;

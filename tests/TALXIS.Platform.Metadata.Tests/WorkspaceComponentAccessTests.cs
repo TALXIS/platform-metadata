@@ -169,12 +169,12 @@ public class WorkspaceComponentAccessTests
             var component = workspace.GetComponent(ComponentType.Entity, "test_entity")!;
             var entity = Assert.IsType<EntityMetadata>(component.Metadata);
 
-            Assert.True(workspace.OriginalDocuments.ContainsKey(entity.DocumentKey));
+            Assert.True(workspace.OriginalDocuments().ContainsKey(entity.DocumentKey));
             Assert.Single(component.Memberships);
             Assert.Same(entity, component.ActiveState);
 
             Assert.True(workspace.RemoveEntity("test_entity"));
-            Assert.False(workspace.OriginalDocuments.ContainsKey(entity.DocumentKey));
+            Assert.False(workspace.OriginalDocuments().ContainsKey(entity.DocumentKey));
             Assert.Null(workspace.GetComponent(ComponentType.Entity, "test_entity"));
         }
         finally

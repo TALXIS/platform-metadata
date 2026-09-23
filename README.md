@@ -46,6 +46,7 @@ See [docs/roadmap.md](docs/roadmap.md) and [docs/runtime-architecture.md](docs/r
 | Package | Purpose |
 | --- | --- |
 | `TALXIS.Platform.Metadata` | Core in-memory metadata model for entities, attributes, relationships, forms, views, apps, roles, workflows, solution manifests, component definitions, and solution layers. |
+| `TALXIS.Platform.Metadata.Workspace` | In-memory multi-solution workspace: the component container, `GetComponent` with layers, memberships, source snapshots and effective state; the I/O context abstraction follows. |
 | `TALXIS.Platform.Metadata.Serialization.Xml` | Roundtrip-safe reader/writer for unpacked SolutionPackager XML workspaces, including Power Automate flow JSON and generic component passthrough. |
 | `TALXIS.Platform.Metadata.Validation` | Workspace validation: XSD validation, JSON validation, duplicate GUID checks, typed model loading, and load diagnostics with file/line/column locations where available. |
 

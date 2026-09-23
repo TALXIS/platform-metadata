@@ -134,12 +134,11 @@ TALXIS.Platform.Metadata                         package: core, zero dependencie
 ├── Layout/       SolutionPackagerLayout, PathTemplate
 └── Schema/       ComponentSchema, ISchemaIntrospector
 
-TALXIS.Platform.Metadata.Workspaces              package: TALXIS.Platform.Metadata.Workspace, deps: core (planned)
+TALXIS.Platform.Metadata.Workspaces              package: TALXIS.Platform.Metadata.Workspace, deps: core
 ├── Workspace (multi-solution container), WorkspaceLoadError
 ├── IWorkspaceContext, FileSystemContext, TransactionalContext, InMemoryContext
 └── WorkspaceBuilder, EntityBuilder, FormBuilder (fluent API for creating components)
     The namespace is plural because the Workspace type cannot share the name of its own namespace.
-    Workspace lives in Serialization.Xml until this package exists.
 
 TALXIS.Platform.Metadata.Serialization.Xml       package; deps: core, Workspace, Newtonsoft.Json, System.Text.Json, System.Reflection.MetadataLoadContext
 ├── XmlWorkspaceReader      - SolutionPackager folder → model (Load, LoadMany)

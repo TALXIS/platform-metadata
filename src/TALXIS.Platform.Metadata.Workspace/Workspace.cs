@@ -1,8 +1,7 @@
-using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Solutions;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml;
+namespace TALXIS.Platform.Metadata.Workspaces;
 
 /// <summary>
 /// Container for all metadata loaded from a SolutionPackager workspace directory.
@@ -214,10 +213,9 @@ public sealed class Workspace
         _loadErrors.Add(new WorkspaceLoadError(filePath, message, line, column));
 
     /// <summary>
-    /// Original XML documents stored by the reader for roundtrip-safe writing.
-    /// Keys include "Solution:{uniqueName}:Solution.xml", "Entity:{logicalName}", "OptionSet:{name}", "Relationships.xml"
+    /// Source documents a serializer keeps for roundtrip-safe writes, keyed by component document key; null until a serializer attaches one.
     /// </summary>
-    internal Dictionary<string, XDocument> OriginalDocuments { get; } = new();
+    public IWorkspaceDocumentStore? Documents { get; set; }
 
     /// <summary>
     /// Adds a solution manifest to the workspace and rejects duplicate unique names.
@@ -434,7 +432,7 @@ public sealed class Workspace
         if (entity == null) return false;
 
         _entities.Remove(entity);
-        OriginalDocuments.Remove(entity.DocumentKey);
+        Documents?.Remove(entity.DocumentKey);
 
         foreach (var form in _forms.Where(f => string.Equals(f.EntityLogicalName, logicalName, StringComparison.OrdinalIgnoreCase)).ToArray())
         {
@@ -528,7 +526,7 @@ public sealed class Workspace
         var index = items.FindIndex(item => string.Equals(getKey(item), key, StringComparison.OrdinalIgnoreCase));
         if (index < 0) return false;
 
-        if (removeDocument) OriginalDocuments.Remove(items[index].DocumentKey);
+        if (removeDocument) Documents?.Remove(items[index].DocumentKey);
         items.RemoveAt(index);
         return true;
     }
@@ -560,10 +558,8 @@ public sealed class Workspace
 
     internal void CopyOriginalDocumentsFrom(Workspace source)
     {
-        foreach (var document in source.OriginalDocuments)
-        {
-            OriginalDocuments[document.Key] = document.Value;
-        }
+        if (source.Documents == null) return;
+        (Documents ??= source.Documents.CreateEmpty()).CopyFrom(source.Documents);
     }
 
     internal void CopyLoadErrorsFrom(Workspace source)
@@ -633,50 +629,3 @@ public sealed class Workspace
     }
 }
 
-/// <summary>
-/// An error encountered while loading a workspace file.
-/// </summary>
-public sealed class WorkspaceLoadError
-{
-    /// <summary>
-    /// Gets the file that could not be loaded successfully.
-    /// </summary>
-    public string FilePath { get; }
-
-    /// <summary>
-    /// Gets the load error message.
-    /// </summary>
-    public string Message { get; }
-
-    /// <summary>
-    /// Gets the 1-based line number when the loader could determine one.
-    /// </summary>
-    public int? Line { get; }
-
-    /// <summary>
-    /// Gets the 1-based column number when the loader could determine one.
-    /// </summary>
-    public int? Column { get; }
-
-    /// <summary>
-    /// Creates a load error.
-    /// </summary>
-    public WorkspaceLoadError(string filePath, string message, int? line = null, int? column = null)
-    {
-        FilePath = filePath;
-        Message = message;
-        Line = line;
-        Column = column;
-    }
-
-    /// <summary>
-    /// Returns a compiler-style message including file and optional line/column.
-    /// </summary>
-    public override string ToString()
-    {
-        if (Line.HasValue && Column.HasValue)
-            return $"{FilePath}({Line},{Column}): {Message}";
-
-        return $"{FilePath}: {Message}";
-    }
-}

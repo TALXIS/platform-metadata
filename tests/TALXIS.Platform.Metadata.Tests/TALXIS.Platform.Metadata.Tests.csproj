@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+    <ProjectReference Include="../../src/TALXIS.Platform.Metadata.Workspace/TALXIS.Platform.Metadata.Workspace.csproj" />
+    <Using Include="TALXIS.Platform.Metadata.Workspaces" />
     <ProjectReference Include="../../src/TALXIS.Platform.Metadata.Packaging/TALXIS.Platform.Metadata.Packaging.csproj" />
     <ProjectReference Include="../../src/TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
     <ProjectReference Include="../../src/TALXIS.Platform.Metadata.Validation/TALXIS.Platform.Metadata.Validation.csproj" />

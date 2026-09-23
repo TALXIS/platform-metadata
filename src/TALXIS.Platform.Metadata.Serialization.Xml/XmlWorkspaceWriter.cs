@@ -189,7 +189,7 @@ public sealed class XmlWorkspaceWriter
         var filePath = Path.Combine(otherDir, "Solution.xml");
 
         var originalKey = Workspace.GetSolutionDocumentKey(solution.UniqueName);
-        var original = workspace.OriginalDocuments.TryGetValue(originalKey, out var origDoc)
+        var original = workspace.OriginalDocuments().TryGetValue(originalKey, out var origDoc)
             ? origDoc
             : null;
 
@@ -314,7 +314,7 @@ public sealed class XmlWorkspaceWriter
             var filePath = Path.Combine(entityDir, "Entity.xml");
 
             var key = entity.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc)
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc)
                 ? origDoc
                 : null;
 
@@ -626,7 +626,7 @@ public sealed class XmlWorkspaceWriter
             var filePath = Path.Combine(optionSetsDir, $"{optionSet.Name}.xml");
 
             var key = optionSet.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc)
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc)
                 ? origDoc
                 : null;
 
@@ -739,7 +739,7 @@ public sealed class XmlWorkspaceWriter
 
     private void WriteRelationships(Workspace workspace, string outputPath)
     {
-        var original = workspace.OriginalDocuments.TryGetValue("Relationships.xml", out var origDoc)
+        var original = workspace.OriginalDocuments().TryGetValue("Relationships.xml", out var origDoc)
             ? origDoc
             : null;
 
@@ -963,7 +963,7 @@ public sealed class XmlWorkspaceWriter
     private void WritePerEntityRelationshipFiles(Workspace workspace, string outputPath)
     {
         var grouped = GroupRelationshipsByEntity(workspace.Relationships);
-        var staleKeys = workspace.OriginalDocuments.Keys
+        var staleKeys = workspace.OriginalDocuments().Keys
             .Where(key => key.StartsWith("Relationships:", StringComparison.Ordinal))
             .Where(key => !grouped.ContainsKey(GetPerEntityRelationshipFileEntityName(key)))
             .ToArray();
@@ -981,7 +981,7 @@ public sealed class XmlWorkspaceWriter
                 var relativePath = Path.Combine("Other", "Relationships", $"{group.Key}.xml");
                 var key = $"Relationships:{relativePath}";
                 XDocument doc;
-                if (workspace.OriginalDocuments.TryGetValue(key, out var original))
+                if (workspace.OriginalDocuments().TryGetValue(key, out var original))
                 {
                     doc = new XDocument(original);
                     PatchRelationships(doc, group.Value);
@@ -1058,7 +1058,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var form in workspace.Forms)
         {
             var key = form.DocumentKey;
-            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (!workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
                 continue; // Forms have complex XML bodies — skip if no original
 
             var doc = new XDocument(origDoc);
@@ -1116,7 +1116,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var view in workspace.Views)
         {
             var key = view.DocumentKey;
-            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (!workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
                 continue; // Views have complex XML bodies — skip if no original
 
             var doc = new XDocument(origDoc);
@@ -1160,7 +1160,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var webResource in workspace.WebResources)
         {
             var key = webResource.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
             if (original != null)
@@ -1233,7 +1233,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var workflow in workspace.Workflows)
         {
             var key = workflow.DocumentKey;
-            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (!workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
                 continue; // Workflows have complex XAML bodies — skip if no original
 
             var doc = new XDocument(origDoc);
@@ -1295,7 +1295,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var assembly in workspace.PluginAssemblies)
         {
             var key = assembly.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
             if (original != null)
@@ -1418,7 +1418,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var step in workspace.SdkMessageProcessingSteps)
         {
             var key = step.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
             if (original != null)
@@ -1563,7 +1563,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var role in workspace.SecurityRoles)
         {
             var key = role.DocumentKey;
-            var original = workspace.OriginalDocuments.TryGetValue(key, out var origDoc) ? origDoc : null;
+            var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc) ? origDoc : null;
 
             XDocument doc;
             if (original != null)
@@ -1638,7 +1638,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var appModule in workspace.AppModules)
         {
             var key = appModule.DocumentKey;
-            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (!workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
                 continue; // AppModules have complex XML bodies — skip if no original
 
             var doc = new XDocument(origDoc);
@@ -1714,7 +1714,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var siteMap in workspace.SiteMaps)
         {
             var key = siteMap.DocumentKey;
-            if (!workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (!workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
                 continue; // SiteMaps have complex XML bodies — skip if no original
 
             var doc = new XDocument(origDoc);
@@ -1763,7 +1763,7 @@ public sealed class XmlWorkspaceWriter
         foreach (var ribbon in workspace.Ribbons)
         {
             var key = ribbon.DocumentKey;
-            var doc = workspace.OriginalDocuments.TryGetValue(key, out var original)
+            var doc = workspace.OriginalDocuments().TryGetValue(key, out var original)
                 ? new XDocument(original)
                 : BuildRibbonFromScratch(ribbon);
 
@@ -1884,7 +1884,7 @@ public sealed class XmlWorkspaceWriter
             var key = component.DocumentKey;
             XDocument doc;
 
-            if (workspace.OriginalDocuments.TryGetValue(key, out var origDoc))
+            if (workspace.OriginalDocuments().TryGetValue(key, out var origDoc))
             {
                 doc = new XDocument(origDoc);
             }
