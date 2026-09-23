@@ -17,6 +17,7 @@ public sealed class XmlWorkspaceWriter
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
     private readonly IWorkspaceContext _context;
+    private readonly bool _dryRun;
 
     /// <summary>
     /// Creates a writer over the local file system.
@@ -28,9 +29,34 @@ public sealed class XmlWorkspaceWriter
     /// <summary>
     /// Creates a writer that performs all file access through the supplied context.
     /// </summary>
-    public XmlWorkspaceWriter(IWorkspaceContext context)
+    public XmlWorkspaceWriter(IWorkspaceContext context) : this(context, dryRun: false)
+    {
+    }
+
+    private XmlWorkspaceWriter(IWorkspaceContext context, bool dryRun)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _dryRun = dryRun;
+    }
+
+    /// <summary>
+    /// Lists the files <see cref="Write"/> would create, overwrite or delete, without touching anything; unchanged documents are not listed.
+    /// </summary>
+    public IReadOnlyList<string> GetModifiedFiles(Workspace workspace, string outputPath)
+    {
+        var probe = new DryRunWorkspaceContext(_context);
+        new XmlWorkspaceWriter(probe, dryRun: true).Write(workspace, outputPath);
+        return probe.TouchedFiles;
+    }
+
+    /// <summary>
+    /// Lists the files <see cref="WriteSolution"/> would create, overwrite or delete for one solution project, without touching anything.
+    /// </summary>
+    public IReadOnlyList<string> GetModifiedFiles(Workspace workspace, string solutionUniqueName, string outputPath)
+    {
+        var probe = new DryRunWorkspaceContext(_context);
+        new XmlWorkspaceWriter(probe, dryRun: true).WriteSolution(workspace, solutionUniqueName, outputPath);
+        return probe.TouchedFiles;
     }
 
     /// <summary>
@@ -221,7 +247,7 @@ public sealed class XmlWorkspaceWriter
             doc = BuildSolutionFromScratch(solution);
         }
 
-        SaveDocument(doc, filePath);
+        Persist(doc, filePath, original, originalKey, workspace, solution);
     }
 
     private void PatchSolution(XDocument doc, Solution solution)
@@ -346,7 +372,7 @@ public sealed class XmlWorkspaceWriter
                 doc = BuildEntityFromScratch(entity);
             }
 
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, WithChildren(entity, entity.Attributes));
         }
     }
 
@@ -658,7 +684,7 @@ public sealed class XmlWorkspaceWriter
                 doc = BuildOptionSetFromScratch(optionSet);
             }
 
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, optionSet);
         }
     }
 
@@ -792,7 +818,7 @@ public sealed class XmlWorkspaceWriter
         }
 
         _context.CreateDirectory(Path.Combine(outputPath, "Other"));
-        SaveDocument(doc, filePath);
+        Persist(doc, filePath, original, "Relationships.xml", workspace, mainRelationships);
     }
 
     private void PatchRelationships(XDocument doc, IReadOnlyList<RelationshipMetadata> relationships, IReadOnlyCollection<string>? preservedNames = null)
@@ -997,8 +1023,9 @@ public sealed class XmlWorkspaceWriter
             {
                 var relativePath = Path.Combine("Other", "Relationships", $"{group.Key}.xml");
                 var key = $"Relationships:{relativePath}";
+                var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc) ? origDoc : null;
                 XDocument doc;
-                if (workspace.OriginalDocuments().TryGetValue(key, out var original))
+                if (original != null)
                 {
                     doc = new XDocument(original);
                     PatchRelationships(doc, group.Value);
@@ -1008,7 +1035,7 @@ public sealed class XmlWorkspaceWriter
                     doc = BuildRelationshipsFromScratch(group.Value);
                 }
 
-                SaveDocument(doc, Path.Combine(outputPath, relativePath));
+                Persist(doc, Path.Combine(outputPath, relativePath), original, key, workspace, group.Value.Cast<MetadataBase>().ToArray());
             }
         }
 
@@ -1092,7 +1119,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, form);
         }
     }
 
@@ -1143,7 +1170,7 @@ public sealed class XmlWorkspaceWriter
             _context.CreateDirectory(entityDir);
             var fileName = view.SavedQueryId.StartsWith("{") ? $"{view.SavedQueryId}.xml" : $"{{{view.SavedQueryId}}}.xml";
             var filePath = Path.Combine(entityDir, fileName);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, view);
         }
     }
 
@@ -1196,7 +1223,7 @@ public sealed class XmlWorkspaceWriter
             var safeName = webResource.Name.Replace('/', Path.DirectorySeparatorChar);
             var filePath = Path.Combine(webResourcesDir, safeName + ".data.xml");
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, webResource);
         }
     }
 
@@ -1267,7 +1294,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, workflow);
         }
     }
 
@@ -1336,7 +1363,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, WithChildren(assembly, assembly.PluginTypes));
         }
     }
 
@@ -1454,7 +1481,7 @@ public sealed class XmlWorkspaceWriter
                 ? $"{step.SdkMessageProcessingStepId}.xml"
                 : $"{{{step.SdkMessageProcessingStepId}}}.xml";
             var filePath = Path.Combine(stepsDir, fileName);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, WithChildren(step, step.Images));
         }
     }
 
@@ -1596,7 +1623,7 @@ public sealed class XmlWorkspaceWriter
             var rolesDir = Path.Combine(outputPath, "Roles");
             _context.CreateDirectory(rolesDir);
             var filePath = Path.Combine(rolesDir, $"{role.Name}.xml");
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, role);
         }
     }
 
@@ -1670,7 +1697,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, appModule);
         }
     }
 
@@ -1746,7 +1773,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, siteMap);
         }
     }
 
@@ -1795,7 +1822,7 @@ public sealed class XmlWorkspaceWriter
             }
 
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, original, key, workspace, ribbon);
         }
     }
 
@@ -1925,7 +1952,7 @@ public sealed class XmlWorkspaceWriter
             var filePath = Path.Combine(outputPath, component.FilePath);
             var dir = Path.GetDirectoryName(filePath);
             if (dir != null) _context.CreateDirectory(dir);
-            SaveDocument(doc, filePath);
+            Persist(doc, filePath, origDoc, key, workspace, component);
         }
     }
 
@@ -2006,6 +2033,32 @@ public sealed class XmlWorkspaceWriter
         var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
     }
+
+    private void Persist(XDocument doc, string filePath, XDocument? original, string? documentKey, Workspace workspace, params MetadataBase[] components)
+    {
+        if (IsUnchanged(doc, filePath, original, components)) return;
+
+        SaveDocument(doc, filePath);
+        if (_dryRun) return;
+
+        foreach (var component in components) component.AcceptChanges();
+        if (documentKey != null) workspace.OriginalDocuments()[documentKey] = doc;
+    }
+
+    // A document is skipped only when it is written back to the file it was loaded from and the patched clone equals the original.
+    private bool IsUnchanged(XDocument doc, string filePath, XDocument? original, MetadataBase[] components)
+    {
+        if (original == null || components.Length == 0) return false;
+        if (components.Any(component => component.IsDirty)) return false;
+
+        var sourcePath = components[0].Source?.FilePath;
+        if (sourcePath == null || !PathsEqual(sourcePath, filePath) || !_context.FileExists(filePath)) return false;
+
+        return XNode.DeepEquals(original, doc);
+    }
+
+    private static MetadataBase[] WithChildren(MetadataBase owner, IEnumerable<MetadataBase> children) =>
+        new[] { owner }.Concat(children).ToArray();
 
     private void SaveDocument(XDocument doc, string filePath)
     {

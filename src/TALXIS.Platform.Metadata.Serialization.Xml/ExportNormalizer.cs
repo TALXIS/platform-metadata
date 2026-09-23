@@ -230,6 +230,7 @@ public sealed class ExportNormalizer
                     leadingWhitespace.Remove();
                 attributeElement.Remove();
                 entity.RemoveAttribute(logicalName!);
+                entity.MarkDirty();
                 changes.Add(new ExportNormalizationChange(
                     ExportNormalizationRule.ServerOwnedAttribute,
                     $"{entity.LogicalName}.{logicalName}",
@@ -357,11 +358,12 @@ public sealed class ExportNormalizer
 
     private static void StripServerVersionAttributes(Workspace exported, Solution exportedSolution, List<ExportNormalizationChange> changes)
     {
-        StripRootAttributes(exported, Workspace.GetSolutionDocumentKey(exportedSolution.UniqueName), "Solution.xml", changes);
-        StripRootAttributes(exported, $"Generic:{Path.Combine("Other", "Customizations.xml")}", "Customizations.xml", changes);
+        StripRootAttributes(exported, Workspace.GetSolutionDocumentKey(exportedSolution.UniqueName), "Solution.xml", exportedSolution, changes);
+        var customizationsKey = $"Generic:{Path.Combine("Other", "Customizations.xml")}";
+        StripRootAttributes(exported, customizationsKey, "Customizations.xml", exported.GenericComponents.FirstOrDefault(component => component.DocumentKey == customizationsKey), changes);
     }
 
-    private static void StripRootAttributes(Workspace workspace, string documentKey, string displayName, List<ExportNormalizationChange> changes)
+    private static void StripRootAttributes(Workspace workspace, string documentKey, string displayName, MetadataBase? owner, List<ExportNormalizationChange> changes)
     {
         if (!workspace.OriginalDocuments().TryGetValue(documentKey, out var document)) return;
 
@@ -374,6 +376,7 @@ public sealed class ExportNormalizer
             if (attribute == null) continue;
 
             attribute.Remove();
+            owner?.MarkDirty();
             changes.Add(new ExportNormalizationChange(
                 ExportNormalizationRule.ServerVersionAttribute,
                 attributeName,

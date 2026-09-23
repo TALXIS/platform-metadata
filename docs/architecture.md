@@ -98,7 +98,7 @@ The container stays format-agnostic: loading and saving belong to the serializat
 The model preserves XML elements and attributes it doesn't understand:
 - `Load → Save` with no changes = zero git diff
 - Unknown children are preserved (forward compatibility)
-- Only modified files are written (dirty tracking)
+- Only modified files are written: the writer patches a clone of each original document and skips it when the result equals the original, so untouched files are never opened for writing
 
 Target implementation: each component has one authoritative persisted document; typed properties are projections over it, unknown nodes pass through untouched. Today the typed classes are plain objects and the serializer keeps the original documents in a per-workspace roundtrip cache that it patches on write. Flow definitions already follow the target (the JSON is authoritative, the typed projection is derived); the XML components converge the same way.
 

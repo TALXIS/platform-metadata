@@ -58,9 +58,9 @@ Abstraction layer for I/O — model never touches filesystem directly.
 ### Dirty tracking
 Write only modified files. `Load → Save` with no changes = zero git diff.
 
-- [ ] Dirty flag per component, set on property mutation
-- [ ] `Workspace.GetModifiedFiles()` — list files to write
-- [ ] Writer respects dirty flag — skips unmodified
+- [x] Change detection per component: the writer compares the patched document with its original and skips unchanged files; `MarkDirty()` forces a write
+- [x] `XmlWorkspaceWriter.GetModifiedFiles(workspace, path)` - dry run listing the files a save would touch
+- [x] Writer skips unmodified documents when writing back to their source files
 
 ### Component builders (fluent API)
 Declarative solution framework components only; project-type templates (plugin, PCF, script library, code app) stay `dotnet new` templates.
