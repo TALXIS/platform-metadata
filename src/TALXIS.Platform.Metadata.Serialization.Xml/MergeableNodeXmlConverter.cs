@@ -24,6 +24,8 @@ public static class MergeableNodeXmlConverter
 
         foreach (var attr in element.Attributes())
         {
+            if (attr.IsNamespaceDeclaration) continue;
+
             if (attr.Name.LocalName == SolutionAction)
             {
                 node.Action = attr.Value switch

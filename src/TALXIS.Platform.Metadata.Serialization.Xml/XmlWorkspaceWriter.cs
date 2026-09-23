@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using TALXIS.Platform.Metadata;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
+using TALXIS.Platform.Metadata.Merging;
 using TALXIS.Platform.Metadata.Solutions;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml;
@@ -296,7 +297,7 @@ public sealed class XmlWorkspaceWriter
                 if (rc.Behavior.HasValue)
                     rcEl.Add(new XAttribute("behavior", rc.Behavior.Value.ToString()));
                 return rcEl;
-            }));
+            }), RootComponentKey);
         }
     }
 
@@ -385,13 +386,8 @@ public sealed class XmlWorkspaceWriter
         var nameEl = root.Element("Name");
         if (nameEl != null)
         {
-            nameEl.Value = entity.LogicalName;
-            var localizedAttr = nameEl.Attribute("LocalizedName");
-            if (localizedAttr != null && entity.DisplayName.Default != null)
-                localizedAttr.Value = entity.DisplayName.Default;
-            var origAttr = nameEl.Attribute("OriginalName");
-            if (origAttr != null && entity.DisplayName.Default != null)
-                origAttr.Value = entity.DisplayName.Default;
+            // LocalizedName and OriginalName mirror SolutionPackager output at unpack time; the model does not own them.
+            if (nameEl.Value != entity.LogicalName) nameEl.Value = entity.LogicalName;
         }
 
         var entityInfo = root.Element("EntityInfo")?.Element("entity");
@@ -413,7 +409,9 @@ public sealed class XmlWorkspaceWriter
 
         // Patch entity-level properties
         SetElementValueIfExists(entityInfo, "EntitySetName", entity.EntitySetName);
-        SetElementValueIfExists(entityInfo, "OwnershipTypeMask", entity.Ownership.ToString());
+        var ownershipEl = entityInfo.Element("OwnershipTypeMask");
+        if (ownershipEl != null && OwnershipTypeXml.Parse(ownershipEl.Value) != entity.Ownership)
+            ownershipEl.Value = entity.Ownership.ToString();
         SetElementValueIfExists(entityInfo, "IsActivity", entity.IsActivity ? "1" : "0");
         SetElementValueIfExists(entityInfo, "IsAuditEnabled", entity.IsAuditEnabled ? "1" : "0");
         SetElementValueIfExists(entityInfo, "ChangeTrackingEnabled", entity.ChangeTrackingEnabled ? "1" : "0");
@@ -666,7 +664,8 @@ public sealed class XmlWorkspaceWriter
 
         foreach (var optionSet in workspace.GlobalOptionSets)
         {
-            var filePath = Path.Combine(optionSetsDir, $"{optionSet.Name}.xml");
+            var filePath = TryGetOriginalRelativePath(optionSet.Source, workspace.RootPath, outputPath)
+                ?? Path.Combine(optionSetsDir, $"{optionSet.Name}.xml");
 
             var key = optionSet.DocumentKey;
             var original = workspace.OriginalDocuments().TryGetValue(key, out var origDoc)
@@ -697,11 +696,10 @@ public sealed class XmlWorkspaceWriter
         if (nameAttr != null)
             nameAttr.Value = optionSet.Name;
 
-        var localizedNameAttr = root.Attribute("localizedName");
-        if (localizedNameAttr != null && optionSet.DisplayName.Default != null)
-            localizedNameAttr.Value = optionSet.DisplayName.Default;
 
-        SetElementValueIfExists(root, "IsGlobal", optionSet.IsGlobal ? "1" : "0");
+        var isGlobalEl = root.Element("IsGlobal");
+        if (isGlobalEl != null && XmlBooleans.IsTrue(isGlobalEl.Value) != optionSet.IsGlobal)
+            isGlobalEl.Value = optionSet.IsGlobal ? "1" : "0";
 
         var displaynames = root.Element("displaynames");
         if (displaynames != null)
@@ -738,7 +736,7 @@ public sealed class XmlWorkspaceWriter
                 }
 
                 return BuildOptionElement(opt);
-            }));
+            }), element => element.Attribute("value")?.Value ?? "");
         }
     }
 
@@ -790,7 +788,10 @@ public sealed class XmlWorkspaceWriter
         // drop the file instead of leaving stale elements or an empty shell on disk.
         if (workspace.Relationships.Count == 0)
         {
-            if (original != null) DeleteFileIfExists(Path.Combine(outputPath, "Other", "Relationships.xml"));
+            // A file that never declared a named relationship (samples, empty shells) is left alone.
+            var hadRelationships = original?.Root?.Elements("EntityRelationship")
+                .Any(rel => !string.IsNullOrWhiteSpace((string?)rel.Attribute("Name"))) == true;
+            if (hadRelationships) DeleteFileIfExists(Path.Combine(outputPath, "Other", "Relationships.xml"));
             return;
         }
 
@@ -915,10 +916,27 @@ public sealed class XmlWorkspaceWriter
             PatchLocalizedNames(description, "Description", rel.Description);
 
         var rolesEl = relEl.Element("EntityRelationshipRoles");
-        if (rolesEl != null)
+        if (rolesEl == null) return;
+
+        // Roles have no key; when the count matches they are patched in place so unknown children such as CustomLabels survive.
+        var existingRoles = rolesEl.Elements("EntityRelationshipRole").ToList();
+        if (existingRoles.Count == rel.Roles.Count)
         {
-            ReplaceChildElementsPreservingWhitespace(rolesEl, rel.Roles.Select(BuildRelationshipRoleElement));
+            for (var i = 0; i < existingRoles.Count; i++) PatchRelationshipRole(existingRoles[i], rel.Roles[i]);
+            return;
         }
+
+        ReplaceChildElementsPreservingWhitespace(rolesEl, rel.Roles.Select(BuildRelationshipRoleElement), ContentKey);
+    }
+
+    private void PatchRelationshipRole(XElement roleEl, RelationshipRoleMetadata role)
+    {
+        SetElementValueIfExists(roleEl, "NavPaneDisplayOption", role.NavPaneDisplayOption);
+        SetElementValueIfExists(roleEl, "NavPaneArea", role.NavPaneArea);
+        SetElementValueIfExists(roleEl, "NavPaneOrder", role.NavPaneOrder?.ToString());
+        SetElementValueIfExists(roleEl, "NavigationPropertyName", role.NavigationPropertyName);
+        SetElementValueIfExists(roleEl, "RelationshipRoleType", role.RelationshipRoleType?.ToString());
+        SetElementValueIfExists(roleEl, "AssociationRoleOrdinal", role.AssociationRoleOrdinal?.ToString());
     }
 
     private XElement BuildRelationshipElement(RelationshipMetadata rel)
@@ -987,6 +1005,8 @@ public sealed class XmlWorkspaceWriter
             roleEl.Add(new XElement("NavigationPropertyName", role.NavigationPropertyName));
         if (role.RelationshipRoleType.HasValue)
             roleEl.Add(new XElement("RelationshipRoleType", role.RelationshipRoleType.Value));
+        if (role.AssociationRoleOrdinal.HasValue)
+            roleEl.Add(new XElement("AssociationRoleOrdinal", role.AssociationRoleOrdinal.Value));
         return roleEl;
     }
 
@@ -1147,11 +1167,10 @@ public sealed class XmlWorkspaceWriter
         if (form.Body != null)
         {
             var existingBody = systemForm.Element("form");
-            var replacementBody = MergeableNodeXmlConverter.ToXElement(form.Body);
-            if (existingBody != null)
-                existingBody.ReplaceWith(replacementBody);
-            else
-                systemForm.Add(replacementBody);
+            if (existingBody == null)
+                systemForm.Add(MergeableNodeXmlConverter.ToXElement(form.Body));
+            else if (!BodyEquals(existingBody, form.Body))
+                ReplaceBody(existingBody, form.Body);
         }
     }
 
@@ -1166,10 +1185,14 @@ public sealed class XmlWorkspaceWriter
             var doc = new XDocument(origDoc);
             PatchView(doc, view);
 
-            var entityDir = Path.Combine(outputPath, "Entities", view.EntityLogicalName ?? "Unknown", "SavedQueries");
-            _context.CreateDirectory(entityDir);
-            var fileName = view.SavedQueryId.StartsWith("{") ? $"{view.SavedQueryId}.xml" : $"{{{view.SavedQueryId}}}.xml";
-            var filePath = Path.Combine(entityDir, fileName);
+            var filePath = TryGetOriginalRelativePath(view.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var entityDir = Path.Combine(outputPath, "Entities", view.EntityLogicalName ?? "Unknown", "SavedQueries");
+                var fileName = view.SavedQueryId.StartsWith("{") ? $"{view.SavedQueryId}.xml" : $"{{{view.SavedQueryId}}}.xml";
+                filePath = Path.Combine(entityDir, fileName);
+            }
+            _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             Persist(doc, filePath, origDoc, key, workspace, view);
         }
     }
@@ -1217,11 +1240,12 @@ public sealed class XmlWorkspaceWriter
                 doc = BuildWebResourceFromScratch(webResource);
             }
 
-            var webResourcesDir = Path.Combine(outputPath, "WebResources");
-            _context.CreateDirectory(webResourcesDir);
-            // Use the Name with slashes replaced for file path, keeping .data.xml extension
-            var safeName = webResource.Name.Replace('/', Path.DirectorySeparatorChar);
-            var filePath = Path.Combine(webResourcesDir, safeName + ".data.xml");
+            var filePath = TryGetOriginalRelativePath(webResource.Source, workspace.RootPath, outputPath);
+            if (filePath == null)
+            {
+                var safeName = webResource.Name.Replace('/', Path.DirectorySeparatorChar);
+                filePath = Path.Combine(outputPath, "WebResources", safeName + ".data.xml");
+            }
             _context.CreateDirectory(Path.GetDirectoryName(filePath)!);
             Persist(doc, filePath, original, key, workspace, webResource);
         }
@@ -1622,7 +1646,8 @@ public sealed class XmlWorkspaceWriter
 
             var rolesDir = Path.Combine(outputPath, "Roles");
             _context.CreateDirectory(rolesDir);
-            var filePath = Path.Combine(rolesDir, $"{role.Name}.xml");
+            var filePath = TryGetOriginalRelativePath(role.Source, workspace.RootPath, outputPath)
+                ?? Path.Combine(rolesDir, $"{role.Name}.xml");
             Persist(doc, filePath, original, key, workspace, role);
         }
     }
@@ -1651,7 +1676,7 @@ public sealed class XmlWorkspaceWriter
             ReplaceChildElementsPreservingWhitespace(privilegesEl, role.Privileges.Select(priv =>
                 new XElement("RolePrivilege",
                     new XAttribute("name", priv.Name),
-                    new XAttribute("level", priv.Level))));
+                    new XAttribute("level", priv.Level))), element => element.Attribute("name")?.Value ?? "");
         }
     }
 
@@ -1703,14 +1728,7 @@ public sealed class XmlWorkspaceWriter
 
     private void PatchAppModule(XDocument doc, AppModuleMetadata appModule)
     {
-        if (appModule.Body != null)
-        {
-            var replacementRoot = MergeableNodeXmlConverter.ToXElement(appModule.Body);
-            if (doc.Root != null)
-                doc.Root.ReplaceWith(replacementRoot);
-            else
-                doc.Add(replacementRoot);
-        }
+        if (appModule.Body != null) ReplaceRootBody(doc, appModule.Body);
 
         var root = doc.Root;
         if (root == null) return;
@@ -1742,14 +1760,14 @@ public sealed class XmlWorkspaceWriter
                 if (comp.Id != null)
                     compEl.Add(new XAttribute("id", comp.Id));
                 return compEl;
-            }));
+            }), RootComponentKey);
         }
 
         if (appModule.Body == null && root.Element("AppModuleRoleMaps") is { } roleMapsEl)
         {
             ReplaceChildElementsPreservingWhitespace(roleMapsEl, appModule.RoleIds.Select(roleId =>
                 new XElement("Role",
-                    new XAttribute("id", roleId))));
+                    new XAttribute("id", roleId))), element => (element.Attribute("id")?.Value ?? "").ToLowerInvariant());
         }
     }
 
@@ -1779,14 +1797,7 @@ public sealed class XmlWorkspaceWriter
 
     private void PatchSiteMap(XDocument doc, SiteMapMetadata siteMap)
     {
-        if (siteMap.Body != null)
-        {
-            var replacementRoot = MergeableNodeXmlConverter.ToXElement(siteMap.Body);
-            if (doc.Root != null)
-                doc.Root.ReplaceWith(replacementRoot);
-            else
-                doc.Add(replacementRoot);
-        }
+        if (siteMap.Body != null) ReplaceRootBody(doc, siteMap.Body);
 
         var root = doc.Root;
         if (root == null) return;
@@ -1830,11 +1841,7 @@ public sealed class XmlWorkspaceWriter
     {
         if (ribbon.Body == null) return;
 
-        var replacementRoot = MergeableNodeXmlConverter.ToXElement(ribbon.Body);
-        if (doc.Root != null)
-            doc.Root.ReplaceWith(replacementRoot);
-        else
-            doc.Add(replacementRoot);
+        ReplaceRootBody(doc, ribbon.Body);
     }
 
     private XDocument BuildRibbonFromScratch(RibbonMetadata ribbon)
@@ -1850,10 +1857,10 @@ public sealed class XmlWorkspaceWriter
     private void SetElementValue(XElement parent, string elementName, string value)
     {
         var el = parent.Element(elementName);
-        if (el != null)
-            el.Value = value;
-        else
+        if (el == null)
             parent.Add(new XElement(elementName, value));
+        else if (el.Value != value)
+            el.Value = value;
     }
 
     /// <summary>
@@ -1882,8 +1889,7 @@ public sealed class XmlWorkspaceWriter
     {
         if (value == null) return;
         var el = parent.Element(elementName);
-        if (el != null)
-            el.Value = value;
+        if (el != null && el.Value != value) el.Value = value;
     }
 
     private void PatchLocalizedNames(XElement container, string childName, Label label)
@@ -1895,7 +1901,7 @@ public sealed class XmlWorkspaceWriter
             if (existing != null)
             {
                 var descAttr = existing.Attribute("description");
-                if (descAttr != null)
+                if (descAttr != null && descAttr.Value != kvp.Value)
                     descAttr.Value = kvp.Value;
             }
             else
@@ -2036,7 +2042,7 @@ public sealed class XmlWorkspaceWriter
 
     private void Persist(XDocument doc, string filePath, XDocument? original, string? documentKey, Workspace workspace, params MetadataBase[] components)
     {
-        if (IsUnchanged(doc, filePath, original, components)) return;
+        if (IsUnchanged(doc, filePath, original, workspace, components)) return;
 
         SaveDocument(doc, filePath);
         if (_dryRun) return;
@@ -2046,15 +2052,25 @@ public sealed class XmlWorkspaceWriter
     }
 
     // A document is skipped only when it is written back to the file it was loaded from and the patched clone equals the original.
-    private bool IsUnchanged(XDocument doc, string filePath, XDocument? original, MetadataBase[] components)
+    private bool IsUnchanged(XDocument doc, string filePath, XDocument? original, Workspace workspace, MetadataBase[] components)
     {
-        if (original == null || components.Length == 0) return false;
+        if (original == null || !_context.FileExists(filePath)) return false;
         if (components.Any(component => component.IsDirty)) return false;
 
-        var sourcePath = components[0].Source?.FilePath;
-        if (sourcePath == null || !PathsEqual(sourcePath, filePath) || !_context.FileExists(filePath)) return false;
+        // Shared documents (a relationships file whose entries all live elsewhere) have no owning component;
+        // they count as written back when the target lies inside the loaded workspace.
+        var writesBack = components.Length == 0
+            ? IsInsideRoot(workspace.RootPath, filePath)
+            : components[0].Source?.FilePath is string sourcePath && PathsEqual(sourcePath, filePath);
+        if (!writesBack) return false;
 
         return XNode.DeepEquals(original, doc);
+    }
+
+    private bool IsInsideRoot(string rootPath, string filePath)
+    {
+        var root = AppendDirectorySeparator(Path.GetFullPath(rootPath));
+        return Path.GetFullPath(filePath).StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
     private static MetadataBase[] WithChildren(MetadataBase owner, IEnumerable<MetadataBase> children) =>
@@ -2062,10 +2078,11 @@ public sealed class XmlWorkspaceWriter
 
     private void SaveDocument(XDocument doc, string filePath)
     {
+        var encoding = new System.Text.UTF8Encoding(HasUtf8Bom(filePath));
         if (HasPreservedWhitespace(doc))
         {
             using var stream = _context.Create(filePath);
-            using var textWriter = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
+            using var textWriter = new StreamWriter(stream, encoding);
             // XDocument drops the line break between the declaration and the root
             // element, so write the declaration on its own line ourselves.
             if (doc.Declaration != null)
@@ -2091,13 +2108,24 @@ public sealed class XmlWorkspaceWriter
         {
             Indent = true,
             IndentChars = "  ",
-            Encoding = new System.Text.UTF8Encoding(false),
+            Encoding = encoding,
             OmitXmlDeclaration = false
         };
 
         using var output = _context.Create(filePath);
         using var writer = XmlWriter.Create(output, settings);
         doc.Save(writer);
+    }
+
+    // The target keeps the byte order mark it already has; new files are written without one.
+    private bool HasUtf8Bom(string filePath)
+    {
+        if (!_context.FileExists(filePath)) return false;
+
+        using var stream = _context.OpenRead(filePath);
+        var buffer = new byte[3];
+        var read = stream.Read(buffer, 0, buffer.Length);
+        return read == 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF;
     }
 
     private bool HasPreservedWhitespace(XDocument doc)
@@ -2107,9 +2135,20 @@ public sealed class XmlWorkspaceWriter
             .Any(static text => string.IsNullOrWhiteSpace(text.Value));
     }
 
-    private void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children)
+    // Existing children are matched by key and kept in place, with their comments and blank lines, when they already
+    // equal the model; removed ones take their leading whitespace along; new ones are appended in the container's indentation.
+    private void ReplaceChildElementsPreservingWhitespace(XElement parent, IEnumerable<XElement> children, Func<XElement, string> key)
     {
         var replacements = children.ToList();
+        var pending = new Dictionary<string, Queue<XElement>>(StringComparer.Ordinal);
+        foreach (var replacement in replacements)
+        {
+            var replacementKey = key(replacement);
+            if (!pending.TryGetValue(replacementKey, out var queue)) pending[replacementKey] = queue = new Queue<XElement>();
+            queue.Enqueue(replacement);
+        }
+        var consumed = new HashSet<XElement>();
+
         // Whitespace text can span several lines, as in an empty container;
         // only its first and last newline runs define the indentation pattern.
         var childIndent = parent.Nodes()
@@ -2137,31 +2176,117 @@ public sealed class XmlWorkspaceWriter
             closingIndent = parentIndent;
         }
 
-        parent.RemoveNodes();
-
-        if (childIndent == null || closingIndent == null || replacements.Count == 0)
+        foreach (var existing in parent.Elements().ToList())
         {
-            foreach (var child in replacements)
+            if (!pending.TryGetValue(key(existing), out var candidates) || candidates.Count == 0)
             {
-                parent.Add(child);
+                RemoveWithLeadingWhitespace(existing);
+                continue;
             }
 
-            return;
+            var replacement = candidates.Dequeue();
+            consumed.Add(replacement);
+            if (ReferenceEquals(existing, replacement) || SameElement(existing, replacement)) continue;
+
+            var indent = existing.PreviousNode is XText indentText && ContainsNewLine(indentText.Value)
+                ? NewlineRun(indentText.Value, first: false)
+                : childIndent;
+            existing.ReplaceWith(replacement);
+            if (indent != null) IndentFreshSubtree(replacement, indent);
         }
 
-        foreach (var child in replacements)
+        var additions = replacements.Where(replacement => !consumed.Contains(replacement)).ToList();
+        if (additions.Count == 0) return;
+
+        var closing = parent.LastNode is XText closingText && ContainsNewLine(closingText.Value) && string.IsNullOrWhiteSpace(closingText.Value)
+            ? closingText
+            : null;
+        foreach (var addition in additions)
         {
-            parent.Add(new XText(childIndent));
-            parent.Add(child);
-            IndentFreshSubtree(child, childIndent);
-        }
+            if (childIndent == null || closingIndent == null)
+            {
+                parent.Add(addition);
+                continue;
+            }
 
-        parent.Add(new XText(closingIndent));
+            if (closing == null)
+            {
+                closing = new XText(closingIndent);
+                parent.Add(closing);
+            }
+
+            closing.AddBeforeSelf(new XText(childIndent), addition);
+            IndentFreshSubtree(addition, childIndent);
+        }
+    }
+
+    private static void RemoveWithLeadingWhitespace(XElement element)
+    {
+        if (element.PreviousNode is XText whitespace && string.IsNullOrWhiteSpace(whitespace.Value)) whitespace.Remove();
+        element.Remove();
+    }
+
+    // Structural equality ignoring attribute order, namespace declarations and whitespace-only text.
+    private static bool SameElement(XElement left, XElement right)
+    {
+        if (left.Name != right.Name) return false;
+
+        var leftAttributes = left.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration).ToDictionary(attribute => attribute.Name, attribute => attribute.Value);
+        var rightAttributes = right.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration).ToDictionary(attribute => attribute.Name, attribute => attribute.Value);
+        if (leftAttributes.Count != rightAttributes.Count) return false;
+        if (leftAttributes.Any(pair => !rightAttributes.TryGetValue(pair.Key, out var value) || value != pair.Value)) return false;
+
+        var leftChildren = left.Elements().ToList();
+        var rightChildren = right.Elements().ToList();
+        if (leftChildren.Count == 0 && rightChildren.Count == 0) return left.Value.Trim() == right.Value.Trim();
+        return leftChildren.Count == rightChildren.Count && leftChildren.Zip(rightChildren, (a, b) => SameElement(a, b)).All(same => same);
+    }
+
+    private static string RootComponentKey(XElement element) =>
+        $"{element.Attribute("type")?.Value}|{element.Attribute("id")?.Value?.Trim('{', '}')}|{element.Attribute("schemaName")?.Value}".ToLowerInvariant();
+
+    private static string ContentKey(XElement element) =>
+        System.Text.RegularExpressions.Regex.Replace(element.ToString(SaveOptions.DisableFormatting), @">\s+<", "><");
+
+    private void ReplaceRootBody(XDocument doc, MergeableNode body)
+    {
+        if (doc.Root == null)
+            doc.Add(MergeableNodeXmlConverter.ToXElement(body));
+        else if (!BodyEquals(doc.Root, body))
+            ReplaceBody(doc.Root, body);
+    }
+
+    private static bool BodyEquals(XElement existing, MergeableNode body) =>
+        MergeableNodeXmlConverter.FromXElement(existing).StructurallyEquals(body);
+
+    // The fresh subtree inherits the replaced element's namespace declarations, line breaks and indentation unit.
+    private void ReplaceBody(XElement existing, MergeableNode body)
+    {
+        var replacement = MergeableNodeXmlConverter.ToXElement(body);
+        foreach (var declaration in existing.Attributes().Where(attribute => attribute.IsNamespaceDeclaration))
+            replacement.Add(new XAttribute(declaration));
+
+        var ownIndent = existing.PreviousNode is XText indentText && ContainsNewLine(indentText.Value)
+            ? NewlineRun(indentText.Value, first: false)
+            : null;
+        var firstChildIndent = existing.Nodes()
+            .OfType<XText>()
+            .Select(text => text.Value)
+            .Where(ContainsNewLine)
+            .Select(text => NewlineRun(text, first: true))
+            .FirstOrDefault();
+
+        existing.ReplaceWith(replacement);
+        if (firstChildIndent == null) return;
+
+        ownIndent ??= firstChildIndent.TrimEnd(' ', '\t');
+        var unit = firstChildIndent.Length > ownIndent.Length ? firstChildIndent.Substring(ownIndent.Length) : "  ";
+        IndentFreshSubtree(replacement, ownIndent, unit);
     }
 
     // A freshly built element (no whitespace of its own) would serialize as one inline
     // run under DisableFormatting; give its subtree line breaks matching the container.
-    private void IndentFreshSubtree(XElement element, string ownIndent)
+    private void IndentFreshSubtree(XElement element, string ownIndent, string unit = "  ")
     {
         if (!element.HasElements || element.Nodes().OfType<XText>().Any()) return;
 
@@ -2169,9 +2294,9 @@ public sealed class XmlWorkspaceWriter
         element.RemoveNodes();
         foreach (var child in children)
         {
-            element.Add(new XText(ownIndent + "  "));
+            element.Add(new XText(ownIndent + unit));
             element.Add(child);
-            IndentFreshSubtree(child, ownIndent + "  ");
+            IndentFreshSubtree(child, ownIndent + unit, unit);
         }
 
         element.Add(new XText(ownIndent));

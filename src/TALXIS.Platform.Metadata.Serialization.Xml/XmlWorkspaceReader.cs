@@ -265,14 +265,7 @@ public sealed class XmlWorkspaceReader
         entity.ExternalCollectionName = entityInfo.Element("ExternalCollectionName")?.Value;
         entity.EntityColor = entityInfo.Element("EntityColor")?.Value;
 
-        var ownership = entityInfo.Element("OwnershipTypeMask")?.Value;
-        entity.Ownership = ownership switch
-        {
-            "UserOwned" => OwnershipType.UserOwned,
-            "OrganizationOwned" => OwnershipType.OrganizationOwned,
-            "None" => OwnershipType.None,
-            _ => OwnershipType.UserOwned
-        };
+        entity.Ownership = OwnershipTypeXml.Parse(entityInfo.Element("OwnershipTypeMask")?.Value);
 
         // Determine IsCustomEntity from entity name convention (has publisher prefix)
         entity.IsCustomEntity = logicalName.Contains('_');
@@ -504,7 +497,7 @@ public sealed class XmlWorkspaceReader
         {
             Name = name,
             OptionSetId = root.Attribute("OptionSetId")?.Value,
-            IsGlobal = root.Element("IsGlobal")?.Value == "1",
+            IsGlobal = XmlBooleans.IsTrue(root.Element("IsGlobal")?.Value),
             Source = CreateSourceLocation(filePath, root)
         };
 
@@ -651,7 +644,8 @@ public sealed class XmlWorkspaceReader
                 NavPaneArea = roleEl.Element("NavPaneArea")?.Value,
                 NavPaneOrder = ParseInt(roleEl.Element("NavPaneOrder")?.Value),
                 NavigationPropertyName = roleEl.Element("NavigationPropertyName")?.Value,
-                RelationshipRoleType = ParseInt(roleEl.Element("RelationshipRoleType")?.Value)
+                RelationshipRoleType = ParseInt(roleEl.Element("RelationshipRoleType")?.Value),
+                AssociationRoleOrdinal = ParseInt(roleEl.Element("AssociationRoleOrdinal")?.Value)
             });
         }
 

@@ -25,4 +25,26 @@ public static class MergeableNodeExtensions
     /// </summary>
     public static MergeableNode? FindNode(this MergeableNode node, Func<MergeableNode, bool> predicate) =>
         node.Descendants().FirstOrDefault(predicate);
+
+    /// <summary>
+    /// Compares two trees by name, action, text, attributes (order-independent) and children (order-dependent).
+    /// </summary>
+    public static bool StructurallyEquals(this MergeableNode node, MergeableNode? other)
+    {
+        if (other == null) return false;
+        if (node.Name != other.Name || node.Action != other.Action || node.TextContent != other.TextContent) return false;
+        if (node.Attributes.Count != other.Attributes.Count || node.Children.Count != other.Children.Count) return false;
+
+        foreach (var attribute in node.Attributes)
+        {
+            if (!other.Attributes.TryGetValue(attribute.Key, out var value) || value != attribute.Value) return false;
+        }
+
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            if (!node.Children[i].StructurallyEquals(other.Children[i])) return false;
+        }
+
+        return true;
+    }
 }

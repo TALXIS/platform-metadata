@@ -54,6 +54,7 @@ public sealed class RelationshipRoleMetadata
     public int? NavPaneOrder { get; set; }
     public string? NavigationPropertyName { get; set; }
     public int? RelationshipRoleType { get; set; }
+    public int? AssociationRoleOrdinal { get; set; }
 }
 
 public enum CascadeType { NoCascade, Cascade, Active, UserOwned, RemoveLink, Restrict }
