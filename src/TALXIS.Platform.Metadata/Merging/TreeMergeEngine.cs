@@ -122,10 +122,7 @@ public static class TreeMergeEngine
         if (candidates.Count == 0)
             return null;
 
-        if (candidates.Count == 1)
-            return candidates[0];
-
-        // Try matching by element-specific key attributes
+        // The first complete key set is authoritative, even for a single candidate.
         foreach (var keySet in ElementMatchKeyRegistry.GetKeySets(name))
         {
             if (!HasAllKeys(target, keySet)) continue;
@@ -135,7 +132,12 @@ public static class TreeMergeEngine
                 if (HasMatchingKeys(c, target, keySet))
                     return c;
             }
+
+            return null;
         }
+
+        if (candidates.Count == 1)
+            return candidates[0];
 
         // Index-based matching for keyless elements (e.g. rows)
         if (targetSiblings != null)
@@ -268,6 +270,9 @@ public static class TreeMergeEngine
                 if (HasMatchingKeys(candidates[i], target, keySet))
                     return i;
             }
+
+            // A different explicit identity is a different node, not a positional match.
+            return -1;
         }
 
         // Index-based fallback

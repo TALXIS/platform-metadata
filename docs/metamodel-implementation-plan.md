@@ -105,12 +105,12 @@ Relevant area: `TreeMergeEngine`, including child matching and insertion.
 
 Failure case to reproduce: a sole same-type child or a child at the same position is selected despite having a different explicit identifier.
 
-- [ ] Reproduce a lower node with ID A and an upper node of the same type with ID B.
-- [ ] Match stable keys before using count or position heuristics.
-- [ ] Do not fall back to positional matching after an explicit key fails to match.
+- [x] Reproduce a lower node with ID A and an upper node of the same type with ID B.
+- [x] Match stable keys before using count or position heuristics.
+- [x] Do not fall back to positional matching after an explicit key fails to match.
 - [ ] Define the applicable key for each supported XML context.
 - [ ] Diagnose duplicate or ambiguous keys.
-- [ ] Ensure insertion does not overwrite an unrelated sibling.
+- [x] Ensure insertion does not overwrite an unrelated sibling.
 
 Acceptance: A and B remain distinct; editing B affects only B; repeated supported application does not introduce unintended duplicates.
 
@@ -354,6 +354,34 @@ These tasks require coordinated changes in build and deployment consumers, separ
 Acceptance: UI and Security share a Model dependency that is packaged once and imported before either consumer.
 
 Out of scope for this work: renaming the Workspace abstraction.
+
+## Immediate milestone: 2.2. Match XML nodes by identity
+
+Status: completed for authoritative key matching on 2026-09-25. Duplicate-key diagnostics and the broader per-context key audit remain open in section 2.2.
+
+Problem: XML composition may select a same-type child by count or position even when its explicit ID differs. A change intended for node B can therefore modify or remove node A.
+
+Proposed solution: treat an explicit identity key as authoritative. Resolve that key before structural heuristics; a keyed lookup with no match must not fall back to a different node by position. Retain positional matching only for supported keyless structures. Verify insertion separately so new nodes do not overwrite unrelated siblings.
+
+Implementation sequence:
+
+1. Reproduce the mismatched-ID case on the current implementation baseline.
+2. Add regression coverage for modification and removal with different IDs, successful matching IDs, and supported keyless structures.
+3. Apply the smallest correction to matching and verify insertion behavior.
+4. Build from source and run the relevant tree and component composition tests.
+5. Report the observed failure, behavior change, test results, and any remaining scope within section 2.2.
+
+Acceptance: an operation targeting B never modifies or removes A; valid matching-ID operations and supported keyless behavior continue to work. Define missing-target behavior from the operation contract rather than inventing a match.
+
+This increment does not require dependency-loader, SDK, EDS, or environment deployment changes. The broader delivery sequence below remains the roadmap after this bounded fix.
+Verification results:
+
+- Before the fix, 10 of 18 new regression cases failed, including mismatched-ID operations on a Warehouse application form.
+- After the fix, all 57 focused identity, tree merge, form merge, component merge, and layering cases passed.
+- The complete test project passed: 738 tests, no failures or skips, using a freshly built assembly.
+- The repository includes a Warehouse form fixture; tests construct upper contributions in memory. The original sandbox input remains unchanged.
+- The first complete registered key set is authoritative in merge and diff. Secondary keys remain available when higher-priority keys are absent. Existing missing-target modification/removal behavior remains a no-op.
+- Existing unrelated nullable-reference and test-analyzer build warnings remain; no new warnings originate in the changed files.
 
 ## 10. Delivery order
 

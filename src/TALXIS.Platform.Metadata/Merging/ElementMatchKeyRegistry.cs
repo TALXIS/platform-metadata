@@ -3,6 +3,8 @@ namespace TALXIS.Platform.Metadata.Merging;
 /// <summary>
 /// Provides element-specific key sets used to match mergeable tree nodes across solution layers.
 /// Each inner array represents a key set whose attributes must all match.
+/// Key sets are ordered by priority. The first set fully present on the target is
+/// authoritative; later sets are used only when earlier sets are incomplete.
 /// </summary>
 public static class ElementMatchKeyRegistry
 {
