@@ -41,6 +41,8 @@ The long-term plan is to make this a lightweight, embeddable metadata runtime th
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/runtime-architecture.md](docs/runtime-architecture.md) for the detailed plan.
 
+For the dependency loading, solution layering, persistence, and EDS integration work, see the [metamodel implementation plan](docs/metamodel-implementation-plan.md).
+
 ## Packages
 
 | Package | Purpose |
