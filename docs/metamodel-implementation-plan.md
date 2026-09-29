@@ -3,6 +3,8 @@
 Updated: 2026-09-25
 Status: proposed implementation plan
 
+Architecture proposal: [Metamodel composition design](metamodel-composition-design.md) defines proposed types, source/environment modes, workflows and review decisions. Its first vertical slice is a proposal, not an implemented change or a replacement for the task status below.
+
 ## Purpose and scope
 
 Extend the existing metadata library so consumers can load a solution and its dependencies, calculate effective component state using Dataverse layering rules, validate that state, and save edits to the intended source solution. The same composition logic should support development tools and the Environment Data Service (EDS).
@@ -152,7 +154,7 @@ Acceptance: each supported component behavior has an executable example and expe
 
 - [ ] Feed dependency-derived order into existing source registration and layer resolution.
 - [ ] Preserve the shared active layer and source provenance for unmanaged contributions.
-- [ ] Define additional ordering context for independent solutions that modify the same component, such as deployment import order.
+- [ ] Preserve parent reference-list order: earlier direct references have higher conflict precedence in local composition. Apply lower-priority contributions first where the merger is later-wins; retain dependency prerequisites and diagnose inconsistent constraints.
 - [ ] Diagnose unresolved ordering ambiguity rather than using incidental traversal order.
 - [ ] Keep the aggregate Default Solution-like view separate from importable layers.
 - [ ] Distinguish removing an input source from simulating solution uninstall.
@@ -399,7 +401,7 @@ Each stage is complete when its declared operations are implemented, its accepta
 ## 11. Open design decisions
 
 - Precedence and freshness rules for live metadata, cached baselines, and local edits.
-- Ordering of independent solutions that modify the same component.
+- Reconciliation of ordering constraints across multiple parents and transitive branches; direct sibling precedence is defined by earlier parent references winning.
 - Initial lifecycle coverage: import, update, upgrade, patches, and uninstall.
 - Standard-component coverage of an offline baseline.
 - Active EDS hosting/import path and alignment with its technical design.
