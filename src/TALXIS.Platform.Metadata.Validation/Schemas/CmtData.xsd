@@ -1,7 +1,24 @@
 <?xml version="1.0"?>
+<!--
+  Configuration Migration Tool (CMT) package files: data_schema.xml and data.xml share the <entities> root.
+  The schema is the union of what Microsoft CMT / Package Deployer / pac data write and read and what the
+  TALXIS importer (INT0014-DataMovement) accepts. Attributes CMT's own schema marks as required (entity
+  displayname, etc, disableplugins; field displayname) are optional here because the TALXIS dialect omits
+  them; CmtDataSchemaValidator reports their absence as a warning instead. anyAttribute="skip" keeps
+  forward compatibility with attributes neither tool documents.
+-->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 
     <xs:element name="entities" type="CmtEntitiesType" />
+
+    <!-- CMT serialises its DateMode enum verbatim; any other spelling makes the CMT reader fail. -->
+    <xs:simpleType name="CmtDateModeType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="absolute" />
+            <xs:enumeration value="relative" />
+            <xs:enumeration value="relativeDaily" />
+        </xs:restriction>
+    </xs:simpleType>
 
     <xs:complexType name="CmtEntitiesType">
         <xs:sequence>
@@ -9,7 +26,7 @@
             <xs:element name="entityImportOrder" type="CmtEntityImportOrderType" minOccurs="0" />
         </xs:sequence>
         <xs:attribute name="timestamp" type="xs:string" use="optional" />
-        <xs:attribute name="dateMode" type="xs:string" use="optional" />
+        <xs:attribute name="dateMode" type="CmtDateModeType" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
@@ -21,19 +38,21 @@
 
     <xs:complexType name="CmtEntityType">
         <xs:choice minOccurs="0">
+            <!-- data.xml form: records, many-to-many associations and the legacy data-side <relationships> block
+                 that older CMT versions wrote (same shape as the schema entry; must round-trip untouched). -->
             <xs:sequence>
                 <xs:element name="records" type="CmtRecordsType" minOccurs="0" />
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element name="m2mrelationships" type="CmtM2mRelationshipsType" />
                     <xs:element name="m2mrelationship" type="CmtM2mRelationshipType" />
+                    <xs:element name="relationships" type="CmtRelationshipsType" />
                 </xs:choice>
             </xs:sequence>
+            <!-- data_schema.xml form: CMT writes a fixed sequence fields, relationships, filter. -->
             <xs:sequence>
                 <xs:element name="fields" type="CmtFieldsType" />
-                <xs:choice minOccurs="0" maxOccurs="2">
-                    <xs:element name="relationships" type="CmtRelationshipsType" />
-                    <xs:element name="filter" type="xs:string" />
-                </xs:choice>
+                <xs:element name="relationships" type="CmtRelationshipsType" minOccurs="0" />
+                <xs:element name="filter" type="xs:string" minOccurs="0" />
             </xs:sequence>
         </xs:choice>
         <xs:attribute name="name" type="xs:string" use="required" />
@@ -43,6 +62,8 @@
         <xs:attribute name="disableplugins" type="xs:string" use="optional" />
         <xs:attribute name="skipupdate" type="xs:string" use="optional" />
         <xs:attribute name="forcecreate" type="xs:string" use="optional" />
+        <!-- renderliquid and guidswap are TALXIS extensions (INT0014-DataMovement), not Microsoft CMT attributes.
+             CMT ignores them; the TALXIS importer renders <records> through Liquid / remaps GUIDs when true. -->
         <xs:attribute name="renderliquid" type="xs:string" use="optional" />
         <xs:attribute name="guidswap" type="xs:string" use="optional" />
         <xs:attribute name="etc" type="xs:string" use="optional" />
@@ -60,15 +81,31 @@
             <xs:element name="field" type="CmtDataFieldType" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
         <xs:attribute name="id" type="GuidType" use="required" />
+        <!-- Written by CMT when a record was re-identified during export; the importer prefers it over id. -->
+        <xs:attribute name="newId" type="GuidType" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
     <xs:complexType name="CmtDataFieldType">
+        <xs:sequence>
+            <!-- partylist fields carry their activity parties as nested records instead of a value. -->
+            <xs:element name="activitypointerrecords" type="CmtActivityPointerRecordsType" minOccurs="0" />
+        </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="value" type="xs:string" use="optional" />
+        <!-- filedata: value is the file id (payload files/<value>.bin), filename the display name. -->
+        <xs:attribute name="filename" type="xs:string" use="optional" />
         <xs:attribute name="lookupentity" type="xs:string" use="optional" />
         <xs:attribute name="lookupentityname" type="xs:string" use="optional" />
         <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <!-- Each child is an activity party record (id + field elements). Kept open so CMT's exact element name
+         does not have to be pinned here; CmtPackageXmlReader reads every child as a record. -->
+    <xs:complexType name="CmtActivityPointerRecordsType">
+        <xs:sequence>
+            <xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
     </xs:complexType>
 
     <xs:complexType name="CmtM2mRelationshipsType">
@@ -85,6 +122,7 @@
         <xs:attribute name="targetentityname" type="xs:string" use="required" />
         <xs:attribute name="targetentitynameidfield" type="xs:string" use="optional" />
         <xs:attribute name="m2mrelationshipname" type="xs:string" use="required" />
+        <xs:attribute name="m2mrelationshipschemaname" type="xs:string" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
@@ -108,7 +146,7 @@
         <xs:attribute name="updateCompare" type="xs:string" use="optional" />
         <xs:attribute name="customfield" type="xs:string" use="optional" />
         <xs:attribute name="lookupType" type="xs:string" use="optional" />
-        <xs:attribute name="dateMode" type="xs:string" use="optional" />
+        <xs:attribute name="dateMode" type="CmtDateModeType" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
@@ -120,6 +158,7 @@
 
     <xs:complexType name="CmtRelationshipType">
         <xs:sequence>
+            <!-- Many-to-many entries nest the two intersect fields (name/type/primaryKey/customfield, no displayname). -->
             <xs:element name="fields" type="CmtFieldsType" minOccurs="0" />
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
