@@ -93,6 +93,7 @@ The model separates concepts that Dataverse treats differently:
 - Loads single-solution and multi-solution workspaces.
 - Tracks source ownership so one solution can be exported from a combined workspace.
 - Handles generic components that do not yet have a dedicated typed model.
+- Loads and patches Configuration Migration Tool packages (`data_schema.xml` + `data.xml`) through a typed model, keeping unknown content, comments, BOM and line endings; see [docs/configuration-migration.md](docs/configuration-migration.md).
 
 ### Validation
 
@@ -102,6 +103,7 @@ The model separates concepts that Dataverse treats differently:
 - JSON validation for flow definition payloads.
 - Duplicate GUID detection.
 - Reader/load diagnostics for malformed component files.
+- Configuration Migration packages: XSD plus structural rules TXM006–TXM020 (import order, primary fields, lookup types, data.xml against its schema, importable types, case-only name matches), calibrated so both Microsoft CMT and TALXIS-dialect packages validate.
 - File, line, and column information where available.
 
 ## Core concepts
@@ -265,9 +267,11 @@ Implemented:
 - Source-owned snapshots and solution/component membership tracking.
 - Explicit single-solution export from multi-solution workspaces.
 - XSD, JSON, duplicate GUID, and model-load validation.
+- Configuration Migration package model, roundtrip-safe reader/writer and structural validation.
 
 Tracked follow-up work:
 
+- Configuration Migration packages validated against workspace or live metadata, and schema entities built from metadata.
 - Complete dependency graph and uninstall-safety simulation.
 - Package Deployer import-order discovery.
 - Patch, holding, and staged upgrade semantics.
