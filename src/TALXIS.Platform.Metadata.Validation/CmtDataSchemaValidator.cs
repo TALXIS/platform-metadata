@@ -14,10 +14,13 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class CmtDataSchemaValidator
 {
-    // CMT compares type names ordinally, so "EntityReference" is not a lookup to it either.
+    // Field types whose schema entry names the target entity through lookupType. Owner is deliberately
+    // absent: CMT never writes lookupType for owner fields (0 of 219 owner fields in production exports),
+    // because ownership is always systemuser|team. CMT compares type names ordinally, so a capitalised
+    // "EntityReference" is not a lookup to it either.
     private static readonly HashSet<string> LookupTypes = new(StringComparer.Ordinal)
     {
-        CmtFieldTypes.EntityReference, CmtFieldTypes.Customer, CmtFieldTypes.Owner
+        CmtFieldTypes.EntityReference, CmtFieldTypes.Customer
     };
 
     /// <summary>

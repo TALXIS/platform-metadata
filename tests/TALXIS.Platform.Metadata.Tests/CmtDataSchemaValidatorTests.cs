@@ -232,24 +232,33 @@ public class CmtDataSchemaValidatorTests
     [Theory]
     [InlineData("entityreference")]
     [InlineData("customer")]
-    [InlineData("owner")]
-    public void LookupWithoutLookupType_ReportsError(string type)
+    public void LookupWithoutLookupType_ReportsWarning(string type)
     {
-        var finding = Assert.Single(Validate($"""
-            <entities>
-              <entity name="contact" primaryidfield="contactid">
-                <fields>
-                  <field name="contactid" type="guid" primaryKey="true" updateCompare="true" />
-                  <field name="parentid" type="{type}" />
-                </fields>
-              </entity>
-            </entities>
-            """));
+        var finding = Assert.Single(Validate(LookupEntity(type)));
 
         Assert.Equal(ValidationDiagnostics.CmtLookupTypeMissing, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
         Assert.Contains("contact.parentid", finding.Message);
         Assert.True(finding.Line > 0);
     }
+
+    [Fact]
+    public void OwnerWithoutLookupType_HasNoFinding()
+    {
+        // CMT never emits lookupType for owner fields, so a real export must not warn.
+        Assert.Empty(Validate(LookupEntity("owner")));
+    }
+
+    private static string LookupEntity(string type) => $"""
+        <entities>
+          <entity name="contact" primaryidfield="contactid">
+            <fields>
+              <field name="contactid" type="guid" primaryKey="true" updateCompare="true" />
+              <field name="parentid" type="{type}" />
+            </fields>
+          </entity>
+        </entities>
+        """;
 
     [Fact]
     public void DuplicateEntitiesAndFields_ReportError()

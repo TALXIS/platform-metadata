@@ -44,7 +44,7 @@ public static class ValidationDiagnostics
     public const string CmtPrimaryNameFieldUndeclared = "TXM009";
 
     /// <summary>
-    /// A CMT schema lookup field (entityreference, customer, owner) does not say which entity it points to.
+    /// A CMT schema lookup field (entityreference, customer) does not say which entity it points to. Owner fields never carry lookupType in CMT exports and are not checked.
     /// </summary>
     public const string CmtLookupTypeMissing = "TXM010";
 
