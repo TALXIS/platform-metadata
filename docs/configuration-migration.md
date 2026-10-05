@@ -24,23 +24,41 @@ Nothing here touches Dataverse, discovers files or bakes in folder names. `CmtPa
 
 Names are compared **ordinally** everywhere, because that is what CMT's importer does. A name that matches only when case is ignored is a validation warning (TXM015), not a match.
 
-## Load, change, save
+## Create, load, change, save
 
-`TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration`:
+`TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration`. Creating a package:
 
 ```csharp
-var reader = new CmtPackageXmlReader();
-var package = reader.Load(@"C:\MyPackage\data_schema.xml", @"C:\MyPackage\data.xml");
+var schema = new CmtDataSchema();
+var account = schema.AddEntity("account", "Account", primaryIdField: "accountid", primaryNameField: "name");
+account.AddField("name", CmtFieldTypes.String, "Account Name", updateCompare: true);
+account.AddField("telephone1", CmtFieldTypes.String, "Main Phone");
+account.AddField("primarycontactid", CmtFieldTypes.EntityReference, "Primary Contact", lookupType: "contact");
+
+var data = new CmtData();
+// Configuration records need stable ids: commit a fixed GUID (or use the TALXIS guidswap extension), never Guid.NewGuid() per run.
+data.AddEntity("account", "Account")
+    .AddRecord(new Guid("5f1c2a40-7b3e-4c6d-9e8f-0a1b2c3d4e5f"))
+    .Set("name", "Contoso")
+    .Set("telephone1", "123456789");
+
+new CmtPackageXmlWriter().Save(new CmtPackage(schema, data), @"C:\MyPackage");   // writes data_schema.xml and data.xml
+```
+
+Editing an existing one:
+
+```csharp
+var package = new CmtPackageXmlReader().Load(@"C:\MyPackage");
 // package.LoadErrors lists unreadable files and records whose id is not a GUID (those are skipped).
 
 var account = package.Schema.FindEntity("account")!;
 account.FindField("telephone1")!.IsUpdateCompare = true;
-account.Fields.Add(new CmtSchemaField { Name = "websiteurl", DisplayName = "Website", Type = CmtFieldTypes.String });
+account.AddField("websiteurl", CmtFieldTypes.String, "Website");
 
-var writer = new CmtPackageXmlWriter();
-writer.SaveSchema(package, @"C:\MyPackage\data_schema.xml");
-writer.SaveData(package, @"C:\MyPackage\data.xml");
+bool changed = new CmtPackageXmlWriter().SaveIfChanged(package, @"C:\MyPackage");   // false when nothing changed
 ```
+
+`Load(directory)`/`Save(package, directory)` combine the directory with CMT's fixed file names (`CmtPackageLayout`); the two-path overloads (`Load(schemaPath, dataPath)`, `SaveSchema`, `SaveData`) stay for callers that resolved the files themselves. Object initialisers keep working (`new CmtSchemaField { Name = …, Type = … }`); the helpers only add duplicate checks and the conventions CMT expects (a `guid` primary-key field, the import-order entry).
 
 The writer does not regenerate files. It patches the documents the package was loaded from, matching elements by name (entities, fields, relationships) or id (records, associations), so unknown attributes and elements, XML comments, attribute order, BOM, line endings, the declaration and CMT's `<entities >` root survive, and the diff contains only the intended change. `Load → Save` is a zero-byte diff; an unchanged document is never re-serialised. Elements are written in CMT's order (`entityImportOrder` after the entities; `fields`, `relationships`, `filter` inside an entity). A package built in memory (`new CmtPackage(schema, data)`) is written as a new, indented document.
 

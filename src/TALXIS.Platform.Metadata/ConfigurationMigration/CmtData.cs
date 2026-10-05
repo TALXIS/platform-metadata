@@ -20,4 +20,15 @@ public sealed class CmtData : MetadataBase
     /// <summary>Finds an entity by logical name using ordinal comparison, or <c>null</c>.</summary>
     public CmtDataEntity? FindEntity(string name) =>
         Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.Ordinal));
+
+    /// <summary>Adds an entity (its name must match the schema entity ordinally). Throws when one of that name exists.</summary>
+    public CmtDataEntity AddEntity(string name, string? displayName = null)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An entity must have a non-empty name.", nameof(name));
+        if (FindEntity(name) is not null) throw new InvalidOperationException($"An entity named '{name}' already exists in the data file.");
+
+        var entity = new CmtDataEntity { Name = name, DisplayName = displayName };
+        Entities.Add(entity);
+        return entity;
+    }
 }

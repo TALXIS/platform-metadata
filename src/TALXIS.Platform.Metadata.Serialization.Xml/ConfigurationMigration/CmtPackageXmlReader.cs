@@ -15,10 +15,11 @@ public sealed class CmtPackageXmlReader
     private const LoadOptions XmlLoadOptions = LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo;
 
     /// <summary>
-    /// Loads a package from files. Missing or malformed files, and records or associations whose ids do not
-    /// parse (those are skipped), are reported in <see cref="CmtPackage.LoadErrors"/>.
+    /// Loads a package from explicit file paths (<paramref name="dataPath"/> <c>null</c> for a schema-only package).
+    /// Missing or malformed files, and records or associations whose ids do not parse (those are skipped), are
+    /// reported in <see cref="CmtPackage.LoadErrors"/>. A single path means a package directory: see <see cref="Load(string)"/>.
     /// </summary>
-    public CmtPackage Load(string schemaPath, string? dataPath = null)
+    public CmtPackage Load(string schemaPath, string? dataPath)
     {
         var errors = new List<WorkspaceLoadError>();
         var schemaDocument = TryLoad(schemaPath, errors);
@@ -33,6 +34,17 @@ public sealed class CmtPackageXmlReader
         }
 
         return new CmtPackage(schema, data, errors) { SchemaDocument = schemaDocument, DataDocument = dataDocument };
+    }
+
+    /// <summary>
+    /// Loads the package in <paramref name="packageDirectory"/>: <see cref="CmtPackageLayout.SchemaFileName"/> and,
+    /// when present, <see cref="CmtPackageLayout.DataFileName"/> (a missing data file leaves <see cref="CmtPackage.Data"/>
+    /// null without a load error). The directory is the caller's; nothing is searched for.
+    /// </summary>
+    public CmtPackage Load(string packageDirectory)
+    {
+        var dataPath = Path.Combine(packageDirectory, CmtPackageLayout.DataFileName);
+        return Load(Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName), FileExists(dataPath) ? dataPath : null);
     }
 
     /// <summary>
@@ -107,7 +119,7 @@ public sealed class CmtPackageXmlReader
         {
             Name = Attr(element, "name") ?? string.Empty,
             DisplayName = Attr(element, "displayname"),
-            Type = Attr(element, "type"),
+            Type = Attr(element, "type") ?? string.Empty,
             IsPrimaryKey = Bool(element, "primaryKey"),
             IsUpdateCompare = Bool(element, "updateCompare"),
             IsCustomField = Bool(element, "customfield"),
@@ -234,8 +246,10 @@ public sealed class CmtPackageXmlReader
         return null;
     }
 
-    // TODO(layering): route through IWorkspaceContext once the metamodel-layering branch lands; this is the reader's only file access.
+    // TODO(layering): route through IWorkspaceContext once the metamodel-layering branch lands; these are the reader's only file accesses.
     private static Stream OpenRead(string path) => File.OpenRead(path);
+
+    private static bool FileExists(string path) => File.Exists(path);
 
     private static WorkspaceLoadError LoadError(XElement element, string? sourcePath, string message)
     {

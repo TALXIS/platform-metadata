@@ -16,4 +16,17 @@ public sealed class CmtDataEntity : MetadataBase
 
     /// <summary>Many-to-many associations whose source record belongs to this entity.</summary>
     public IList<CmtDataManyToManyRelationship> ManyToManyRelationships { get; } = new List<CmtDataManyToManyRelationship>();
+
+    /// <summary>
+    /// Adds a record with the given id. Configuration data should use stable ids committed with the package
+    /// (or the TALXIS <c>guidswap</c> extension), never fresh GUIDs per build. Throws when a record with that id exists.
+    /// </summary>
+    public CmtDataRecord AddRecord(Guid id)
+    {
+        if (Records.Any(r => r.Id == id)) throw new InvalidOperationException($"A record with id '{id}' already exists on entity '{Name}'.");
+
+        var record = new CmtDataRecord { Id = id };
+        Records.Add(record);
+        return record;
+    }
 }

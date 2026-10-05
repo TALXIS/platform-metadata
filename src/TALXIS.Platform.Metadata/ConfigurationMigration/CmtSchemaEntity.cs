@@ -67,4 +67,29 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Finds a field by logical name using ordinal comparison (as CMT does), or <c>null</c>.</summary>
     public CmtSchemaField? FindField(string name) =>
         Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Declares a column. <paramref name="type"/> is a <see cref="CmtFieldTypes"/> value; <paramref name="lookupType"/>
+    /// names the target tables of an entityreference/customer column (<c>account|contact</c>). Throws when a field of
+    /// that name exists.
+    /// </summary>
+    public CmtSchemaField AddField(string name, string type, string? displayName = null, bool updateCompare = false, string? lookupType = null)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field must have a non-empty name.", nameof(name));
+        if (FindField(name) is not null) throw new InvalidOperationException($"A field named '{name}' already exists on entity '{Name}'.");
+
+        var field = new CmtSchemaField { Name = name, Type = type, DisplayName = displayName, IsUpdateCompare = updateCompare, LookupType = lookupType };
+        Fields.Add(field);
+        return field;
+    }
+
+    /// <summary>Adds a relationship entry. Throws when one of that name exists.</summary>
+    public CmtSchemaRelationship AddRelationship(CmtSchemaRelationship relationship)
+    {
+        if (Relationships.Any(r => string.Equals(r.Name, relationship.Name, StringComparison.Ordinal)))
+            throw new InvalidOperationException($"A relationship named '{relationship.Name}' already exists on entity '{Name}'.");
+
+        Relationships.Add(relationship);
+        return relationship;
+    }
 }

@@ -16,4 +16,26 @@ public sealed class CmtDataRecord : MetadataBase
 
     /// <summary>Field values in document order. Only fields the schema declares are imported.</summary>
     public IList<CmtDataField> Fields { get; } = new List<CmtDataField>();
+
+    /// <summary>
+    /// Sets a field value, replacing an existing field of the same name (ordinal) or appending a new one.
+    /// <paramref name="value"/> must already be in CMT's encoding for the column type (see <see cref="CmtDataField.Value"/>).
+    /// </summary>
+    /// <returns>This record, so calls chain.</returns>
+    public CmtDataRecord Set(string name, string? value, string? lookupEntity = null, string? lookupEntityName = null)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field must have a non-empty name.", nameof(name));
+
+        var field = Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));
+        if (field is null)
+        {
+            field = new CmtDataField { Name = name };
+            Fields.Add(field);
+        }
+
+        field.Value = value;
+        field.LookupEntity = lookupEntity;
+        field.LookupEntityName = lookupEntityName;
+        return this;
+    }
 }

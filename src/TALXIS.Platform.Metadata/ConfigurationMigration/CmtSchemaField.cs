@@ -17,7 +17,7 @@ public sealed class CmtSchemaField : MetadataBase
     /// <c>entityreference</c>, <c>optionsetvalue</c>). CMT compares it case-sensitively and has no conversion for
     /// <c>bigint</c> or <c>unknown</c>.
     /// </summary>
-    public string? Type { get; set; }
+    public required string Type { get; set; }
 
     /// <summary>Marks the primary id column (<c>primaryKey="true"</c>). Absent means false; the writer never emits false.</summary>
     public bool IsPrimaryKey { get; set; }

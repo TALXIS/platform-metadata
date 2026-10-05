@@ -153,7 +153,7 @@ public class CmtPackageXmlReaderTests
         File.WriteAllText(path, "<entities>\n  <entity name=\"account\">\n</entities>");
         try
         {
-            var package = new CmtPackageXmlReader().Load(path);
+            var package = new CmtPackageXmlReader().Load(path, null);
 
             var error = Assert.Single(package.LoadErrors);
             Assert.Equal(path, error.FilePath);

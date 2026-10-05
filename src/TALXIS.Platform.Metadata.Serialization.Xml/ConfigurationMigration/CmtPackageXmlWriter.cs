@@ -33,30 +33,54 @@ public sealed class CmtPackageXmlWriter
     /// Saves the package schema to a data_schema.xml file, keeping the existing file's BOM, newline style and
     /// declaration. An unchanged document is not rewritten.
     /// </summary>
-    public void SaveSchema(CmtPackage package, string path) =>
-        SaveIfChanged(package.SchemaDocument, () => BuildSchema(package), path, package.Schema.Source?.FilePath);
+    public void SaveSchema(CmtPackage package, string path) => SaveSchemaCore(package, path);
 
     /// <summary>
     /// Saves the package data to a data.xml file; same contract as <see cref="SaveSchema"/>. Throws when the package has no data.
     /// </summary>
-    public void SaveData(CmtPackage package, string path) =>
+    public void SaveData(CmtPackage package, string path) => SaveDataCore(package, path);
+
+    /// <summary>
+    /// Saves the schema and, when the package has data, the data file into <paramref name="packageDirectory"/>
+    /// under CMT's fixed names (<see cref="CmtPackageLayout"/>). Unchanged documents are not rewritten.
+    /// </summary>
+    public void Save(CmtPackage package, string packageDirectory) => SaveIfChanged(package, packageDirectory);
+
+    /// <summary>
+    /// Same as <see cref="Save"/>, but reports whether any file was written. Use it when the caller shows
+    /// "created / updated / unchanged".
+    /// </summary>
+    public bool SaveIfChanged(CmtPackage package, string packageDirectory)
+    {
+        CreateDirectory(packageDirectory);
+        var written = SaveSchemaCore(package, Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName));
+        if (package.Data is not null) written |= SaveDataCore(package, Path.Combine(packageDirectory, CmtPackageLayout.DataFileName));
+        return written;
+    }
+
+    private static bool SaveSchemaCore(CmtPackage package, string path) =>
+        SaveIfChanged(package.SchemaDocument, () => BuildSchema(package), path, package.Schema.Source?.FilePath);
+
+    private static bool SaveDataCore(CmtPackage package, string path) =>
         SaveIfChanged(package.DataDocument, () => BuildData(package), path, package.Data?.Source?.FilePath);
 
     // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
     // example), so an unchanged document is never re-serialised: the same file is left alone and a different
     // target gets a byte-for-byte copy of the source file.
-    private static void SaveIfChanged(XDocument? original, Func<XDocument> build, string path, string? loadedFrom)
+    private static bool SaveIfChanged(XDocument? original, Func<XDocument> build, string path, string? loadedFrom)
     {
         var before = original?.ToString(SaveOptions.DisableFormatting);
         var document = build();
         var isUnchanged = loadedFrom is not null && FileExists(loadedFrom) && before == document.ToString(SaveOptions.DisableFormatting);
         if (isUnchanged)
         {
-            if (!FilePaths.Equal(path, loadedFrom!)) WriteAllBytes(path, ReadAllBytes(loadedFrom!));
-            return;
+            if (FilePaths.Equal(path, loadedFrom!)) return false;
+            WriteAllBytes(path, ReadAllBytes(loadedFrom!));
+            return true;
         }
 
         Save(document, path, original is null);
+        return true;
     }
 
     private static XDocument BuildSchema(CmtPackage package)
@@ -105,7 +129,7 @@ public sealed class CmtPackageXmlWriter
         SetBool(element, "updateCompare", field.IsUpdateCompare);
         SetString(element, "displayname", field.DisplayName);
         SetString(element, "name", field.Name);
-        SetString(element, "type", field.Type);
+        if (field.Type.Length > 0 || element.Attribute("type") is not null) SetString(element, "type", field.Type);
         SetString(element, "lookupType", field.LookupType);
         SetString(element, "dateMode", field.DateMode);
         SetBool(element, "primaryKey", field.IsPrimaryKey);
@@ -304,12 +328,14 @@ public sealed class CmtPackageXmlWriter
         WriteAllBytes(path, settings.Encoding.GetBytes(text));
     }
 
-    // TODO(layering): route the three helpers below through IWorkspaceContext once the metamodel-layering branch lands.
+    // TODO(layering): route the four helpers below through IWorkspaceContext once the metamodel-layering branch lands.
     private static bool FileExists(string path) => File.Exists(path);
 
     private static byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
 
     private static void WriteAllBytes(string path, byte[] bytes) => File.WriteAllBytes(path, bytes);
+
+    private static void CreateDirectory(string path) => Directory.CreateDirectory(path);
 
     // The CMT tool writes an attribute-less schema root as "<entities >", which XDocument cannot preserve.
     private static bool KeepsSpacedEmptyRoot(XDocument document, byte[]? existing, Encoding encoding) =>

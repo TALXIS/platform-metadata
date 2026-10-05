@@ -93,7 +93,7 @@ The model separates concepts that Dataverse treats differently:
 - Loads single-solution and multi-solution workspaces.
 - Tracks source ownership so one solution can be exported from a combined workspace.
 - Handles generic components that do not yet have a dedicated typed model.
-- Loads and patches Configuration Migration Tool packages (`data_schema.xml` + `data.xml`) through a typed model, keeping unknown content, comments, BOM and line endings; see [docs/configuration-migration.md](docs/configuration-migration.md).
+- Loads and patches Configuration Migration Tool packages (`data_schema.xml` + `data.xml`) through a typed model with authoring helpers (`schema.AddEntity(...).AddField(...)`, `data.AddEntity(...).AddRecord(id).Set(...)`), keeping unknown content, comments, BOM and line endings; see [docs/configuration-migration.md](docs/configuration-migration.md).
 
 ### Validation
 

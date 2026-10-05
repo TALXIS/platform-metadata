@@ -35,7 +35,7 @@ public class CmtPackageXmlWriterTests
         File.SetLastWriteTimeUtc(path, stamp);
         try
         {
-            var package = new CmtPackageXmlReader().Load(path);
+            var package = new CmtPackageXmlReader().Load(path, null);
             new CmtPackageXmlWriter().SaveSchema(package, path);
 
             Assert.Equal(stamp, File.GetLastWriteTimeUtc(path));
@@ -81,7 +81,7 @@ public class CmtPackageXmlWriterTests
     public void TalxisDeclarationWithoutEncodingSurvivesRewrite()
     {
         var schemaPath = Path.Combine(FixtureRoot, "talxis-dialect", "data_schema.xml");
-        var package = new CmtPackageXmlReader().Load(schemaPath);
+        var package = new CmtPackageXmlReader().Load(schemaPath, null);
         package.Schema.FindEntity("account")!.GuidSwap = false;
 
         var text = System.Text.Encoding.UTF8.GetString(SaveOverCopy(schemaPath, path => new CmtPackageXmlWriter().SaveSchema(package, path)));
@@ -302,7 +302,7 @@ public class CmtPackageXmlWriterTests
     private static readonly string BasicSchemaPath = Path.Combine(FixtureRoot, "basic", "data_schema.xml");
 
     private static (CmtPackage Package, string Original) LoadBasicSchema() =>
-        (new CmtPackageXmlReader().Load(BasicSchemaPath), File.ReadAllText(BasicSchemaPath));
+        (new CmtPackageXmlReader().Load(BasicSchemaPath, null), File.ReadAllText(BasicSchemaPath));
 
     private static string SaveSchemaToText(CmtPackage package) =>
         System.Text.Encoding.UTF8.GetString(SaveOverCopy(BasicSchemaPath, path => new CmtPackageXmlWriter().SaveSchema(package, path)));
