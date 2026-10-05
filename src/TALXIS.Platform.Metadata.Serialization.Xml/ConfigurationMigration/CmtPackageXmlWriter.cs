@@ -36,13 +36,20 @@ public sealed class CmtPackageXmlWriter
     public void SaveData(CmtPackage package, string path) =>
         SaveIfChanged(package.DataDocument, () => BuildData(package), path, package.Data?.Source?.FilePath);
 
-    // Hand-edited files can contain formatting XDocument cannot reproduce, so an unchanged package is not rewritten.
+    // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
+    // example), so an unchanged document is never re-serialised: the same file is left alone and a different
+    // target gets a byte-for-byte copy of the source file.
     private static void SaveIfChanged(XDocument? original, Func<XDocument> build, string path, string? loadedFrom)
     {
         var before = original?.ToString(SaveOptions.DisableFormatting);
         var document = build();
-        var isSameFile = loadedFrom is not null && FileExists(path) && FilePaths.Equal(path, loadedFrom);
-        if (isSameFile && before == document.ToString(SaveOptions.DisableFormatting)) return;
+        var isUnchanged = loadedFrom is not null && FileExists(loadedFrom) && before == document.ToString(SaveOptions.DisableFormatting);
+        if (isUnchanged)
+        {
+            if (!FilePaths.Equal(path, loadedFrom!)) WriteAllBytes(path, ReadAllBytes(loadedFrom!));
+            return;
+        }
+
         Save(document, path, original is null);
     }
 
@@ -285,6 +292,9 @@ public sealed class CmtPackageXmlWriter
 
         var text = settings.Encoding.GetString(buffer.ToArray());
         if (KeepsSpacedEmptyRoot(document, existing, settings.Encoding)) text = ReplaceFirst(text, "<entities>", "<entities >");
+        // TALXIS packages declare <?xml version="1.0"?> without encoding; XmlWriter always adds one.
+        if (document.Declaration is { } declaration && string.IsNullOrEmpty(declaration.Encoding))
+            text = ReplaceFirst(text, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", "<?xml version=\"1.0\"?>");
         WriteAllBytes(path, settings.Encoding.GetBytes(text));
     }
 

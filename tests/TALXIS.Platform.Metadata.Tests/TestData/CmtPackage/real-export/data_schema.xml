@@ -1,0 +1,61 @@
+<entities >
+  <entity name="talxis_counterconfiguration" displayname="Auto Number Series" primaryidfield="talxis_counterconfigurationid" primarynamefield="talxis_entityname" disableplugins="false" skipupdate="true">
+    <fields>
+      <field displayname="Counter Configuration" name="talxis_counterconfigurationid" type="guid" primaryKey="true" />
+      <field displayname="Custom number position" name="talxis_customnumberposition" type="bool" customfield="true" />
+      <field updateCompare="true" displayname="Entity Name" name="talxis_entityname" type="string" customfield="true" />
+      <field displayname="Field Name" name="talxis_fieldname" type="string" customfield="true" />
+      <!-- Query is FetchXML stored HTML-encoded by the exporting plug-in; CMT decodes once more on import. -->
+      <field displayname="Query" name="talxis_query" type="string" customfield="true" />
+      <field displayname="Series Name" name="talxis_seriesname" type="string" customfield="true" />
+    </fields>
+  </entity>
+  <entity name="talxis_configuration_documentgenerator" displayname="Document Template" etc="10343" primaryidfield="talxis_configuration_documentgeneratorid" primarynamefield="talxis_name" disableplugins="false">
+    <fields>
+      <field displayname="Status" name="statecode" type="state" />
+      <field displayname="Status Reason" name="statuscode" type="status" />
+      <field updateCompare="true" displayname="Name" name="talxis_name" type="string" customfield="true" />
+      <field displayname="File Type" name="talxis_documenttype" type="optionsetvalue" customfield="true" />
+      <field displayname="Document Template" name="talxis_configuration_documentgeneratorid" type="guid" primaryKey="true" />
+      <field displayname="Document Content" name="talxis_documentcontent" type="string" customfield="true" />
+      <field displayname="Template File" name="talxis_templatefile" type="filedata" customfield="true" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+    </fields>
+    <relationships>
+      <relationship name="talxis_documentgenerator_introductionstep" manyToMany="true" isreflexive="false" relatedEntityName="talxis_documentgenerator_introductionstep" m2mTargetEntity="talxis_configuration_introductionstep" m2mTargetEntityPrimaryKey="talxis_configuration_introductionstepid">
+        <fields>
+          <field name="talxis_configuration_documentgeneratorid" type="guid" primaryKey="true" customfield="true" />
+          <field name="talxis_configuration_introductionstepid" type="guid" customfield="true" />
+        </fields>
+      </relationship>
+    </relationships>
+  </entity>
+  <entity name="talxis_configuration_introductionstep" displayname="Configuration - Introduction Step" etc="10350" primaryidfield="talxis_configuration_introductionstepid" primarynamefield="talxis_name" disableplugins="false">
+    <fields>
+      <field displayname="Order" name="talxis_order" type="number" customfield="true" />
+      <field displayname="Name" name="talxis_name" type="string" customfield="true" />
+      <field displayname="Title" name="talxis_title" type="string" customfield="true" />
+      <field displayname="Configuration - Introduction Scenario" name="talxis_configuration_introductionscenarioid" type="entityreference" lookupType="talxis_configuration_introductionscenario" customfield="true" />
+      <field updateCompare="true" displayname="Configuration - Introduction Step" name="talxis_configuration_introductionstepid" type="guid" primaryKey="true" />
+      <field displayname="Element Selector" name="talxis_elementselector" type="string" customfield="true" />
+    </fields>
+    <relationships>
+      <relationship name="talxis_configuration_introductionscenario_step" manyToMany="false" referencingEntity="talxis_configuration_introductionstep" referencingAttribute="talxis_configuration_introductionscenarioid" referencedEntity="talxis_configuration_introductionscenario" referencedAttribute="talxis_configuration_introductionscenarioid" />
+    </relationships>
+  </entity>
+  <entity name="talxis_reviewmeeting" displayname="Review Meeting" etc="10400" primaryidfield="activityid" primarynamefield="subject" disableplugins="true">
+    <fields>
+      <field displayname="Review Meeting" name="activityid" type="guid" primaryKey="true" />
+      <field updateCompare="true" displayname="Subject" name="subject" type="string" />
+      <field displayname="Start Time" name="scheduledstart" type="datetime" dateMode="relativeDaily" />
+      <field displayname="Participants" name="talxis_participants" type="partylist" customfield="true" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="talxis_reviewmeeting"&gt;&lt;filter&gt;&lt;condition attribute="statecode" operator="eq" value="0" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entityImportOrder>
+    <entityName>talxis_counterconfiguration</entityName>
+    <entityName>talxis_configuration_introductionstep</entityName>
+    <entityName>talxis_configuration_documentgenerator</entityName>
+    <entityName>talxis_reviewmeeting</entityName>
+  </entityImportOrder>
+</entities>

@@ -179,4 +179,24 @@ public class CmtPackageValidatorTests
     {
         Assert.Empty(Validate("""<entities timestamp="2021-08-16T12:15:05.4811021Z"><entity name="account"><records /></entity></entities>"""));
     }
+
+    [Theory]
+    [InlineData("real-export")]
+    [InlineData("talxis-dialect")]
+    public void Fixtures_ProduceNoErrors(string fixture)
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "TestData", "CmtPackage", fixture);
+        var package = new CmtPackageXmlReader().Load(Path.Combine(root, "data_schema.xml"), Path.Combine(root, "data.xml"));
+        Assert.Empty(package.LoadErrors);
+
+        var results = new CmtDataSchemaValidator().Validate(package.Schema).Concat(new CmtPackageValidator().Validate(package)).ToList();
+
+        // Warnings are expected (TALXIS omits etc, uses type="file", references entities outside the package); errors are not.
+        Assert.Empty(results.Where(r => r.Severity == ValidationSeverity.Error));
+        if (fixture == "talxis-dialect")
+        {
+            Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtRequiredAttributeMissing && r.Message.Contains("has no etc"));
+            Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtFieldTypeNotImportable && r.Message.Contains("'file'"));
+        }
+    }
 }

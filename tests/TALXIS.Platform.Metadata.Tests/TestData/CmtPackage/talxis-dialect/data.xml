@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" timestamp="2021-06-15T17:52:17.0943085Z">
+  <entity name="theme" displayname="Theme">
+    <records>
+      <record id="97454324-7bb4-4bfa-9038-18202bb9152e">
+        <field name="themeid" value="97454324-7bb4-4bfa-9038-18202bb9152e" />
+        <field name="name" value="TALXIS Theme" />
+        <field name="defaultentitycolor" value="#001F3F" />
+        <field name="type" value="False" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+  <entity name="talxis_file" displayname="File">
+    <records>
+      <record id="bdd297dd-4dc4-eb11-bacc-00224881aeff">
+        <field name="talxis_fileid" value="bdd297dd-4dc4-eb11-bacc-00224881aeff" />
+        <field name="talxis_name" value="Terms {% randomguid %}" />
+        <field name="talxis_content" value="Terms_1091072850.docx" />
+        <field name="talxis_accountid" value="4c6f4d2e-0000-4000-8000-000000000001" lookupentity="account" />
+      </record>
+    </records>
+  </entity>
+  <!--Customer Users - Individual Data Access-->
+  <entity name="talxis_configuration_authcontextvariable" displayname="Authorization Context Variable">
+    <records>
+      <record id="c5fe6953-5bf4-eb11-94ee-000d3a3954c8">
+        <field name="talxis_variablename" value="mpg_accessiblesites" />
+        <field name="statuscode" value="1" />
+        <field name="statecode" value="0" />
+        <field name="talxis_throwonempty" value="False" />
+        <field name="talxis_odatainputquery" value="{%- if AuthorizationContextVariables.mpg_contacttypecode == 922480000 -%}&#xA;talxis_sites?$filter=(_talxis_counterpartyid_value eq &amp;#39;{{ AuthorizationContextVariables.talxis_currentcustomerid }}&amp;#39;)&#xA;{%- endif -%}" />
+        <field name="talxis_liquidtransformationtemplate" value="{{ value | map: &amp;quot;talxis_siteid&amp;quot; | join: &amp;quot;&amp;#39;,&amp;#39;&amp;quot; }}" />
+        <field name="talxis_configuration_authcontextvariableid" value="c5fe6953-5bf4-eb11-94ee-000d3a3954c8" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+</entities>

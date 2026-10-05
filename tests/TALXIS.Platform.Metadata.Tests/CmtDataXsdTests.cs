@@ -15,6 +15,10 @@ public class CmtDataXsdTests
     [InlineData("basic", "data.xml")]
     [InlineData("many-to-many", "data_schema.xml")]
     [InlineData("many-to-many", "data.xml")]
+    [InlineData("real-export", "data_schema.xml")]
+    [InlineData("real-export", "data.xml")]
+    [InlineData("talxis-dialect", "data_schema.xml")]
+    [InlineData("talxis-dialect", "data.xml")]
     public void FixturesPassXsd(string fixture, string file)
     {
         Assert.Empty(_validator.ValidateFile(Path.Combine(FixtureRoot, fixture, file)));

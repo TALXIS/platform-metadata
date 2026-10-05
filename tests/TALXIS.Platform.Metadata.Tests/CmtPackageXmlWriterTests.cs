@@ -12,6 +12,8 @@ public class CmtPackageXmlWriterTests
     [Theory]
     [InlineData("basic")]
     [InlineData("many-to-many")]
+    [InlineData("real-export")]
+    [InlineData("talxis-dialect")]
     public void LoadThenSaveIsByteIdentical(string fixture)
     {
         var schemaPath = Path.Combine(FixtureRoot, fixture, "data_schema.xml");
@@ -25,8 +27,130 @@ public class CmtPackageXmlWriterTests
     }
 
     [Fact]
+    public void SaveIfChangedLeavesUnchangedFileUntouched()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"cmt-untouched-{Guid.NewGuid():N}.xml");
+        File.Copy(BasicSchemaPath, path);
+        var stamp = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(path, stamp);
+        try
+        {
+            var package = new CmtPackageXmlReader().Load(path);
+            new CmtPackageXmlWriter().SaveSchema(package, path);
+
+            Assert.Equal(stamp, File.GetLastWriteTimeUtc(path));
+            Assert.Equal(File.ReadAllBytes(BasicSchemaPath), File.ReadAllBytes(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void RealExportMutationKeepsBomCrlfDeclarationAndEntitisedNewlines()
+    {
+        var schemaPath = Path.Combine(FixtureRoot, "real-export", "data_schema.xml");
+        var dataPath = Path.Combine(FixtureRoot, "real-export", "data.xml");
+        var package = new CmtPackageXmlReader().Load(schemaPath, dataPath);
+        package.Schema.FindEntity("talxis_counterconfiguration")!.FindField("talxis_fieldname")!.IsUpdateCompare = true;
+        package.Data!.FindEntity("talxis_counterconfiguration")!.Records[1].Fields.Single(f => f.Name == "talxis_fieldname").Value = "talxis_number";
+
+        var writer = new CmtPackageXmlWriter();
+        var schemaBytes = SaveOverCopy(schemaPath, path => writer.SaveSchema(package, path));
+        var dataBytes = SaveOverCopy(dataPath, path => writer.SaveData(package, path));
+
+        var expectedSchema = File.ReadAllText(schemaPath).Replace(
+            "<field displayname=\"Field Name\" name=\"talxis_fieldname\" type=\"string\" customfield=\"true\" />",
+            "<field displayname=\"Field Name\" name=\"talxis_fieldname\" type=\"string\" customfield=\"true\" updateCompare=\"true\" />");
+        Assert.Equal(expectedSchema, System.Text.Encoding.UTF8.GetString(schemaBytes));
+        Assert.Contains("\r\n", expectedSchema);
+
+        var originalData = File.ReadAllBytes(dataPath);
+        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, dataBytes.Take(3));
+        var expectedData = System.Text.Encoding.UTF8.GetString(originalData, 3, originalData.Length - 3)
+            .Replace("<field name=\"talxis_fieldname\" value=\"talxis_internalid\" />\r\n        <field name=\"talxis_seriesname\" value=\"Autonumber series for &amp;#39;talxis_opportunityheader",
+                     "<field name=\"talxis_fieldname\" value=\"talxis_number\" />\r\n        <field name=\"talxis_seriesname\" value=\"Autonumber series for &amp;#39;talxis_opportunityheader");
+        var actualData = System.Text.Encoding.UTF8.GetString(dataBytes, 3, dataBytes.Length - 3);
+        Assert.Equal(expectedData, actualData);
+        Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n", actualData);
+        Assert.Contains("&#xD;&#xA;", actualData);
+    }
+
+    [Fact]
+    public void TalxisDeclarationWithoutEncodingSurvivesRewrite()
+    {
+        var schemaPath = Path.Combine(FixtureRoot, "talxis-dialect", "data_schema.xml");
+        var package = new CmtPackageXmlReader().Load(schemaPath);
+        package.Schema.FindEntity("account")!.GuidSwap = false;
+
+        var text = System.Text.Encoding.UTF8.GetString(SaveOverCopy(schemaPath, path => new CmtPackageXmlWriter().SaveSchema(package, path)));
+
+        // Root attributes split over two lines cannot be preserved by XDocument; the declaration and body can.
+        Assert.StartsWith("<?xml version=\"1.0\"?>\n<entities xmlns:xsi=", text);
+        Assert.Contains("renderliquid=\"false\" guidswap=\"false\">", text);
+        Assert.Contains("<!-- <field displayname=\"#\" name=\"logoid\"", text);
+    }
+
+    [Fact]
+    public void AddedRecordIsInsertedAfterLastRecord()
+    {
+        var (package, original) = LoadManyToManyData();
+        var tag = package.Data!.FindEntity("new_tag")!;
+        tag.Records.Add(new CmtDataRecord { Id = new Guid("bbbbbbbb-0000-0000-0000-000000000003"), Fields = { new CmtDataField { Name = "new_name", Value = "Gamma" } } });
+
+        var anchor = "<field name=\"new_name\" value=\"Beta\" />" + NewLine(original) + "      </record>";
+        var expected = original.Replace(anchor, anchor + NewLine(original) +
+            "      <record id=\"bbbbbbbb-0000-0000-0000-000000000003\">" + NewLine(original) +
+            "        <field name=\"new_name\" value=\"Gamma\" />" + NewLine(original) +
+            "      </record>");
+        Assert.NotEqual(original, expected);
+        Assert.Equal(expected, SaveDataToText(package));
+    }
+
+    [Fact]
+    public void RemovedRecordIsDeletedWithItsLines()
+    {
+        var (package, original) = LoadManyToManyData();
+        var tag = package.Data!.FindEntity("new_tag")!;
+        tag.Records.Remove(tag.Records.Single(r => r.Id == new Guid("bbbbbbbb-0000-0000-0000-000000000002")));
+
+        var nl = NewLine(original);
+        var expected = original.Replace(nl +
+            "      <record id=\"bbbbbbbb-0000-0000-0000-000000000002\">" + nl +
+            "        <field name=\"new_tagid\" value=\"bbbbbbbb-0000-0000-0000-000000000002\" />" + nl +
+            "        <field name=\"new_name\" value=\"Beta\" />" + nl +
+            "      </record>", string.Empty);
+        Assert.NotEqual(original, expected);
+        Assert.Equal(expected, SaveDataToText(package));
+    }
+
+    [Fact]
+    public void ChangedTargetIdsRewriteOnlyTheTargetList()
+    {
+        var (package, original) = LoadManyToManyData();
+        var m2m = package.Data!.FindEntity("new_project")!.ManyToManyRelationships.Single();
+        m2m.TargetIds.RemoveAt(1);
+        m2m.TargetIds.Add(new Guid("bbbbbbbb-0000-0000-0000-000000000003"));
+
+        var expected = original.Replace("<targetid>bbbbbbbb-0000-0000-0000-000000000002</targetid>", "<targetid>bbbbbbbb-0000-0000-0000-000000000003</targetid>");
+        Assert.NotEqual(original, expected);
+        Assert.Equal(expected, SaveDataToText(package));
+    }
+
+    private static readonly string ManyToManyDataPath = Path.Combine(FixtureRoot, "many-to-many", "data.xml");
+
+    private static (CmtPackage Package, string Original) LoadManyToManyData() =>
+        (new CmtPackageXmlReader().Load(Path.Combine(FixtureRoot, "many-to-many", "data_schema.xml"), ManyToManyDataPath), File.ReadAllText(ManyToManyDataPath));
+
+    private static string SaveDataToText(CmtPackage package) =>
+        System.Text.Encoding.UTF8.GetString(SaveOverCopy(ManyToManyDataPath, path => new CmtPackageXmlWriter().SaveData(package, path)));
+
+    [Fact]
     public void ToggleUpdateCompareChangesOnlyThatAttribute()
     {
+        // A newly added attribute is appended after the existing ones; CMT itself writes updateCompare first,
+        // but attribute order is irrelevant to both importers and existing attributes keep their position.
         var (package, original) = LoadBasicSchema();
         var schema = package.Schema;
         schema.FindEntity("account")!.FindField("name")!.IsUpdateCompare = true;

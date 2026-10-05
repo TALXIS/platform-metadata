@@ -231,6 +231,57 @@ public class WorkspaceValidatorTests
     }
 
     [Fact]
+    public void ValidateDirectory_CmtPackage_ReportsCrossFileFindings()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-cmtpkg-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolution(tempDir, "SolA");
+            var cmtDir = Path.Combine(tempDir, "Packages.Main", "Data", "Default");
+            Directory.CreateDirectory(cmtDir);
+            File.WriteAllText(Path.Combine(cmtDir, "data_schema.xml"), """
+                <entities>
+                  <entity name="account" displayname="Account" etc="1" primaryidfield="accountid" primarynamefield="name" disableplugins="false">
+                    <fields>
+                      <field displayname="Account" name="accountid" type="guid" primaryKey="true" />
+                      <field displayname="Name" name="name" type="string" updateCompare="true" />
+                      <field displayname="Primary Contact" name="primarycontactid" type="entityreference" lookupType="contact" />
+                    </fields>
+                  </entity>
+                </entities>
+                """);
+            File.WriteAllText(Path.Combine(cmtDir, "data.xml"), """
+                <entities timestamp="2026-01-15T10:00:00.0000000Z">
+                  <entity name="account">
+                    <records>
+                      <record id="11111111-1111-1111-1111-111111111111">
+                        <field name="name" value="Contoso" />
+                        <field name="primarycontactid" value="22222222-2222-2222-2222-222222222222" lookupentity="contact" />
+                      </record>
+                    </records>
+                    <m2mrelationships>
+                      <m2mrelationship sourceid="11111111-1111-1111-1111-111111111111" targetentityname="new_tag" m2mrelationshipname="account_new_tag"><targetids /></m2mrelationship>
+                    </m2mrelationships>
+                  </entity>
+                  <entity name="contact"><records /></entity>
+                </entities>
+                """);
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+            var cmt = report.Results.Where(r => r.Stage == ValidationStage.CmtData).ToList();
+
+            Assert.Contains(cmt, r => r.Code == ValidationDiagnostics.CmtDataUndeclared && r.Severity == ValidationSeverity.Error && r.Message.Contains("'contact'"));
+            Assert.Contains(cmt, r => r.Code == ValidationDiagnostics.CmtDataLookupEntityUndeclared && r.Severity == ValidationSeverity.Warning);
+            Assert.Contains(cmt, r => r.Code == ValidationDiagnostics.CmtDataManyToManyUndeclared && r.Severity == ValidationSeverity.Error && r.Message.Contains("'account_new_tag'"));
+            Assert.All(cmt, r => Assert.EndsWith("data.xml", r.FilePath ?? "data.xml"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
     public void ValidateRelationships_ExplicitRoots_ReportsMissingRootAndRelationshipFindings()
     {
         var missingRoot = Path.Combine(Path.GetTempPath(), $"ws-test-missing-{Guid.NewGuid():N}");

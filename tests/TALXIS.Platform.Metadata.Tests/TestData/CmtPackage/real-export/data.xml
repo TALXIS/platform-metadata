@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<entities xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" timestamp="2021-01-12T14:27:44.3334598Z">
+  <entity name="talxis_counterconfiguration" displayname="Auto Number Series">
+    <records>
+      <record id="982dff41-9bba-4e46-a1e3-127424034240">
+        <field name="talxis_counterconfigurationid" value="982dff41-9bba-4e46-a1e3-127424034240" />
+        <field name="talxis_customnumberposition" value="False" />
+        <field name="talxis_entityname" value="talxis_lead" />
+        <field name="talxis_fieldname" value="talxis_internalid" />
+        <field name="talxis_query" value="&amp;lt;fetch version=&amp;quot;1.0&amp;quot; mapping=&amp;quot;logical&amp;quot;&amp;gt;&amp;lt;entity name=&amp;quot;talxis_lead&amp;quot;&amp;gt;&amp;lt;/entity&amp;gt;&amp;lt;/fetch&amp;gt;" />
+        <field name="talxis_seriesname" value="Autonumber series for &amp;#39;talxis_lead&amp;#39;" />
+      </record>
+      <record id="75168917-c9b8-4f6c-bd43-d2608a7a0569">
+        <field name="talxis_counterconfigurationid" value="75168917-c9b8-4f6c-bd43-d2608a7a0569" />
+        <field name="talxis_customnumberposition" value="False" />
+        <field name="talxis_entityname" value="talxis_opportunityheader" />
+        <field name="talxis_fieldname" value="talxis_internalid" />
+        <field name="talxis_seriesname" value="Autonumber series for &amp;#39;talxis_opportunityheader&amp;#39;" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+  <entity name="talxis_configuration_introductionstep" displayname="Configuration - Introduction Step">
+    <records>
+      <record id="db22cf5f-9a01-ec11-94ef-000d3a493136">
+        <field name="talxis_order" value="0" />
+        <field name="talxis_title" value="{ $Resources(localization/talxis_salesappsdefault):TALXIS.Sales.Contact.Form.Introduction.Step.0.title }" />
+        <field name="talxis_configuration_introductionscenarioid" value="350d9a00-9a01-ec11-94ef-000d3a493136" lookupentity="talxis_configuration_introductionscenario" lookupentityname="TALXIS Sales Contact Form Introduction" />
+        <field name="talxis_configuration_introductionstepid" value="db22cf5f-9a01-ec11-94ef-000d3a493136" />
+      </record>
+      <record id="3fe78e0c-ad01-ec11-94ef-000d3a493136" newId="7d1f3b2a-0c4e-4f7b-9a1e-5c6d7e8f9a0b">
+        <field name="talxis_order" value="1" />
+        <field name="talxis_title" value="{ $Resources(localization/talxis_salesappsdefault):TALXIS.Sales.Contact.Form.Introduction.Step.1.title }" />
+        <field name="talxis_configuration_introductionscenarioid" value="350d9a00-9a01-ec11-94ef-000d3a493136" lookupentity="talxis_configuration_introductionscenario" lookupentityname="TALXIS Sales Contact Form Introduction" />
+        <field name="talxis_configuration_introductionstepid" value="3fe78e0c-ad01-ec11-94ef-000d3a493136" />
+        <field name="talxis_elementselector" value="[data-id=form-header]" />
+      </record>
+    </records>
+    <relationships>
+      <relationship name="talxis_configuration_introductionscenario_step" manyToMany="false" referencingEntity="talxis_configuration_introductionstep" referencingAttribute="talxis_configuration_introductionscenarioid" referencedEntity="talxis_configuration_introductionscenario" referencedAttribute="talxis_configuration_introductionscenarioid" />
+    </relationships>
+    <m2mrelationships />
+  </entity>
+  <entity name="talxis_configuration_documentgenerator" displayname="Document Template">
+    <records>
+      <record id="c9020461-cd8a-ef11-8a6a-0022489f2074">
+        <field name="statecode" value="0" />
+        <field name="statuscode" value="1" />
+        <field name="talxis_name" value="Sales Quote" />
+        <field name="talxis_documenttype" value="742070000" />
+        <field name="talxis_configuration_documentgeneratorid" value="c9020461-cd8a-ef11-8a6a-0022489f2074" />
+        <field name="talxis_documentcontent" value="Dear {{ customer.name }},&#xD;&#xA;&#xD;&#xA;please find the quote attached.&#xD;&#xA;Kind regards" />
+        <field name="talxis_templatefile" value="c9020461-cd8a-ef11-8a6a-0022489f2074_talxis_templatefile" filename="SalesQuote.docx" />
+        <field name="ownerid" value="b2c8e1d4-1111-4a1a-9c0f-0d1e2f3a4b5c" lookupentity="systemuser" lookupentityname="Deployment User" />
+      </record>
+    </records>
+    <m2mrelationships>
+      <m2mrelationship sourceid="c9020461-cd8a-ef11-8a6a-0022489f2074" targetentityname="talxis_configuration_introductionstep" targetentitynameidfield="talxis_configuration_introductionstepid" m2mrelationshipname="talxis_documentgenerator_introductionstep" m2mrelationshipschemaname="talxis_DocumentGenerator_IntroductionStep">
+        <targetids>
+          <targetid>db22cf5f-9a01-ec11-94ef-000d3a493136</targetid>
+          <targetid>3fe78e0c-ad01-ec11-94ef-000d3a493136</targetid>
+        </targetids>
+      </m2mrelationship>
+    </m2mrelationships>
+  </entity>
+  <entity name="talxis_reviewmeeting" displayname="Review Meeting">
+    <records>
+      <record id="0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d">
+        <field name="activityid" value="0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" />
+        <field name="subject" value="Quarterly review" />
+        <field name="scheduledstart" value="2026-03-01T09:00:00.0000000Z" />
+        <field name="talxis_participants">
+          <activitypointerrecords>
+            <activitypointerrecord id="1b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e">
+              <field name="partyid" value="b2c8e1d4-1111-4a1a-9c0f-0d1e2f3a4b5c" lookupentity="systemuser" lookupentityname="Deployment User" />
+              <field name="participationtypemask" value="5" />
+            </activitypointerrecord>
+            <activitypointerrecord id="2c3d4e5f-6a7b-4c8d-ae9f-1a2b3c4d5e6f">
+              <field name="partyid" value="350d9a00-9a01-ec11-94ef-000d3a493136" lookupentity="contact" lookupentityname="Jane Doe" />
+              <field name="participationtypemask" value="6" />
+            </activitypointerrecord>
+          </activitypointerrecords>
+        </field>
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+</entities>

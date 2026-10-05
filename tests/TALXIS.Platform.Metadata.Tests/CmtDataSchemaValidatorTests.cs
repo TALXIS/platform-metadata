@@ -170,7 +170,7 @@ public class CmtDataSchemaValidatorTests
     }
 
     [Fact]
-    public void EntityMissingFromImportOrder_ReportsWarning()
+    public void EntityMissingFromImportOrder_ReportsWarningAndUndeclaredNameError()
     {
         var results = Validate($"""
             <entities>
@@ -220,7 +220,7 @@ public class CmtDataSchemaValidatorTests
     }
 
     [Fact]
-    public void UndeclaredPrimaryNameField_ReportsError()
+    public void UndeclaredPrimaryNameField_ReportsWarning()
     {
         var finding = Assert.Single(Validate("""
             <entities>
@@ -231,6 +231,7 @@ public class CmtDataSchemaValidatorTests
             """));
 
         Assert.Equal(ValidationDiagnostics.CmtPrimaryNameFieldUndeclared, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
     }
 
     [Theory]

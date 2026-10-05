@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <entity name="theme" displayname="Theme" primaryidfield="themeid" primarynamefield="name" disableplugins="false" skipupdate="false">
+    <fields>
+      <field displayname="#" name="themeid" type="guid" primaryKey="true" />
+      <field updateCompare="true" displayname="#" name="name" type="string" />
+      <field displayname="#" name="defaultentitycolor" type="string" />
+      <field displayname="#" name="type" type="bool" />
+      <!-- <field displayname="#" name="logoid" type="entityreference" lookupType="webresource" /> -->
+    </fields>
+  </entity>
+  <entity name="account" displayname="Account" primaryidfield="accountid" primarynamefield="name" disableplugins="false" skipupdate="false" renderliquid="false" guidswap="true">
+    <fields>
+      <field displayname="Obchodní vztah" name="accountid" type="guid" primaryKey="true" customfield="false" />
+      <field displayname="Interní ID" name="talxis_internalid" type="string" customfield="true" />
+      <field updateCompare="true" displayname="Název" name="name" type="string" customfield="false" />
+      <field displayname="Hlavní telefon" name="telephone1" type="string" customfield="false" />
+    </fields>
+  </entity>
+  <entity name="talxis_file" displayname="File" primaryidfield="talxis_fileid" primarynamefield="talxis_name" disableplugins="false" skipupdate="false" renderliquid="true" guidswap="true">
+    <fields>
+      <field displayname="#" name="talxis_fileid" type="guid" primaryKey="true" />
+      <field updateCompare="true" displayname="#" name="talxis_name" type="string" customfield="true" />
+      <field displayname="#" name="talxis_content" type="file" customfield="true" />
+      <field displayname="#" name="talxis_accountid" type="entityreference" lookupType="account" customfield="true" />
+    </fields>
+  </entity>
+  <entity name="talxis_configuration_authcontextvariable" displayname="Authorization Context Variable" primaryidfield="talxis_configuration_authcontextvariableid" primarynamefield="talxis_variablename" disableplugins="false">
+    <fields>
+      <field displayname="#" name="talxis_configuration_authcontextvariableid" type="guid" primaryKey="true" />
+      <field updateCompare="true" displayname="#" name="talxis_variablename" type="string" customfield="true" />
+      <field displayname="#" name="statecode" type="state" />
+      <field displayname="#" name="statuscode" type="status" />
+      <field displayname="#" name="talxis_throwonempty" type="bool" customfield="true" />
+      <field displayname="#" name="talxis_odatainputquery" type="string" customfield="true" />
+      <field displayname="#" name="talxis_liquidtransformationtemplate" type="string" customfield="true" />
+    </fields>
+  </entity>
+</entities>
