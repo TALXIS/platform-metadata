@@ -14,7 +14,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class CmtDataSchemaValidator
 {
-    private static readonly HashSet<string> LookupTypes = new(StringComparer.OrdinalIgnoreCase)
+    // CMT compares type names ordinally, so "EntityReference" is not a lookup to it either.
+    private static readonly HashSet<string> LookupTypes = new(StringComparer.Ordinal)
     {
         CmtFieldTypes.EntityReference, CmtFieldTypes.Customer, CmtFieldTypes.Owner
     };
@@ -103,7 +104,7 @@ public sealed class CmtDataSchemaValidator
         string? problem =
             field is null ? "is not declared in <fields>"
             : !field.IsPrimaryKey ? "is not marked primaryKey=\"true\""
-            : !string.Equals(field.Type, CmtFieldTypes.Guid, StringComparison.OrdinalIgnoreCase) ? $"has type '{field.Type}' instead of 'guid'"
+            : !string.Equals(field.Type, CmtFieldTypes.Guid, StringComparison.Ordinal) ? $"has type '{field.Type}' instead of 'guid'"
             : null;
         if (problem is null) return;
 
@@ -151,9 +152,17 @@ public sealed class CmtDataSchemaValidator
     {
         if (schema.EntityImportOrder.Count == 0) return;
 
-        var ordered = new HashSet<string>(schema.EntityImportOrder, StringComparer.OrdinalIgnoreCase);
+        var ordered = new HashSet<string>(schema.EntityImportOrder, StringComparer.Ordinal);
         foreach (var name in schema.EntityImportOrder.Where(n => schema.FindEntity(n) is null))
         {
+            var caseMatch = schema.Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (caseMatch is not null)
+            {
+                results.Add(Finding(ValidationSeverity.Warning, schema, ValidationDiagnostics.CmtNameCaseMismatch,
+                    $"CMT entityImportOrder names entity '{name}', but the data schema declares it as '{caseMatch.Name}'. CMT compares names case-sensitively and will not find it."));
+                continue;
+            }
+
             results.Add(Error(schema, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
                 $"CMT entityImportOrder names entity '{name}', which the data schema does not declare."));
         }

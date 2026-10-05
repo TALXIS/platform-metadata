@@ -180,6 +180,24 @@ public class CmtDataSchemaValidatorTests
     }
 
     [Fact]
+    public void ImportOrderWithDifferentCase_ReportsCaseMismatchWarning()
+    {
+        var results = Validate($"""
+            <entities>
+              {ValidEntity}
+              <entityImportOrder><entityName>Account</entityName></entityImportOrder>
+            </entities>
+            """);
+
+        // The case-only match is a warning, not "undeclared"; the entity is still missing from the order (exact match), so TXM007 warns too.
+        var mismatch = Assert.Single(results, r => r.Code == ValidationDiagnostics.CmtNameCaseMismatch);
+        Assert.Equal(ValidationSeverity.Warning, mismatch.Severity);
+        Assert.Contains("'Account'", mismatch.Message);
+        Assert.Contains("'account'", mismatch.Message);
+        Assert.DoesNotContain(results, r => r.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
     public void SchemaWithoutImportOrder_IsNotChecked()
     {
         Assert.Empty(Validate($"<entities>{ValidEntity}</entities>"));

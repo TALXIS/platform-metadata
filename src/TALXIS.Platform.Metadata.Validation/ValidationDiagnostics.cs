@@ -67,4 +67,9 @@ public static class ValidationDiagnostics
     /// A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare.
     /// </summary>
     public const string CmtDataManyToManyUndeclared = "TXM014";
+
+    /// <summary>
+    /// A CMT name (entity in entityImportOrder, data.xml entity, field, lookupentity or many-to-many target) matches a schema declaration only when letter case is ignored. CMT compares names ordinally, so the import treats the two spellings as different names.
+    /// </summary>
+    public const string CmtNameCaseMismatch = "TXM015";
 }

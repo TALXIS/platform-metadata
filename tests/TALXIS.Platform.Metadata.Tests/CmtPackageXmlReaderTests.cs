@@ -20,7 +20,9 @@ public class CmtPackageXmlReaderTests
         Assert.Equal(new[] { "account", "contact", "new_project" }, package.Schema.Entities.Select(e => e.Name));
         Assert.Equal(new[] { "account", "contact", "new_project" }, package.Schema.EntityImportOrder);
 
-        var account = package.Schema.FindEntity("ACCOUNT")!;
+        // CMT compares names ordinally, so the model does too.
+        Assert.Null(package.Schema.FindEntity("ACCOUNT"));
+        var account = package.Schema.FindEntity("account")!;
         Assert.Equal("Account", account.DisplayName);
         Assert.Equal(1, account.ObjectTypeCode);
         Assert.Equal("accountid", account.PrimaryIdField);

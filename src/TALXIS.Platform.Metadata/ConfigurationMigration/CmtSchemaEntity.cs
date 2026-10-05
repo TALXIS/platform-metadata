@@ -15,5 +15,5 @@ public sealed class CmtSchemaEntity : MetadataBase
     public IList<CmtSchemaRelationship> Relationships { get; set; } = new List<CmtSchemaRelationship>();
 
     public CmtSchemaField? FindField(string name) =>
-        Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+        Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));
 }

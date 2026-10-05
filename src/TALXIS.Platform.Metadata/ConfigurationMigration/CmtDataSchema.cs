@@ -7,5 +7,5 @@ public sealed class CmtDataSchema : MetadataBase
     public IList<CmtSchemaEntity> Entities { get; set; } = new List<CmtSchemaEntity>();
 
     public CmtSchemaEntity? FindEntity(string name) =>
-        Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+        Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.Ordinal));
 }

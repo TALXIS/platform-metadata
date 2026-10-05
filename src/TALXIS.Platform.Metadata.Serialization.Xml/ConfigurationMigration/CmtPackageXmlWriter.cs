@@ -174,7 +174,7 @@ public sealed class CmtPackageXmlWriter
     {
         if (container is null) return;
 
-        var available = new Dictionary<string, Queue<XElement>>(StringComparer.OrdinalIgnoreCase);
+        var available = new Dictionary<string, Queue<XElement>>(StringComparer.Ordinal);
         foreach (var existing in container.Elements(name))
         {
             var existingKey = ElementKey(existing);

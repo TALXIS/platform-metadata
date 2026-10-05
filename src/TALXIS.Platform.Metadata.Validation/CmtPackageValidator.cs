@@ -5,6 +5,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
 /// Cross-file rules for a CMT package: everything data.xml references must be declared in data_schema.xml.
+/// Names are compared ordinally, as CMT's importer does; a match that only succeeds when letter case is
+/// ignored is reported as <see cref="ValidationDiagnostics.CmtNameCaseMismatch"/> instead of "undeclared".
 /// </summary>
 public sealed class CmtPackageValidator
 {
@@ -21,8 +23,12 @@ public sealed class CmtPackageValidator
             var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
             if (schemaEntity is null)
             {
-                results.Add(CmtDataSchemaValidator.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
-                    $"CMT data.xml contains entity '{dataEntity.Name}' ({dataEntity.Records.Count} records), which data_schema.xml does not declare."));
+                var caseMatch = FindEntityIgnoringCase(package.Schema, dataEntity.Name);
+                results.Add(caseMatch is null
+                    ? CmtDataSchemaValidator.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
+                        $"CMT data.xml contains entity '{dataEntity.Name}' ({dataEntity.Records.Count} records), which data_schema.xml does not declare.")
+                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
+                        $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and will skip the entity."));
                 continue;
             }
 
@@ -38,43 +44,62 @@ public sealed class CmtPackageValidator
     {
         var fields = dataEntity.Records.SelectMany(r => r.Fields).ToList();
 
-        foreach (var group in fields.Where(f => schemaEntity.FindField(f.Name) is null).GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in fields.Where(f => schemaEntity.FindField(f.Name) is null).GroupBy(f => f.Name, StringComparer.Ordinal))
         {
-            results.Add(CmtDataSchemaValidator.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
-                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is not declared in data_schema.xml. CMT migrates only the fields the schema declares."));
+            var caseMatch = schemaEntity.Fields.FirstOrDefault(f => string.Equals(f.Name, group.Key, StringComparison.OrdinalIgnoreCase));
+            results.Add(caseMatch is null
+                ? CmtDataSchemaValidator.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
+                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is not declared in data_schema.xml. CMT migrates only the fields the schema declares.")
+                : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, group.First(), ValidationDiagnostics.CmtNameCaseMismatch,
+                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and will drop the field."));
         }
 
         var unknownLookups = fields
             .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) is null)
-            .GroupBy(f => (Field: f.Name.ToLowerInvariant(), Target: f.LookupEntity!.ToLowerInvariant()));
+            .GroupBy(f => (Field: f.Name, Target: f.LookupEntity!));
         foreach (var group in unknownLookups)
         {
-            results.Add(CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, group.First(), ValidationDiagnostics.CmtDataLookupEntityUndeclared,
-                $"CMT data.xml field '{dataEntity.Name}.{group.First().Name}' points to entity '{group.First().LookupEntity}' ({group.Count()} records), which the package does not declare. The records must already exist in the target environment."));
+            var first = group.First();
+            var caseMatch = FindEntityIgnoringCase(schema, first.LookupEntity!);
+            results.Add(caseMatch is null
+                ? CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataLookupEntityUndeclared,
+                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package does not declare. The records must already exist in the target environment.")
+                : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch.Name}'. Dataverse logical names are lowercase; CMT will not resolve the lookup."));
         }
     }
 
     private static void CheckManyToMany(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
-        var declared = new HashSet<string>(
-            schemaEntity.Relationships.Where(r => r.IsManyToMany).Select(r => r.Name),
-            StringComparer.OrdinalIgnoreCase);
+        var declared = schemaEntity.Relationships.Where(r => r.IsManyToMany).Select(r => r.Name).ToList();
+        var declaredSet = new HashSet<string>(declared, StringComparer.Ordinal);
 
-        foreach (var group in dataEntity.ManyToManyRelationships.GroupBy(m => m.RelationshipName, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in dataEntity.ManyToManyRelationships.GroupBy(m => m.RelationshipName, StringComparer.Ordinal))
         {
             var first = group.First();
-            if (!declared.Contains(group.Key))
+            if (!declaredSet.Contains(group.Key))
             {
-                results.Add(CmtDataSchemaValidator.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
-                    $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml does not declare on that entity."));
+                var caseMatch = declared.FirstOrDefault(n => string.Equals(n, group.Key, StringComparison.OrdinalIgnoreCase));
+                results.Add(caseMatch is null
+                    ? CmtDataSchemaValidator.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
+                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml does not declare on that entity.")
+                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml declares as '{caseMatch}'. CMT compares names case-sensitively."));
             }
 
             // Packages are often split per area, so the target may come from another package already imported.
             if (schema.FindEntity(first.TargetEntityName) is null)
             {
-                results.Add(CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
-                    $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment."));
+                var caseMatch = FindEntityIgnoringCase(schema, first.TargetEntityName);
+                results.Add(caseMatch is null
+                    ? CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
+                        $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment.")
+                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                        $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch.Name}'. CMT compares names case-sensitively."));
             }
         }
     }
+
+    private static CmtSchemaEntity? FindEntityIgnoringCase(CmtDataSchema schema, string name) =>
+        schema.Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
 }

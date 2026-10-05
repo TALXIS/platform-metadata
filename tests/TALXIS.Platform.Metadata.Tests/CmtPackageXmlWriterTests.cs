@@ -65,6 +65,19 @@ public class CmtPackageXmlWriterTests
     }
 
     [Fact]
+    public void EntityDifferingOnlyByCaseIsAddedNotMerged()
+    {
+        var (package, original) = LoadBasicSchema();
+        package.Schema.Entities.Add(new CmtSchemaEntity { Name = "Account", PrimaryIdField = "accountid" });
+
+        var text = SaveSchemaToText(package);
+
+        // Ordinal keys: the existing <entity name="account"> is untouched and a new element is appended.
+        Assert.Contains("<entity name=\"account\" displayname=\"Account\" etc=\"1\"", text);
+        Assert.Contains("<entity name=\"Account\" primaryidfield=\"accountid\" disableplugins=\"false\">", text);
+    }
+
+    [Fact]
     public void InMemoryModelSavesAndReadsBackEqual()
     {
         var schema = new CmtDataSchema { EntityImportOrder = { "new_tag", "new_project" } };

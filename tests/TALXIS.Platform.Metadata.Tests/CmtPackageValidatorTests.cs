@@ -18,6 +18,7 @@ public class CmtPackageValidatorTests
             <fields>
               <field name="new_tagid" type="guid" primaryKey="true" />
               <field name="new_name" type="string" updateCompare="true" />
+              <field name="new_parent" type="entityreference" lookupType="account" />
             </fields>
             <relationships>
               <relationship name="new_tag_account" manyToMany="true" relatedEntityName="new_tag_account" m2mTargetEntity="account" m2mTargetEntityPrimaryKey="accountid" />
@@ -126,5 +127,40 @@ public class CmtPackageValidatorTests
         Assert.Equal(2, results.Count(r => r.Code == ValidationDiagnostics.CmtDataManyToManyUndeclared));
         Assert.Contains(results, r => r.Message.Contains("'account_contact'"));
         Assert.Contains(results, r => r.Message.Contains("targets entity 'contact'"));
+    }
+
+    [Fact]
+    public void DataNamesDifferingOnlyByCase_ReportCaseMismatchWarningsNotErrors()
+    {
+        var results = Validate("""
+            <entities>
+              <entity name="Account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="name" value="Contoso" /></record>
+                </records>
+              </entity>
+              <entity name="new_tag">
+                <records>
+                  <record id="22222222-2222-2222-2222-222222222222">
+                    <field name="New_Name" value="Tag" />
+                    <field name="new_parent" value="11111111-1111-1111-1111-111111111111" lookupentity="ACCOUNT" />
+                  </record>
+                </records>
+                <m2mrelationships>
+                  <m2mrelationship sourceid="22222222-2222-2222-2222-222222222222" targetentityname="Account" m2mrelationshipname="New_Tag_Account">
+                    <targetids><targetid>11111111-1111-1111-1111-111111111111</targetid></targetids>
+                  </m2mrelationship>
+                </m2mrelationships>
+              </entity>
+            </entities>
+            """);
+
+        // entity, field, lookupentity, m2m relationship name and m2m target: five case-only matches.
+        Assert.Equal(5, results.Count(r => r.Code == ValidationDiagnostics.CmtNameCaseMismatch));
+        Assert.All(results, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
+        Assert.Contains(results, r => r.Message.Contains("entity 'Account' is declared as 'account'"));
+        Assert.Contains(results, r => r.Message.Contains("'new_tag.New_Name'") && r.Message.Contains("'new_name'"));
+        Assert.Contains(results, r => r.Message.Contains("'ACCOUNT'") && r.Message.Contains("'account'"));
+        Assert.Contains(results, r => r.Message.Contains("'New_Tag_Account'") && r.Message.Contains("'new_tag_account'"));
     }
 }
