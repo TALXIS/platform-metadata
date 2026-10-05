@@ -7,7 +7,10 @@ using TALXIS.Platform.Metadata.ConfigurationMigration;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 /// <summary>
-/// Writes a CMT package back to data_schema.xml and data.xml, patching the documents it was read from.
+/// Writes a CMT package back to data_schema.xml and data.xml, patching the documents it was read from so
+/// unknown attributes and elements, comments, attribute order and indentation survive and Load → Save is a
+/// zero-byte diff. Elements are emitted in CMT's order (entityImportOrder after the entities; fields,
+/// relationships, filter inside an entity). Packages created in memory get new, indented documents.
 /// </summary>
 public sealed class CmtPackageXmlWriter
 {
@@ -15,23 +18,26 @@ public sealed class CmtPackageXmlWriter
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
     /// <summary>
-    /// Writes the package schema as data_schema.xml to the supplied writer.
+    /// Writes the package schema as data_schema.xml to the supplied writer. The package's original document is
+    /// patched in place (and stays patched), then serialised with the writer's own settings: BOM, newline style
+    /// and the <c>&lt;entities &gt;</c> quirk that <see cref="SaveSchema"/> preserves are the caller's business here.
     /// </summary>
     public void WriteSchema(CmtPackage package, XmlWriter writer) => BuildSchema(package).Save(writer);
 
     /// <summary>
-    /// Writes the package data as data.xml to the supplied writer.
+    /// Writes the package data as data.xml to the supplied writer. Same contract as <see cref="WriteSchema"/>.
     /// </summary>
     public void WriteData(CmtPackage package, XmlWriter writer) => BuildData(package).Save(writer);
 
     /// <summary>
-    /// Saves the package schema to a data_schema.xml file.
+    /// Saves the package schema to a data_schema.xml file, keeping the existing file's BOM, newline style and
+    /// declaration. An unchanged document is not rewritten.
     /// </summary>
     public void SaveSchema(CmtPackage package, string path) =>
         SaveIfChanged(package.SchemaDocument, () => BuildSchema(package), path, package.Schema.Source?.FilePath);
 
     /// <summary>
-    /// Saves the package data to a data.xml file.
+    /// Saves the package data to a data.xml file; same contract as <see cref="SaveSchema"/>. Throws when the package has no data.
     /// </summary>
     public void SaveData(CmtPackage package, string path) =>
         SaveIfChanged(package.DataDocument, () => BuildData(package), path, package.Data?.Source?.FilePath);

@@ -6,11 +6,14 @@ using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
-/// Validates Configuration Migration Tool data schema files (data_schema.xml): every entity
-/// must declare at least one field with updateCompare="true", otherwise imports cannot match
-/// existing records and re-deploys duplicate configuration data instead of updating it.
-/// Structural rules check that the schema is consistent with itself: import order, primary
-/// id and name fields, lookup targets and duplicate names.
+/// Structural rules for Configuration Migration Tool data schema files (data_schema.xml): does the schema
+/// hang together and will both Microsoft CMT and the TALXIS importer accept it. Rules are derived from the
+/// importers' observed behaviour and need no metadata: updateCompare presence (TXM006), entityImportOrder
+/// consistency (TXM007), primary id/name fields (TXM008, TXM009), lookupType on entityreference/customer
+/// (TXM010), duplicate names (TXM011), case-only name matches (TXM015), importable field types (TXM016),
+/// attributes CMT's own schema requires (TXM017, warning because TALXIS tolerates their absence), dateMode
+/// values (TXM018) and FetchXML filters (TXM020). Rules that need data.xml live in
+/// <see cref="CmtPackageValidator"/>; rules that need Dataverse metadata are a separate validator.
 /// </summary>
 public sealed class CmtDataSchemaValidator
 {
