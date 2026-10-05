@@ -27,9 +27,9 @@ public sealed class CmtPackageValidator
             {
                 var caseMatch = FindEntityIgnoringCase(package.Schema, dataEntity.Name);
                 results.Add(caseMatch is null
-                    ? CmtDataSchemaValidator.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
+                    ? CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
                         $"CMT data.xml contains entity '{dataEntity.Name}' ({dataEntity.Records.Count} records), which data_schema.xml does not declare.")
-                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
+                    : CmtFindings.Finding(ValidationSeverity.Warning, dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and will skip the entity."));
                 continue;
             }
@@ -45,14 +45,15 @@ public sealed class CmtPackageValidator
     private static void CheckFields(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var fields = dataEntity.Records.SelectMany(r => r.Fields).ToList();
+        var declared = new HashSet<string>(schemaEntity.Fields.Select(f => f.Name), StringComparer.Ordinal);
 
-        foreach (var group in fields.Where(f => schemaEntity.FindField(f.Name) is null).GroupBy(f => f.Name, StringComparer.Ordinal))
+        foreach (var group in fields.Where(f => !declared.Contains(f.Name)).GroupBy(f => f.Name, StringComparer.Ordinal))
         {
             var caseMatch = schemaEntity.Fields.FirstOrDefault(f => string.Equals(f.Name, group.Key, StringComparison.OrdinalIgnoreCase));
             results.Add(caseMatch is null
-                ? CmtDataSchemaValidator.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
+                ? CmtFindings.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
                     $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is not declared in data_schema.xml. CMT migrates only the fields the schema declares.")
-                : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, group.First(), ValidationDiagnostics.CmtNameCaseMismatch,
+                : CmtFindings.Finding(ValidationSeverity.Warning, group.First(), ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and will drop the field."));
         }
 
@@ -64,9 +65,9 @@ public sealed class CmtPackageValidator
             var first = group.First();
             var caseMatch = FindEntityIgnoringCase(schema, first.LookupEntity!);
             results.Add(caseMatch is null
-                ? CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataLookupEntityUndeclared,
+                ? CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataLookupEntityUndeclared,
                     $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package does not declare. The records must already exist in the target environment.")
-                : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                : CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch.Name}'. Dataverse logical names are lowercase; CMT will not resolve the lookup."));
         }
     }
@@ -83,9 +84,9 @@ public sealed class CmtPackageValidator
             {
                 var caseMatch = declared.FirstOrDefault(n => string.Equals(n, group.Key, StringComparison.OrdinalIgnoreCase));
                 results.Add(caseMatch is null
-                    ? CmtDataSchemaValidator.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
+                    ? CmtFindings.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
                         $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml does not declare on that entity.")
-                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                    : CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml declares as '{caseMatch}'. CMT compares names case-sensitively."));
             }
 
@@ -94,9 +95,9 @@ public sealed class CmtPackageValidator
             {
                 var caseMatch = FindEntityIgnoringCase(schema, first.TargetEntityName);
                 results.Add(caseMatch is null
-                    ? CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
+                    ? CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
                         $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment.")
-                    : CmtDataSchemaValidator.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
+                    : CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch.Name}'. CMT compares names case-sensitively."));
             }
         }
@@ -107,7 +108,7 @@ public sealed class CmtPackageValidator
     {
         if (data.Timestamp is null || DateTime.TryParse(data.Timestamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)) return;
 
-        results.Add(CmtDataSchemaValidator.Error(data, ValidationDiagnostics.CmtDataTimestampInvalid,
+        results.Add(CmtFindings.Error(data, ValidationDiagnostics.CmtDataTimestampInvalid,
             $"CMT data.xml timestamp '{data.Timestamp}' is not a valid date-time; CMT aborts the import."));
     }
 

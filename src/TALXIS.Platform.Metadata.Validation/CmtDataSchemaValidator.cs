@@ -79,7 +79,7 @@ public sealed class CmtDataSchemaValidator
         {
             if (!entity.Fields.Any(f => f.IsUpdateCompare))
             {
-                results.Add(Error(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
+                results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
                     $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\". Without it configuration imports cannot match existing records and re-deploys duplicate data."));
             }
 
@@ -113,7 +113,7 @@ public sealed class CmtDataSchemaValidator
                 problem = "has no type";
             else if (type == CmtFieldTypes.File)
             {
-                results.Add(Finding(ValidationSeverity.Warning, field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+                results.Add(CmtFindings.Finding(ValidationSeverity.Warning, field, ValidationDiagnostics.CmtFieldTypeNotImportable,
                     $"CMT data schema field '{owner}.{field.Name}' has type 'file', a TALXIS synonym for 'filedata'. Microsoft CMT only accepts 'filedata'."));
                 continue;
             }
@@ -126,7 +126,7 @@ public sealed class CmtDataSchemaValidator
             else
                 problem = $"has type '{type}', which is not a CMT field type";
 
-            results.Add(Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+            results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
                 $"CMT data schema field '{owner}.{field.Name}' {problem}."));
         }
     }
@@ -140,20 +140,20 @@ public sealed class CmtDataSchemaValidator
         if (entity.DisablePlugins is null) missing.Add("disableplugins");
         if (missing.Count > 0)
         {
-            results.Add(Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtRequiredAttributeMissing,
+            results.Add(CmtFindings.Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtRequiredAttributeMissing,
                 $"CMT data schema entity '{entity.Name}' has no {string.Join(", ", missing)}. Microsoft CMT requires the attribute(s); the TALXIS importer does not."));
         }
 
         var fields = entity.Fields.Where(f => string.IsNullOrEmpty(f.DisplayName)).ToList();
         if (fields.Count == 0) return;
-        results.Add(Finding(ValidationSeverity.Warning, fields[0], ValidationDiagnostics.CmtRequiredAttributeMissing,
+        results.Add(CmtFindings.Finding(ValidationSeverity.Warning, fields[0], ValidationDiagnostics.CmtRequiredAttributeMissing,
             $"CMT data schema entity '{entity.Name}': {fields.Count} field(s) have no displayname (first: '{fields[0].Name}'). Microsoft CMT requires it; the TALXIS importer does not."));
     }
 
     private static void CheckDateMode(MetadataBase element, string? dateMode, string subject, List<ValidationResult> results)
     {
         if (dateMode is null || CmtDateModes.All.Contains(dateMode)) return;
-        results.Add(Error(element, ValidationDiagnostics.CmtDateModeInvalid,
+        results.Add(CmtFindings.Error(element, ValidationDiagnostics.CmtDateModeInvalid,
             $"{subject} has dateMode '{dateMode}'; CMT only accepts {string.Join(", ", CmtDateModes.All.Select(m => $"'{m}'"))}."));
     }
 
@@ -174,7 +174,7 @@ public sealed class CmtDataSchemaValidator
         }
 
         if (problem is null) return;
-        results.Add(Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtFilterNotFetchXml,
+        results.Add(CmtFindings.Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtFilterNotFetchXml,
             $"CMT data schema entity '{entity.Name}' has a filter that is not FetchXML: {problem}."));
     }
 
@@ -182,7 +182,7 @@ public sealed class CmtDataSchemaValidator
     {
         if (string.IsNullOrEmpty(entity.PrimaryIdField))
         {
-            results.Add(Error(entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
+            results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
                 $"CMT data schema entity '{entity.Name}' has no primaryidfield, so imported records cannot be identified."));
             return;
         }
@@ -195,7 +195,7 @@ public sealed class CmtDataSchemaValidator
             : null;
         if (problem is null) return;
 
-        results.Add(Error((MetadataBase?)field ?? entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
+        results.Add(CmtFindings.Error((MetadataBase?)field ?? entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
             $"CMT data schema entity '{entity.Name}': primaryidfield '{entity.PrimaryIdField}' {problem}."));
     }
 
@@ -203,7 +203,7 @@ public sealed class CmtDataSchemaValidator
     {
         if (string.IsNullOrEmpty(entity.PrimaryNameField) || entity.FindField(entity.PrimaryNameField!) is not null) return;
 
-        results.Add(Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtPrimaryNameFieldUndeclared,
+        results.Add(CmtFindings.Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtPrimaryNameFieldUndeclared,
             $"CMT data schema entity '{entity.Name}': primarynamefield '{entity.PrimaryNameField}' is not declared in <fields>."));
     }
 
@@ -211,7 +211,7 @@ public sealed class CmtDataSchemaValidator
     {
         foreach (var field in entity.Fields.Where(f => f.Type is not null && LookupTypes.Contains(f.Type) && string.IsNullOrEmpty(f.LookupType)))
         {
-            results.Add(Finding(ValidationSeverity.Warning, field, ValidationDiagnostics.CmtLookupTypeMissing,
+            results.Add(CmtFindings.Finding(ValidationSeverity.Warning, field, ValidationDiagnostics.CmtLookupTypeMissing,
                 $"CMT data schema field '{entity.Name}.{field.Name}' is a lookup ({field.Type}) without lookupType, so the schema does not say which entity it points to; only the lookupentity on each record does."));
         }
     }
@@ -220,7 +220,7 @@ public sealed class CmtDataSchemaValidator
     {
         foreach (var duplicate in Duplicates(entity.Fields, f => f.Name))
         {
-            results.Add(Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
+            results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
                 $"CMT data schema entity '{entity.Name}' declares field '{duplicate.Name}' more than once."));
         }
     }
@@ -229,7 +229,7 @@ public sealed class CmtDataSchemaValidator
     {
         foreach (var duplicate in Duplicates(schema.Entities, e => e.Name))
         {
-            results.Add(Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
+            results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
                 $"CMT data schema declares entity '{duplicate.Name}' more than once."));
         }
     }
@@ -245,18 +245,18 @@ public sealed class CmtDataSchemaValidator
             var caseMatch = schema.Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
             if (caseMatch is not null)
             {
-                results.Add(Finding(ValidationSeverity.Warning, schema, ValidationDiagnostics.CmtNameCaseMismatch,
+                results.Add(CmtFindings.Finding(ValidationSeverity.Warning, schema, ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT entityImportOrder names entity '{name}', but the data schema declares it as '{caseMatch.Name}'. CMT compares names case-sensitively and will not find it."));
                 continue;
             }
 
-            results.Add(Error(schema, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
+            results.Add(CmtFindings.Error(schema, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
                 $"CMT entityImportOrder names entity '{name}', which the data schema does not declare."));
         }
 
         foreach (var entity in schema.Entities.Where(e => !ordered.Contains(e.Name)))
         {
-            results.Add(Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
+            results.Add(CmtFindings.Finding(ValidationSeverity.Warning, entity, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
                 $"CMT data schema entity '{entity.Name}' is missing from entityImportOrder, so its import position is undefined."));
         }
     }
@@ -265,15 +265,5 @@ public sealed class CmtDataSchemaValidator
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         return items.Where(item => !seen.Add(name(item)));
-    }
-
-    internal static ValidationResult Error(MetadataBase element, string code, string message) =>
-        Finding(ValidationSeverity.Error, element, code, message);
-
-    internal static ValidationResult Finding(ValidationSeverity severity, MetadataBase element, string code, string message)
-    {
-        var source = element.Source;
-        var path = string.IsNullOrEmpty(source?.FilePath) ? null : source!.FilePath;
-        return new ValidationResult(severity, message, path, source?.Line, source?.Column) { Code = code };
     }
 }

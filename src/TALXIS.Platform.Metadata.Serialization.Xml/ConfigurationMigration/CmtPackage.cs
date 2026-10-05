@@ -19,6 +19,7 @@ public sealed class CmtPackage
     public CmtData? Data { get; }
     public IReadOnlyList<WorkspaceLoadError> LoadErrors { get; }
 
+    // TODO(layering): move the originals to IWorkspaceDocumentStore once the metamodel-layering branch lands.
     internal XDocument? SchemaDocument { get; set; }
     internal XDocument? DataDocument { get; set; }
 }

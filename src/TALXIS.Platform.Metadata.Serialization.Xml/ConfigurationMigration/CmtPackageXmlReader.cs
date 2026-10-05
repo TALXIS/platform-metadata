@@ -6,14 +6,17 @@ using TALXIS.Platform.Metadata.ConfigurationMigration;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 /// <summary>
-/// Reads CMT data_schema.xml and data.xml into the typed model.
+/// Reads CMT data_schema.xml and data.xml into the typed model. Documents are loaded with whitespace and
+/// line information preserved and kept on the <see cref="CmtPackage"/> so <see cref="CmtPackageXmlWriter"/>
+/// can patch them in place.
 /// </summary>
 public sealed class CmtPackageXmlReader
 {
     private const LoadOptions XmlLoadOptions = LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo;
 
     /// <summary>
-    /// Loads a package from files. Missing or malformed files are reported in LoadErrors.
+    /// Loads a package from files. Missing or malformed files, and records or associations whose ids do not
+    /// parse (those are skipped), are reported in <see cref="CmtPackage.LoadErrors"/>.
     /// </summary>
     public CmtPackage Load(string schemaPath, string? dataPath = null)
     {
@@ -26,17 +29,21 @@ public sealed class CmtPackageXmlReader
         if (dataPath is not null)
         {
             dataDocument = TryLoad(dataPath, errors);
-            if (dataDocument is not null) data = ReadData(dataDocument, dataPath);
+            if (dataDocument is not null) data = ReadData(dataDocument, dataPath, errors);
         }
 
         return new CmtPackage(schema, data, errors) { SchemaDocument = schemaDocument, DataDocument = dataDocument };
     }
 
     /// <summary>
-    /// Reads a package from already loaded documents.
+    /// Reads a package from already loaded documents. Records or associations whose ids do not parse are
+    /// skipped and reported in <see cref="CmtPackage.LoadErrors"/>.
     /// </summary>
-    public CmtPackage Read(XDocument schema, XDocument? data) =>
-        new(ReadSchema(schema), data is null ? null : ReadData(data)) { SchemaDocument = schema, DataDocument = data };
+    public CmtPackage Read(XDocument schema, XDocument? data)
+    {
+        var errors = new List<WorkspaceLoadError>();
+        return new CmtPackage(ReadSchema(schema), data is null ? null : ReadData(data, null, errors), errors) { SchemaDocument = schema, DataDocument = data };
+    }
 
     /// <summary>
     /// Reads a data_schema.xml document.
@@ -55,9 +62,12 @@ public sealed class CmtPackageXmlReader
     }
 
     /// <summary>
-    /// Reads a data.xml document.
+    /// Reads a data.xml document. Records or associations whose ids do not parse are skipped; use
+    /// <see cref="Read"/> or <see cref="Load"/> to receive them as load errors.
     /// </summary>
-    public CmtData ReadData(XDocument document, string? sourcePath = null)
+    public CmtData ReadData(XDocument document, string? sourcePath = null) => ReadData(document, sourcePath, new List<WorkspaceLoadError>());
+
+    private static CmtData ReadData(XDocument document, string? sourcePath, List<WorkspaceLoadError> errors)
     {
         var data = new CmtData();
         var root = document.Root;
@@ -65,7 +75,7 @@ public sealed class CmtPackageXmlReader
 
         SetSource(data, root, sourcePath);
         data.Timestamp = Attr(root, "timestamp");
-        foreach (var entity in root.Elements("entity")) data.Entities.Add(ReadDataEntity(entity, sourcePath));
+        foreach (var entity in root.Elements("entity")) data.Entities.Add(ReadDataEntity(entity, sourcePath, errors));
         return data;
     }
 
@@ -128,7 +138,7 @@ public sealed class CmtPackageXmlReader
         return relationship;
     }
 
-    private static CmtDataEntity ReadDataEntity(XElement element, string? sourcePath)
+    private static CmtDataEntity ReadDataEntity(XElement element, string? sourcePath, List<WorkspaceLoadError> errors)
     {
         var entity = new CmtDataEntity
         {
@@ -136,19 +146,29 @@ public sealed class CmtPackageXmlReader
             DisplayName = Attr(element, "displayname")
         };
         SetSource(entity, element, sourcePath);
-        foreach (var record in element.Elements("records").Elements("record")) entity.Records.Add(ReadRecord(record, sourcePath));
-        foreach (var m2m in element.Elements("m2mrelationships").Elements("m2mrelationship")) entity.ManyToManyRelationships.Add(ReadManyToMany(m2m, sourcePath));
+        foreach (var record in element.Elements("records").Elements("record"))
+        {
+            if (ReadRecord(record, sourcePath, errors) is { } model) entity.Records.Add(model);
+        }
+        foreach (var m2m in element.Elements("m2mrelationships").Elements("m2mrelationship"))
+        {
+            if (ReadManyToMany(m2m, sourcePath, errors) is { } model) entity.ManyToManyRelationships.Add(model);
+        }
         return entity;
     }
 
-    private static CmtDataRecord ReadRecord(XElement element, string? sourcePath)
+    // A record whose id does not parse is skipped and reported: silently mapping it to Guid.Empty would
+    // make the writer rewrite the attribute and the validators match the wrong record.
+    private static CmtDataRecord? ReadRecord(XElement element, string? sourcePath, List<WorkspaceLoadError> errors)
     {
-        var newId = Attr(element, "newId");
-        var record = new CmtDataRecord
+        if (CmtXml.ParseGuid(Attr(element, "id")) is not { } id)
         {
-            Id = ParseGuid(Attr(element, "id")),
-            NewId = newId is null ? null : ParseGuid(newId)
-        };
+            errors.Add(LoadError(element, sourcePath, $"<{element.Name.LocalName}> has no valid GUID in its id attribute ('{Attr(element, "id")}'); the record is skipped."));
+            return null;
+        }
+
+        var newId = Attr(element, "newId");
+        var record = new CmtDataRecord { Id = id, NewId = newId is null ? null : CmtXml.ParseGuid(newId) };
         SetSource(record, element, sourcePath);
         foreach (var fieldElement in element.Elements("field"))
         {
@@ -162,24 +182,37 @@ public sealed class CmtPackageXmlReader
             };
             SetSource(field, fieldElement, sourcePath);
             // Partylist: every child of <activitypointerrecords> is an activity party record, whatever CMT names it.
-            foreach (var party in fieldElement.Elements("activitypointerrecords").Elements()) field.ActivityPointerRecords.Add(ReadRecord(party, sourcePath));
+            foreach (var party in fieldElement.Elements("activitypointerrecords").Elements())
+            {
+                if (ReadRecord(party, sourcePath, errors) is { } model) field.ActivityPointerRecords.Add(model);
+            }
             record.Fields.Add(field);
         }
         return record;
     }
 
-    private static CmtDataManyToManyRelationship ReadManyToMany(XElement element, string? sourcePath)
+    private static CmtDataManyToManyRelationship? ReadManyToMany(XElement element, string? sourcePath, List<WorkspaceLoadError> errors)
     {
+        if (CmtXml.ParseGuid(Attr(element, "sourceid")) is not { } sourceId)
+        {
+            errors.Add(LoadError(element, sourcePath, $"<m2mrelationship> has no valid GUID in its sourceid attribute ('{Attr(element, "sourceid")}'); the association is skipped."));
+            return null;
+        }
+
         var m2m = new CmtDataManyToManyRelationship
         {
-            SourceId = ParseGuid(Attr(element, "sourceid")),
+            SourceId = sourceId,
             TargetEntityName = Attr(element, "targetentityname") ?? string.Empty,
             TargetEntityNameIdField = Attr(element, "targetentitynameidfield"),
             RelationshipName = Attr(element, "m2mrelationshipname") ?? string.Empty,
             RelationshipSchemaName = Attr(element, "m2mrelationshipschemaname")
         };
         SetSource(m2m, element, sourcePath);
-        foreach (var target in element.Elements("targetids").Elements("targetid")) m2m.TargetIds.Add(ParseGuid(target.Value));
+        foreach (var target in element.Elements("targetids").Elements("targetid"))
+        {
+            if (CmtXml.ParseGuid(target.Value) is { } targetId) m2m.TargetIds.Add(targetId);
+            else errors.Add(LoadError(target, sourcePath, $"<targetid> '{target.Value}' is not a GUID; the target is skipped."));
+        }
         return m2m;
     }
 
@@ -187,7 +220,8 @@ public sealed class CmtPackageXmlReader
     {
         try
         {
-            return XDocument.Load(path, XmlLoadOptions);
+            using var stream = OpenRead(path);
+            return XDocument.Load(stream, XmlLoadOptions);
         }
         catch (XmlException ex)
         {
@@ -200,6 +234,17 @@ public sealed class CmtPackageXmlReader
         return null;
     }
 
+    // TODO(layering): route through IWorkspaceContext once the metamodel-layering branch lands; this is the reader's only file access.
+    private static Stream OpenRead(string path) => File.OpenRead(path);
+
+    private static WorkspaceLoadError LoadError(XElement element, string? sourcePath, string message)
+    {
+        var line = (IXmlLineInfo)element;
+        return line.HasLineInfo()
+            ? new WorkspaceLoadError(sourcePath ?? string.Empty, message, line.LineNumber, line.LinePosition)
+            : new WorkspaceLoadError(sourcePath ?? string.Empty, message);
+    }
+
     private static void SetSource(MetadataBase model, XElement element, string? sourcePath)
     {
         var line = (IXmlLineInfo)element;
@@ -210,13 +255,6 @@ public sealed class CmtPackageXmlReader
 
     private static bool Bool(XElement element, string name) => BoolOrNull(element, name) == true;
 
-    // XmlSerializer lexical forms: true|false|1|0. Anything else is treated as false but preserved by the writer.
-    private static bool? BoolOrNull(XElement element, string name)
-    {
-        var value = Attr(element, name);
-        if (value is null) return null;
-        return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static Guid ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : Guid.Empty;
+    private static bool? BoolOrNull(XElement element, string name) =>
+        Attr(element, name) is { } value ? CmtXml.ParseBool(value) : null;
 }

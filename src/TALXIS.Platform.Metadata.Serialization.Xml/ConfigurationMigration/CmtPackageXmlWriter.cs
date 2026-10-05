@@ -41,7 +41,7 @@ public sealed class CmtPackageXmlWriter
     {
         var before = original?.ToString(SaveOptions.DisableFormatting);
         var document = build();
-        var isSameFile = loadedFrom is not null && File.Exists(path) && string.Equals(Path.GetFullPath(path), Path.GetFullPath(loadedFrom), StringComparison.OrdinalIgnoreCase);
+        var isSameFile = loadedFrom is not null && FileExists(path) && FilePaths.Equal(path, loadedFrom);
         if (isSameFile && before == document.ToString(SaveOptions.DisableFormatting)) return;
         Save(document, path, original is null);
     }
@@ -154,8 +154,8 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "m2mrelationshipschemaname", m2m.RelationshipSchemaName);
 
         var targets = Container(element, "targetids", true)!;
-        var current = targets.Elements("targetid").Select(e => ParseGuid(e.Value));
-        if (!current.SequenceEqual(m2m.TargetIds)) ReplaceValues(targets, "targetid", m2m.TargetIds.Select(id => id.ToString()));
+        var current = targets.Elements("targetid").Select(e => CmtXml.ParseGuid(e.Value) ?? Guid.Empty);
+        if (!current.SequenceEqual(m2m.TargetIds)) XmlPatch.ReplaceValues(targets, "targetid", m2m.TargetIds.Select(id => id.ToString()));
     }
 
     private static void SyncImportOrder(XElement root, IList<string> order)
@@ -164,8 +164,8 @@ public sealed class CmtPackageXmlWriter
         var current = element?.Elements("entityName").Select(e => e.Value) ?? Enumerable.Empty<string>();
         if (current.SequenceEqual(order)) return;
 
-        element ??= Append(root, new XElement("entityImportOrder"));
-        ReplaceValues(element, "entityName", order);
+        element ??= XmlPatch.Append(root, new XElement("entityImportOrder"));
+        XmlPatch.ReplaceValues(element, "entityName", order);
     }
 
     private static void SyncFilter(XElement entity, string? filter)
@@ -173,11 +173,11 @@ public sealed class CmtPackageXmlWriter
         var element = entity.Element("filter");
         if (filter is null)
         {
-            if (element is not null) Remove(element);
+            if (element is not null) XmlPatch.Remove(element);
             return;
         }
 
-        if (element is null) Append(entity, new XElement("filter", filter));
+        if (element is null) XmlPatch.Append(entity, new XElement("filter", filter));
         else if (element.Value != filter) element.Value = filter;
     }
 
@@ -197,18 +197,18 @@ public sealed class CmtPackageXmlWriter
         foreach (var item in items)
         {
             var isNew = !available.TryGetValue(key(item), out var matches) || matches.Count == 0;
-            var element = isNew ? Insert(container, name, previous, new XElement(name)) : matches!.Dequeue();
+            var element = isNew ? XmlPatch.Insert(container, name, previous, new XElement(name)) : matches!.Dequeue();
             apply(item, element, isNew);
             previous = element;
         }
 
-        foreach (var stale in available.Values.SelectMany(q => q).ToList()) Remove(stale);
+        foreach (var stale in available.Values.SelectMany(q => q).ToList()) XmlPatch.Remove(stale);
     }
 
     private static string ElementKey(XElement element) => element.Name.LocalName switch
     {
-        "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, ParseGuid(element.Attribute("sourceid")?.Value)),
-        _ when element.Attribute("id") is { } id => GuidKey(ParseGuid(id.Value)), // record and activity party records
+        "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, CmtXml.ParseGuid(element.Attribute("sourceid")?.Value) ?? Guid.Empty),
+        _ when element.Attribute("id") is { } id => GuidKey(CmtXml.ParseGuid(id.Value) ?? Guid.Empty), // record and activity party records
         _ => element.Attribute("name")?.Value ?? string.Empty
     };
 
@@ -219,67 +219,9 @@ public sealed class CmtPackageXmlWriter
     private static XElement? Container(XElement parent, string name, bool create)
     {
         var container = parent.Element(name);
-        if (container is null && create) container = Append(parent, new XElement(name));
+        if (container is null && create) container = XmlPatch.Append(parent, new XElement(name));
         return container;
     }
-
-    private static void ReplaceValues(XElement container, string name, IEnumerable<string> values)
-    {
-        var list = values.ToList();
-        foreach (var element in container.Elements(name).ToList()) Remove(element);
-        foreach (var value in list) Append(container, new XElement(name, value));
-    }
-
-    private static XElement Insert(XElement container, string name, XElement? previous, XElement element)
-    {
-        if (previous is not null)
-        {
-            previous.AddAfterSelf(element);
-            if (LeadingWhitespace(previous) is { } indent) previous.AddAfterSelf(new XText(indent));
-            return element;
-        }
-
-        var first = container.Elements(name).FirstOrDefault();
-        if (first is null) return Append(container, element);
-
-        first.AddBeforeSelf(element);
-        if (LeadingWhitespace(element) is { } firstIndent) first.AddBeforeSelf(new XText(firstIndent));
-        return element;
-    }
-
-    private static XElement Append(XElement container, XElement element)
-    {
-        var last = container.Elements().LastOrDefault();
-        if (last is not null)
-        {
-            last.AddAfterSelf(element);
-            if (LeadingWhitespace(last) is { } indent) last.AddAfterSelf(new XText(indent));
-            return element;
-        }
-
-        var outer = LeadingWhitespace(container);
-        if (outer is null || container.Nodes().Any(n => !IsWhitespace(n)))
-        {
-            container.Add(element);
-            return element;
-        }
-
-        var unit = outer.IndexOf('\t') >= 0 ? "\t" : "  ";
-        container.RemoveNodes();
-        container.Add(new XText(outer + unit), element, new XText(outer));
-        return element;
-    }
-
-    private static void Remove(XElement element)
-    {
-        if (element.PreviousNode is { } previous && IsWhitespace(previous)) previous.Remove();
-        element.Remove();
-    }
-
-    private static string? LeadingWhitespace(XElement element) =>
-        element.PreviousNode is XText text && IsWhitespace(text) && text.Value.IndexOf('\n') >= 0 ? text.Value : null;
-
-    private static bool IsWhitespace(XNode node) => node is XText text && node is not XCData && string.IsNullOrWhiteSpace(text.Value);
 
     private static void SetString(XElement element, string name, string? value)
     {
@@ -291,7 +233,7 @@ public sealed class CmtPackageXmlWriter
     private static void SetBool(XElement element, string name, bool value)
     {
         var current = element.Attribute(name);
-        if (current is null ? !value : ParseBool(current.Value) == value) return;
+        if (current is null ? !value : CmtXml.ParseBool(current.Value) == value) return;
         element.SetAttributeValue(name, value ? "true" : "false");
     }
 
@@ -305,7 +247,7 @@ public sealed class CmtPackageXmlWriter
             return;
         }
 
-        if (current is not null && ParseBool(current.Value) == value.Value) return;
+        if (current is not null && CmtXml.ParseBool(current.Value) == value.Value) return;
         element.SetAttributeValue(name, value.Value ? "true" : "false");
     }
 
@@ -321,13 +263,9 @@ public sealed class CmtPackageXmlWriter
         else SetGuid(element, name, value.Value);
     }
 
-    private static bool ParseBool(string? value) => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || value == "1";
-
-    private static Guid ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : Guid.Empty;
-
     private static void Save(XDocument document, string path, bool isNew)
     {
-        var existing = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        var existing = FileExists(path) ? ReadAllBytes(path) : null;
         var newLine = existing is null ? "\r\n" : DetectNewLine(existing);
         var encodingName = document.Declaration?.Encoding;
         var settings = new XmlWriterSettings
@@ -347,8 +285,15 @@ public sealed class CmtPackageXmlWriter
 
         var text = settings.Encoding.GetString(buffer.ToArray());
         if (KeepsSpacedEmptyRoot(document, existing, settings.Encoding)) text = ReplaceFirst(text, "<entities>", "<entities >");
-        File.WriteAllBytes(path, settings.Encoding.GetBytes(text));
+        WriteAllBytes(path, settings.Encoding.GetBytes(text));
     }
+
+    // TODO(layering): route the three helpers below through IWorkspaceContext once the metamodel-layering branch lands.
+    private static bool FileExists(string path) => File.Exists(path);
+
+    private static byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
+
+    private static void WriteAllBytes(string path, byte[] bytes) => File.WriteAllBytes(path, bytes);
 
     // The CMT tool writes an attribute-less schema root as "<entities >", which XDocument cannot preserve.
     private static bool KeepsSpacedEmptyRoot(XDocument document, byte[]? existing, Encoding encoding) =>

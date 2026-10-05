@@ -167,6 +167,35 @@ public class CmtPackageXmlReaderTests
     }
 
     [Fact]
+    public void MalformedRecordIdIsSkippedAndReportedAsLoadError()
+    {
+        var package = new CmtPackageXmlReader().Read(
+            XDocument.Parse("<entities><entity name=\"account\"><fields /></entity></entities>"),
+            XDocument.Parse("""
+                <entities>
+                  <entity name="account">
+                    <records>
+                      <record id="not-a-guid"><field name="name" value="Bad" /></record>
+                      <record id="11111111-1111-1111-1111-111111111111"><field name="name" value="Good" /></record>
+                    </records>
+                    <m2mrelationships>
+                      <m2mrelationship sourceid="11111111-1111-1111-1111-111111111111" targetentityname="contact" m2mrelationshipname="account_contact">
+                        <targetids><targetid>nope</targetid><targetid>22222222-2222-2222-2222-222222222222</targetid></targetids>
+                      </m2mrelationship>
+                    </m2mrelationships>
+                  </entity>
+                </entities>
+                """, LoadOptions.SetLineInfo));
+
+        var entity = package.Data!.Entities.Single();
+        Assert.Equal(new Guid("11111111-1111-1111-1111-111111111111"), entity.Records.Single().Id);
+        Assert.Equal(new Guid("22222222-2222-2222-2222-222222222222"), entity.ManyToManyRelationships.Single().TargetIds.Single());
+        Assert.Equal(2, package.LoadErrors.Count);
+        Assert.Contains(package.LoadErrors, e => e.Message.Contains("'not-a-guid'") && e.Line == 4);
+        Assert.Contains(package.LoadErrors, e => e.Message.Contains("'nope'"));
+    }
+
+    [Fact]
     public void MissingDataFileIsReportedAsLoadError()
     {
         var package = new CmtPackageXmlReader().Load(
