@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" timestamp="2026-01-15T10:00:00.0000000Z">
+  <entity name="new_project" displayname="Project">
+    <records>
+      <record id="aaaaaaaa-0000-0000-0000-000000000001">
+        <field name="new_projectid" value="aaaaaaaa-0000-0000-0000-000000000001" />
+        <field name="new_name" value="Tagged Project" />
+      </record>
+    </records>
+    <m2mrelationships>
+      <m2mrelationship sourceid="aaaaaaaa-0000-0000-0000-000000000001" targetentityname="new_tag" targetentitynameidfield="new_tagid" m2mrelationshipname="new_project_new_tag">
+        <targetids>
+          <targetid>bbbbbbbb-0000-0000-0000-000000000001</targetid>
+          <targetid>bbbbbbbb-0000-0000-0000-000000000002</targetid>
+        </targetids>
+      </m2mrelationship>
+    </m2mrelationships>
+  </entity>
+  <entity name="new_tag" displayname="Tag">
+    <records>
+      <record id="bbbbbbbb-0000-0000-0000-000000000001">
+        <field name="new_tagid" value="bbbbbbbb-0000-0000-0000-000000000001" />
+        <field name="new_name" value="Alpha" />
+      </record>
+      <record id="bbbbbbbb-0000-0000-0000-000000000002">
+        <field name="new_tagid" value="bbbbbbbb-0000-0000-0000-000000000002" />
+        <field name="new_name" value="Beta" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+</entities>

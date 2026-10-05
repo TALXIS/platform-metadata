@@ -1,0 +1,21 @@
+<entities >
+  <entity name="new_project" displayname="Project" etc="10001" primaryidfield="new_projectid" primarynamefield="new_name" disableplugins="false">
+    <fields>
+      <field displayname="Project" name="new_projectid" type="guid" primaryKey="true" />
+      <field displayname="Name" name="new_name" type="string" customfield="true" />
+    </fields>
+    <relationships>
+      <relationship name="new_project_new_tag" manyToMany="true" isreflexive="false" relatedEntityName="new_project_new_tag" m2mTargetEntity="new_tag" m2mTargetEntityPrimaryKey="new_tagid" />
+    </relationships>
+  </entity>
+  <entity name="new_tag" displayname="Tag" etc="10002" primaryidfield="new_tagid" primarynamefield="new_name" disableplugins="false">
+    <fields>
+      <field displayname="Tag" name="new_tagid" type="guid" primaryKey="true" />
+      <field displayname="Name" name="new_name" type="string" customfield="true" />
+    </fields>
+  </entity>
+  <entityImportOrder>
+    <entityName>new_tag</entityName>
+    <entityName>new_project</entityName>
+  </entityImportOrder>
+</entities>

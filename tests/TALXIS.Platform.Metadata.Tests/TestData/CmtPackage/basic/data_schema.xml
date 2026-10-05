@@ -1,0 +1,33 @@
+<entities >
+  <entity name="account" displayname="Account" etc="1" primaryidfield="accountid" primarynamefield="name" disableplugins="false">
+    <fields>
+      <field displayname="Account" name="accountid" type="guid" primaryKey="true" />
+      <field displayname="Account Name" name="name" type="string" />
+      <field displayname="Primary Contact" name="primarycontactid" type="entityreference" lookupType="contact" />
+      <field displayname="Credit Limit" name="creditlimit" type="money" />
+    </fields>
+  </entity>
+  <entity name="contact" displayname="Contact" etc="2" primaryidfield="contactid" primarynamefield="fullname" disableplugins="false">
+    <fields>
+      <field displayname="Contact" name="contactid" type="guid" primaryKey="true" />
+      <field displayname="First Name" name="firstname" type="string" />
+      <field displayname="Last Name" name="lastname" type="string" />
+      <field displayname="Company Name" name="parentcustomerid" type="customer" lookupType="account|contact" />
+    </fields>
+  </entity>
+  <entity name="new_project" displayname="Project" etc="10001" primaryidfield="new_projectid" primarynamefield="new_name" disableplugins="true" skipupdate="false">
+    <fields>
+      <field updateCompare="true" displayname="Project" name="new_projectid" type="guid" primaryKey="true" />
+      <field displayname="Name" name="new_name" type="string" customfield="true" />
+      <field displayname="Account" name="new_accountid" type="entityreference" lookupType="account" customfield="true" />
+      <field displayname="Start Date" name="new_startdate" type="datetime" dateMode="absolute" customfield="true" />
+      <field displayname="Status" name="statecode" type="state" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="new_project"&gt;&lt;filter&gt;&lt;condition attribute="statecode" operator="eq" value="0" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entityImportOrder>
+    <entityName>account</entityName>
+    <entityName>contact</entityName>
+    <entityName>new_project</entityName>
+  </entityImportOrder>
+</entities>
