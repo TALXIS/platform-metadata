@@ -6,9 +6,17 @@
     <xs:complexType name="CmtEntitiesType">
         <xs:sequence>
             <xs:element name="entity" type="CmtEntityType" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="entityImportOrder" type="CmtEntityImportOrderType" minOccurs="0" />
         </xs:sequence>
         <xs:attribute name="timestamp" type="xs:string" use="optional" />
+        <xs:attribute name="dateMode" type="xs:string" use="optional" />
         <xs:anyAttribute processContents="skip" />
+    </xs:complexType>
+
+    <xs:complexType name="CmtEntityImportOrderType">
+        <xs:sequence>
+            <xs:element name="entityName" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
     </xs:complexType>
 
     <xs:complexType name="CmtEntityType">
@@ -22,7 +30,10 @@
             </xs:sequence>
             <xs:sequence>
                 <xs:element name="fields" type="CmtFieldsType" />
-                <xs:element name="relationships" type="CmtRelationshipsType" minOccurs="0" />
+                <xs:choice minOccurs="0" maxOccurs="2">
+                    <xs:element name="relationships" type="CmtRelationshipsType" />
+                    <xs:element name="filter" type="xs:string" />
+                </xs:choice>
             </xs:sequence>
         </xs:choice>
         <xs:attribute name="name" type="xs:string" use="required" />
@@ -31,6 +42,7 @@
         <xs:attribute name="primarynamefield" type="xs:string" use="optional" />
         <xs:attribute name="disableplugins" type="xs:string" use="optional" />
         <xs:attribute name="skipupdate" type="xs:string" use="optional" />
+        <xs:attribute name="forcecreate" type="xs:string" use="optional" />
         <xs:attribute name="renderliquid" type="xs:string" use="optional" />
         <xs:attribute name="guidswap" type="xs:string" use="optional" />
         <xs:attribute name="etc" type="xs:string" use="optional" />
@@ -96,6 +108,7 @@
         <xs:attribute name="updateCompare" type="xs:string" use="optional" />
         <xs:attribute name="customfield" type="xs:string" use="optional" />
         <xs:attribute name="lookupType" type="xs:string" use="optional" />
+        <xs:attribute name="dateMode" type="xs:string" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
@@ -106,12 +119,19 @@
     </xs:complexType>
 
     <xs:complexType name="CmtRelationshipType">
+        <xs:sequence>
+            <xs:element name="fields" type="CmtFieldsType" minOccurs="0" />
+        </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="manyToMany" type="xs:string" use="optional" />
         <xs:attribute name="isreflexive" type="xs:string" use="optional" />
         <xs:attribute name="relatedEntityName" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntity" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntityPrimaryKey" type="xs:string" use="optional" />
+        <xs:attribute name="referencingEntity" type="xs:string" use="optional" />
+        <xs:attribute name="referencingAttribute" type="xs:string" use="optional" />
+        <xs:attribute name="referencedEntity" type="xs:string" use="optional" />
+        <xs:attribute name="referencedAttribute" type="xs:string" use="optional" />
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
