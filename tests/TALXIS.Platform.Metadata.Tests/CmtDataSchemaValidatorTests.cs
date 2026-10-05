@@ -5,7 +5,11 @@ namespace TALXIS.Platform.Metadata.Tests;
 
 public class CmtDataSchemaValidatorTests
 {
+    // The compact fixtures below omit etc/disableplugins/displayname on purpose; TXM017 has its own tests.
     private static IReadOnlyList<ValidationResult> Validate(string xml) =>
+        ValidateAll(xml).Where(r => r.Code != ValidationDiagnostics.CmtRequiredAttributeMissing).ToList();
+
+    private static IReadOnlyList<ValidationResult> ValidateAll(string xml) =>
         new CmtDataSchemaValidator().ValidateXml(XDocument.Parse(xml, LoadOptions.SetLineInfo), "data_schema.xml");
 
     [Fact]
@@ -277,5 +281,171 @@ public class CmtDataSchemaValidatorTests
 
         Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtDuplicateName && r.Message.Contains("entity 'account' more than once"));
         Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtDuplicateName && r.Message.Contains("field 'accountid' more than once"));
+    }
+
+    [Theory]
+    [InlineData("Guid", "instead of 'guid'")]
+    [InlineData("lookup", "not a CMT field type")]
+    [InlineData("bigint", "cannot import")]
+    [InlineData("unknown", "cannot import")]
+    [InlineData("", "has no type")]
+    public void FieldTypeCmtCannotImport_ReportsError(string type, string expectedText)
+    {
+        var finding = Assert.Single(Validate($"""
+            <entities>
+              <entity name="account" primaryidfield="accountid">
+                <fields>
+                  <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
+                  <field name="x" type="{type}" />
+                </fields>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtFieldTypeNotImportable, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("account.x", finding.Message);
+        Assert.Contains(expectedText, finding.Message);
+    }
+
+    [Fact]
+    public void FileTypeSynonym_ReportsWarning()
+    {
+        var finding = Assert.Single(Validate("""
+            <entities>
+              <entity name="account" primaryidfield="accountid">
+                <fields>
+                  <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
+                  <field name="doc" type="file" />
+                </fields>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtFieldTypeNotImportable, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("filedata", finding.Message);
+    }
+
+    [Fact]
+    public void ManyToManyIntersectFieldTypes_AreChecked()
+    {
+        var finding = Assert.Single(Validate($"""
+            <entities>
+              <entity name="account" displayname="Account" etc="1" disableplugins="false" primaryidfield="accountid">
+                <fields><field displayname="Id" name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields>
+                <relationships>
+                  <relationship name="account_contact" manyToMany="true">
+                    <fields><field name="accountid" type="Guid" primaryKey="true" /><field name="contactid" type="guid" /></fields>
+                  </relationship>
+                </relationships>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtFieldTypeNotImportable, finding.Code);
+        Assert.Contains("account/account_contact.accountid", finding.Message);
+    }
+
+    [Fact]
+    public void AttributesCmtRequires_AbsentReportsWarnings()
+    {
+        var results = ValidateAll("""
+            <entities>
+              <entity name="account" primaryidfield="accountid">
+                <fields>
+                  <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
+                  <field displayname="Name" name="name" type="string" />
+                  <field name="telephone1" type="string" />
+                </fields>
+              </entity>
+            </entities>
+            """).Where(r => r.Code == ValidationDiagnostics.CmtRequiredAttributeMissing).ToList();
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
+        Assert.Contains(results, r => r.Message.Contains("has no displayname, etc, disableplugins"));
+        Assert.Contains(results, r => r.Message.Contains("2 field(s) have no displayname (first: 'accountid')"));
+    }
+
+    [Fact]
+    public void AttributesCmtRequires_PresentHasNoWarning()
+    {
+        var results = ValidateAll("""
+            <entities>
+              <entity name="account" displayname="Account" etc="1" disableplugins="false" primaryidfield="accountid">
+                <fields><field displayname="Id" name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields>
+              </entity>
+            </entities>
+            """);
+
+        Assert.Empty(results);
+    }
+
+    [Theory]
+    [InlineData("""<entities dateMode="Absolute">{0}</entities>""", "root")]
+    [InlineData("""<entities>{1}</entities>""", "account.d")]
+    public void InvalidDateMode_ReportsError(string template, string subject)
+    {
+        var withBadField = """
+            <entity name="account" primaryidfield="accountid">
+              <fields>
+                <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
+                <field name="d" type="datetime" dateMode="daily" />
+              </fields>
+            </entity>
+            """;
+        var finding = Assert.Single(Validate(template.Replace("{0}", ValidEntity).Replace("{1}", withBadField)));
+
+        Assert.Equal(ValidationDiagnostics.CmtDateModeInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains(subject, finding.Message);
+    }
+
+    [Fact]
+    public void ValidDateModes_HaveNoFinding()
+    {
+        Assert.Empty(Validate("""
+            <entities dateMode="relativeDaily">
+              <entity name="account" primaryidfield="accountid">
+                <fields>
+                  <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
+                  <field name="d" type="datetime" dateMode="relative" />
+                </fields>
+              </entity>
+            </entities>
+            """));
+    }
+
+    [Theory]
+    [InlineData("&lt;filter&gt;&lt;condition /&gt;&lt;/filter&gt;", "instead of <fetch>")]
+    [InlineData("&lt;fetch&gt;", "not well-formed")]
+    public void FilterThatIsNotFetchXml_ReportsWarning(string filter, string expectedText)
+    {
+        var finding = Assert.Single(Validate($"""
+            <entities>
+              <entity name="account" primaryidfield="accountid">
+                <fields><field name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields>
+                <filter>{filter}</filter>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtFilterNotFetchXml, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains(expectedText, finding.Message);
+    }
+
+    [Fact]
+    public void FetchXmlFilter_HasNoFinding()
+    {
+        Assert.Empty(Validate("""
+            <entities>
+              <entity name="account" primaryidfield="accountid">
+                <fields><field name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields>
+                <filter>&lt;fetch&gt;&lt;entity name="account" /&gt;&lt;/fetch&gt;</filter>
+              </entity>
+            </entities>
+            """));
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
 using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
@@ -18,6 +19,7 @@ public sealed class CmtPackageValidator
         var results = new List<ValidationResult>();
         if (package.Data is null) return results;
 
+        CheckTimestamp(package.Data, results);
         foreach (var dataEntity in package.Data.Entities)
         {
             var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
@@ -98,6 +100,15 @@ public sealed class CmtPackageValidator
                         $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch.Name}'. CMT compares names case-sensitively."));
             }
         }
+    }
+
+    // CMT parses the timestamp before importing anything; the TALXIS importer ignores it.
+    private static void CheckTimestamp(CmtData data, List<ValidationResult> results)
+    {
+        if (data.Timestamp is null || DateTime.TryParse(data.Timestamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)) return;
+
+        results.Add(CmtDataSchemaValidator.Error(data, ValidationDiagnostics.CmtDataTimestampInvalid,
+            $"CMT data.xml timestamp '{data.Timestamp}' is not a valid date-time; CMT aborts the import."));
     }
 
     private static CmtSchemaEntity? FindEntityIgnoringCase(CmtDataSchema schema, string name) =>

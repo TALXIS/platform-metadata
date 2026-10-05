@@ -72,4 +72,23 @@ public static class ValidationDiagnostics
     /// A CMT name (entity in entityImportOrder, data.xml entity, field, lookupentity or many-to-many target) matches a schema declaration only when letter case is ignored. CMT compares names ordinally, so the import treats the two spellings as different names.
     /// </summary>
     public const string CmtNameCaseMismatch = "TXM015";
+
+    /// <summary>
+    /// A CMT schema field type is not one CMT can import: not in the vocabulary, not lowercase (CMT compares case-sensitively), or bigint/unknown (no import conversion). The TALXIS synonym "file" is reported as a warning.
+    /// </summary>
+    public const string CmtFieldTypeNotImportable = "TXM016";
+
+    /// <summary>
+    /// A CMT schema entity or field lacks an attribute CMT's own schema requires (entity displayname, etc, disableplugins; field displayname). Warning only: the TALXIS importer tolerates their absence.
+    /// </summary>
+    public const string CmtRequiredAttributeMissing = "TXM017";
+
+    /// <summary>A CMT dateMode value is not absolute, relative or relativeDaily; CMT cannot deserialise the schema.</summary>
+    public const string CmtDateModeInvalid = "TXM018";
+
+    /// <summary>The data.xml entities@timestamp is present but not a parseable date-time; CMT aborts the import.</summary>
+    public const string CmtDataTimestampInvalid = "TXM019";
+
+    /// <summary>A CMT schema entity filter is present but is not well-formed FetchXML with a &lt;fetch&gt; root.</summary>
+    public const string CmtFilterNotFetchXml = "TXM020";
 }

@@ -163,4 +163,20 @@ public class CmtPackageValidatorTests
         Assert.Contains(results, r => r.Message.Contains("'ACCOUNT'") && r.Message.Contains("'account'"));
         Assert.Contains(results, r => r.Message.Contains("'New_Tag_Account'") && r.Message.Contains("'new_tag_account'"));
     }
+
+    [Fact]
+    public void UnparseableTimestamp_ReportsError()
+    {
+        var finding = Assert.Single(Validate("""<entities timestamp="yesterday"><entity name="account"><records /></entity></entities>"""));
+
+        Assert.Equal(ValidationDiagnostics.CmtDataTimestampInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("'yesterday'", finding.Message);
+    }
+
+    [Fact]
+    public void CmtTimestamp_HasNoFinding()
+    {
+        Assert.Empty(Validate("""<entities timestamp="2021-08-16T12:15:05.4811021Z"><entity name="account"><records /></entity></entities>"""));
+    }
 }
