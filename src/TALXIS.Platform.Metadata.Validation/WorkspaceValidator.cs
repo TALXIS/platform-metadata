@@ -1,4 +1,5 @@
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
@@ -140,10 +141,20 @@ public sealed class WorkspaceValidator
     private static void CollectCmtDataSchemaFindings(string workspacePath, List<ValidationResult> results)
     {
         var cmtValidator = new CmtDataSchemaValidator();
+        var packageValidator = new CmtPackageValidator();
         foreach (var file in WorkspaceFiles.Enumerate(workspacePath, "*.xml"))
         {
             if (WorkspaceFiles.IsWebResourcePayload(file)) continue;
             results.AddRange(SolutionValidator.WithStage(cmtValidator.ValidateFile(file), ValidationStage.CmtData));
+
+            if (!string.Equals(Path.GetFileName(file), "data_schema.xml", StringComparison.OrdinalIgnoreCase)) continue;
+            var dataFile = Path.Combine(Path.GetDirectoryName(file)!, "data.xml");
+            if (!File.Exists(dataFile)) continue;
+
+            // Load errors are left to the XSD stage, which already reports malformed files.
+            var package = new CmtPackageXmlReader().Load(file, dataFile);
+            if (package.LoadErrors.Count > 0) continue;
+            results.AddRange(SolutionValidator.WithStage(packageValidator.Validate(package), ValidationStage.CmtData));
         }
     }
 

@@ -27,4 +27,44 @@ public static class ValidationDiagnostics
 
     /// <summary>A CMT data schema entity declares no field with updateCompare="true", so configuration imports cannot match existing records.</summary>
     public const string CmtEntityMissingUpdateCompare = "TXM006";
+
+    /// <summary>
+    /// The CMT entityImportOrder names an entity the schema does not declare, or a declared entity is missing from it.
+    /// </summary>
+    public const string CmtImportOrderEntityUndeclared = "TXM007";
+
+    /// <summary>
+    /// A CMT schema entity's primaryidfield is missing, not declared as a field, not marked primaryKey="true" or not of type guid.
+    /// </summary>
+    public const string CmtPrimaryIdFieldInvalid = "TXM008";
+
+    /// <summary>
+    /// A CMT schema entity's primarynamefield is not declared as a field.
+    /// </summary>
+    public const string CmtPrimaryNameFieldUndeclared = "TXM009";
+
+    /// <summary>
+    /// A CMT schema lookup field (entityreference, customer, owner) does not say which entity it points to.
+    /// </summary>
+    public const string CmtLookupTypeMissing = "TXM010";
+
+    /// <summary>
+    /// A CMT schema declares the same entity twice, or an entity declares the same field twice.
+    /// </summary>
+    public const string CmtDuplicateName = "TXM011";
+
+    /// <summary>
+    /// CMT data.xml contains an entity or field that data_schema.xml does not declare, so the import drops it.
+    /// </summary>
+    public const string CmtDataUndeclared = "TXM012";
+
+    /// <summary>
+    /// A CMT data.xml lookup value points to an entity the package schema does not declare; legal when the target already exists in the environment.
+    /// </summary>
+    public const string CmtDataLookupEntityUndeclared = "TXM013";
+
+    /// <summary>
+    /// A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare.
+    /// </summary>
+    public const string CmtDataManyToManyUndeclared = "TXM014";
 }
