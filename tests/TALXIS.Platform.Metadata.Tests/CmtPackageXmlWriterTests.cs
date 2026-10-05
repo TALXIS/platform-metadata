@@ -74,7 +74,25 @@ public class CmtPackageXmlWriterTests
 
         // Ordinal keys: the existing <entity name="account"> is untouched and a new element is appended.
         Assert.Contains("<entity name=\"account\" displayname=\"Account\" etc=\"1\"", text);
-        Assert.Contains("<entity name=\"Account\" primaryidfield=\"accountid\" disableplugins=\"false\">", text);
+        Assert.Contains("<entity name=\"Account\" primaryidfield=\"accountid\">", text);
+    }
+
+    [Fact]
+    public void NullableFlagsRemoveOrKeepAttributes()
+    {
+        var (package, original) = LoadBasicSchema();
+        var project = package.Schema.FindEntity("new_project")!;
+        Assert.False(project.SkipUpdate);
+        project.SkipUpdate = null;          // remove skipupdate="false"
+        project.ForceCreate = false;        // write an explicit false
+        package.Schema.FindEntity("account")!.RenderLiquid = true;
+
+        var text = SaveSchemaToText(package);
+
+        Assert.DoesNotContain("skipupdate", text);
+        Assert.Contains("disableplugins=\"true\" forcecreate=\"false\">", text);
+        Assert.Contains("disableplugins=\"false\" renderliquid=\"true\">", text);
+        Assert.NotEqual(original, text);
     }
 
     [Fact]
@@ -88,6 +106,10 @@ public class CmtPackageXmlWriterTests
             ObjectTypeCode = 10001,
             PrimaryIdField = "new_projectid",
             PrimaryNameField = "new_name",
+            DisablePlugins = false,
+            SkipUpdate = true,
+            RenderLiquid = true,
+            GuidSwap = false,
             FetchXmlFilter = "<fetch><entity name=\"new_project\" /></fetch>",
             Fields =
             {
@@ -96,7 +118,7 @@ public class CmtPackageXmlWriterTests
             },
             Relationships =
             {
-                new CmtSchemaRelationship { Name = "new_project_new_tag", IsManyToMany = true, RelatedEntityName = "new_project_new_tag", M2mTargetEntity = "new_tag", M2mTargetEntityPrimaryKey = "new_tagid" }
+                new CmtSchemaRelationship { Name = "new_project_new_tag", IsManyToMany = true, IsReflexive = false, RelatedEntityName = "new_project_new_tag", M2mTargetEntity = "new_tag", M2mTargetEntityPrimaryKey = "new_tagid" }
             }
         });
 
@@ -111,12 +133,22 @@ public class CmtPackageXmlWriterTests
                 new CmtDataRecord
                 {
                     Id = projectId,
-                    Fields = { new CmtDataField { Name = "new_accountid", Value = Guid.Empty.ToString(), LookupEntity = "account", LookupEntityName = "Contoso" } }
+                    NewId = Guid.NewGuid(),
+                    Fields =
+                    {
+                        new CmtDataField { Name = "new_accountid", Value = Guid.Empty.ToString(), LookupEntity = "account", LookupEntityName = "Contoso" },
+                        new CmtDataField { Name = "new_document", Value = "doc1", FileName = "contract.pdf" },
+                        new CmtDataField
+                        {
+                            Name = "new_parties",
+                            ActivityPointerRecords = { new CmtDataRecord { Id = Guid.NewGuid(), Fields = { new CmtDataField { Name = "partyid", Value = Guid.Empty.ToString(), LookupEntity = "contact" } } } }
+                        }
+                    }
                 }
             },
             ManyToManyRelationships =
             {
-                new CmtDataManyToManyRelationship { SourceId = projectId, TargetEntityName = "new_tag", TargetEntityNameIdField = "new_tagid", RelationshipName = "new_project_new_tag", TargetIds = { Guid.NewGuid(), Guid.NewGuid() } }
+                new CmtDataManyToManyRelationship { SourceId = projectId, TargetEntityName = "new_tag", TargetEntityNameIdField = "new_tagid", RelationshipName = "new_project_new_tag", RelationshipSchemaName = "new_project_new_tag", TargetIds = { Guid.NewGuid(), Guid.NewGuid() } }
             }
         });
 

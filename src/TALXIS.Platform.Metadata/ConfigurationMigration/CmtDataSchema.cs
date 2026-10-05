@@ -1,11 +1,27 @@
 namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
+/// <summary>
+/// The schema side of a Configuration Migration Tool package (data_schema.xml): which tables and columns a
+/// package migrates and how records are matched. Both Microsoft CMT and the TALXIS importer read it.
+/// </summary>
 public sealed class CmtDataSchema : MetadataBase
 {
+    /// <summary>
+    /// How datetime values are shifted on import (<c>entities@dateMode</c>): one of <see cref="CmtDateModes"/>,
+    /// or <c>null</c> when absent (absolute). Kept as text so unknown values round-trip and can be reported.
+    /// </summary>
     public string? DateMode { get; set; }
-    public IList<string> EntityImportOrder { get; set; } = new List<string>();
-    public IList<CmtSchemaEntity> Entities { get; set; } = new List<CmtSchemaEntity>();
 
+    /// <summary>
+    /// Entity names in the order CMT should import them (<c>entityImportOrder/entityName</c>). Empty when the
+    /// element is absent; CMT then falls back to its built-in order and the data.xml element order.
+    /// </summary>
+    public IList<string> EntityImportOrder { get; } = new List<string>();
+
+    /// <summary>Declared entities in document order.</summary>
+    public IList<CmtSchemaEntity> Entities { get; } = new List<CmtSchemaEntity>();
+
+    /// <summary>Finds an entity by logical name using ordinal comparison (as CMT does), or <c>null</c>.</summary>
     public CmtSchemaEntity? FindEntity(string name) =>
         Entities.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.Ordinal));
 }

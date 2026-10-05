@@ -78,9 +78,11 @@ public sealed class CmtPackageXmlReader
             ObjectTypeCode = int.TryParse(Attr(element, "etc"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var etc) ? etc : null,
             PrimaryIdField = Attr(element, "primaryidfield"),
             PrimaryNameField = Attr(element, "primarynamefield"),
-            DisablePlugins = Bool(element, "disableplugins"),
-            SkipUpdate = Bool(element, "skipupdate"),
-            ForceCreate = Bool(element, "forcecreate"),
+            DisablePlugins = BoolOrNull(element, "disableplugins"),
+            SkipUpdate = BoolOrNull(element, "skipupdate"),
+            ForceCreate = BoolOrNull(element, "forcecreate"),
+            RenderLiquid = BoolOrNull(element, "renderliquid"),
+            GuidSwap = BoolOrNull(element, "guidswap"),
             FetchXmlFilter = element.Element("filter")?.Value
         };
         SetSource(entity, element, sourcePath);
@@ -112,7 +114,7 @@ public sealed class CmtPackageXmlReader
         {
             Name = Attr(element, "name") ?? string.Empty,
             IsManyToMany = Bool(element, "manyToMany"),
-            IsReflexive = Bool(element, "isreflexive"),
+            IsReflexive = BoolOrNull(element, "isreflexive"),
             RelatedEntityName = Attr(element, "relatedEntityName"),
             M2mTargetEntity = Attr(element, "m2mTargetEntity"),
             M2mTargetEntityPrimaryKey = Attr(element, "m2mTargetEntityPrimaryKey"),
@@ -141,7 +143,12 @@ public sealed class CmtPackageXmlReader
 
     private static CmtDataRecord ReadRecord(XElement element, string? sourcePath)
     {
-        var record = new CmtDataRecord { Id = ParseGuid(Attr(element, "id")) };
+        var newId = Attr(element, "newId");
+        var record = new CmtDataRecord
+        {
+            Id = ParseGuid(Attr(element, "id")),
+            NewId = newId is null ? null : ParseGuid(newId)
+        };
         SetSource(record, element, sourcePath);
         foreach (var fieldElement in element.Elements("field"))
         {
@@ -149,10 +156,13 @@ public sealed class CmtPackageXmlReader
             {
                 Name = Attr(fieldElement, "name") ?? string.Empty,
                 Value = Attr(fieldElement, "value"),
+                FileName = Attr(fieldElement, "filename"),
                 LookupEntity = Attr(fieldElement, "lookupentity"),
                 LookupEntityName = Attr(fieldElement, "lookupentityname")
             };
             SetSource(field, fieldElement, sourcePath);
+            // Partylist: every child of <activitypointerrecords> is an activity party record, whatever CMT names it.
+            foreach (var party in fieldElement.Elements("activitypointerrecords").Elements()) field.ActivityPointerRecords.Add(ReadRecord(party, sourcePath));
             record.Fields.Add(field);
         }
         return record;
@@ -165,7 +175,8 @@ public sealed class CmtPackageXmlReader
             SourceId = ParseGuid(Attr(element, "sourceid")),
             TargetEntityName = Attr(element, "targetentityname") ?? string.Empty,
             TargetEntityNameIdField = Attr(element, "targetentitynameidfield"),
-            RelationshipName = Attr(element, "m2mrelationshipname") ?? string.Empty
+            RelationshipName = Attr(element, "m2mrelationshipname") ?? string.Empty,
+            RelationshipSchemaName = Attr(element, "m2mrelationshipschemaname")
         };
         SetSource(m2m, element, sourcePath);
         foreach (var target in element.Elements("targetids").Elements("targetid")) m2m.TargetIds.Add(ParseGuid(target.Value));
@@ -197,8 +208,15 @@ public sealed class CmtPackageXmlReader
 
     private static string? Attr(XElement element, string name) => element.Attribute(name)?.Value;
 
-    private static bool Bool(XElement element, string name) =>
-        string.Equals(Attr(element, name), "true", StringComparison.OrdinalIgnoreCase) || Attr(element, name) == "1";
+    private static bool Bool(XElement element, string name) => BoolOrNull(element, name) == true;
+
+    // XmlSerializer lexical forms: true|false|1|0. Anything else is treated as false but preserved by the writer.
+    private static bool? BoolOrNull(XElement element, string name)
+    {
+        var value = Attr(element, name);
+        if (value is null) return null;
+        return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static Guid ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : Guid.Empty;
 }

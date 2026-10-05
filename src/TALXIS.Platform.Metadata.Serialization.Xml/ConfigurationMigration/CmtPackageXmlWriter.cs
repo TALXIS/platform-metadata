@@ -77,9 +77,11 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "etc", entity.ObjectTypeCode?.ToString(CultureInfo.InvariantCulture));
         SetString(element, "primaryidfield", entity.PrimaryIdField);
         SetString(element, "primarynamefield", entity.PrimaryNameField);
-        SetBool(element, "disableplugins", entity.DisablePlugins, isNew);
-        SetBool(element, "skipupdate", entity.SkipUpdate);
-        SetBool(element, "forcecreate", entity.ForceCreate);
+        SetNullableBool(element, "disableplugins", entity.DisablePlugins);
+        SetNullableBool(element, "skipupdate", entity.SkipUpdate);
+        SetNullableBool(element, "forcecreate", entity.ForceCreate);
+        SetNullableBool(element, "renderliquid", entity.RenderLiquid);
+        SetNullableBool(element, "guidswap", entity.GuidSwap);
         SyncChildren(Container(element, "fields", isNew || entity.Fields.Count > 0), "field", entity.Fields, f => f.Name, ApplySchemaField);
         SyncChildren(Container(element, "relationships", entity.Relationships.Count > 0), "relationship", entity.Relationships, r => r.Name, ApplyRelationship);
         SyncFilter(element, entity.FetchXmlFilter);
@@ -101,7 +103,7 @@ public sealed class CmtPackageXmlWriter
     {
         SetString(element, "name", relationship.Name);
         SetBool(element, "manyToMany", relationship.IsManyToMany);
-        SetBool(element, "isreflexive", relationship.IsReflexive, isNew && relationship.IsManyToMany);
+        SetNullableBool(element, "isreflexive", relationship.IsReflexive);
         SetString(element, "relatedEntityName", relationship.RelatedEntityName);
         SetString(element, "m2mTargetEntity", relationship.M2mTargetEntity);
         SetString(element, "m2mTargetEntityPrimaryKey", relationship.M2mTargetEntityPrimaryKey);
@@ -124,6 +126,7 @@ public sealed class CmtPackageXmlWriter
     private static void ApplyRecord(CmtDataRecord record, XElement element, bool isNew)
     {
         SetGuid(element, "id", record.Id);
+        SetNullableGuid(element, "newId", record.NewId);
         SyncChildren(element, "field", record.Fields, f => f.Name, ApplyDataField);
     }
 
@@ -131,8 +134,15 @@ public sealed class CmtPackageXmlWriter
     {
         SetString(element, "name", field.Name);
         SetString(element, "value", field.Value);
+        SetString(element, "filename", field.FileName);
         SetString(element, "lookupentity", field.LookupEntity);
         SetString(element, "lookupentityname", field.LookupEntityName);
+
+        var parties = Container(element, "activitypointerrecords", field.ActivityPointerRecords.Count > 0);
+        if (parties is null) return;
+        // Keep whatever element name the file already uses for party records; new files get the CMT name.
+        var partyName = parties.Elements().FirstOrDefault()?.Name.LocalName ?? "activitypointerrecord";
+        SyncChildren(parties, partyName, field.ActivityPointerRecords, r => GuidKey(r.Id), ApplyRecord);
     }
 
     private static void ApplyManyToMany(CmtDataManyToManyRelationship m2m, XElement element, bool isNew)
@@ -141,6 +151,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "targetentityname", m2m.TargetEntityName);
         SetString(element, "targetentitynameidfield", m2m.TargetEntityNameIdField);
         SetString(element, "m2mrelationshipname", m2m.RelationshipName);
+        SetString(element, "m2mrelationshipschemaname", m2m.RelationshipSchemaName);
 
         var targets = Container(element, "targetids", true)!;
         var current = targets.Elements("targetid").Select(e => ParseGuid(e.Value));
@@ -196,8 +207,8 @@ public sealed class CmtPackageXmlWriter
 
     private static string ElementKey(XElement element) => element.Name.LocalName switch
     {
-        "record" => GuidKey(ParseGuid(element.Attribute("id")?.Value)),
         "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, ParseGuid(element.Attribute("sourceid")?.Value)),
+        _ when element.Attribute("id") is { } id => GuidKey(ParseGuid(id.Value)), // record and activity party records
         _ => element.Attribute("name")?.Value ?? string.Empty
     };
 
@@ -276,17 +287,38 @@ public sealed class CmtPackageXmlWriter
         element.SetAttributeValue(name, value);
     }
 
-    private static void SetBool(XElement element, string name, bool value, bool writeFalse = false)
+    // "Absent means false" flags: false is never written, an existing attribute is only touched when its meaning changes.
+    private static void SetBool(XElement element, string name, bool value)
     {
         var current = element.Attribute(name);
-        if (current is null ? !value && !writeFalse : ParseBool(current.Value) == value) return;
+        if (current is null ? !value : ParseBool(current.Value) == value) return;
         element.SetAttributeValue(name, value ? "true" : "false");
+    }
+
+    // Absent attribute <=> null; otherwise written as true/false, keeping the existing lexical form when it already means the same.
+    private static void SetNullableBool(XElement element, string name, bool? value)
+    {
+        var current = element.Attribute(name);
+        if (value is null)
+        {
+            current?.Remove();
+            return;
+        }
+
+        if (current is not null && ParseBool(current.Value) == value.Value) return;
+        element.SetAttributeValue(name, value.Value ? "true" : "false");
     }
 
     private static void SetGuid(XElement element, string name, Guid value)
     {
         if (Guid.TryParse(element.Attribute(name)?.Value, out var current) && current == value) return;
         element.SetAttributeValue(name, value.ToString());
+    }
+
+    private static void SetNullableGuid(XElement element, string name, Guid? value)
+    {
+        if (value is null) element.Attribute(name)?.Remove();
+        else SetGuid(element, name, value.Value);
     }
 
     private static bool ParseBool(string? value) => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || value == "1";

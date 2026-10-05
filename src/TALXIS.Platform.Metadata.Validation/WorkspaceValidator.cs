@@ -1,4 +1,5 @@
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.ConfigurationMigration;
 using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 namespace TALXIS.Platform.Metadata.Validation;
@@ -147,8 +148,8 @@ public sealed class WorkspaceValidator
             if (WorkspaceFiles.IsWebResourcePayload(file)) continue;
             results.AddRange(SolutionValidator.WithStage(cmtValidator.ValidateFile(file), ValidationStage.CmtData));
 
-            if (!string.Equals(Path.GetFileName(file), "data_schema.xml", StringComparison.OrdinalIgnoreCase)) continue;
-            var dataFile = Path.Combine(Path.GetDirectoryName(file)!, "data.xml");
+            if (!string.Equals(Path.GetFileName(file), CmtPackageLayout.SchemaFileName, StringComparison.OrdinalIgnoreCase)) continue;
+            var dataFile = Path.Combine(Path.GetDirectoryName(file)!, CmtPackageLayout.DataFileName);
             if (!File.Exists(dataFile)) continue;
 
             // Load errors are left to the XSD stage, which already reports malformed files.
