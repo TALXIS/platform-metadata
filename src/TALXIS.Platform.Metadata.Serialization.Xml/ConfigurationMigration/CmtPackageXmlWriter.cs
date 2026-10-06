@@ -25,7 +25,7 @@ public sealed class CmtPackageXmlWriter
     /// <param name="packageDirectory">Target folder; created when missing.</param>
     public bool Save(CmtPackage package, string packageDirectory)
     {
-        CreateDirectory(packageDirectory);
+        Directory.CreateDirectory(packageDirectory);
         var written = SaveSchema(package, Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName));
         if (package.Data != null) written |= SaveData(package, Path.Combine(packageDirectory, CmtPackageLayout.DataFileName));
         return written;
@@ -54,13 +54,13 @@ public sealed class CmtPackageXmlWriter
     // example), so a document that still matches the file it was loaded from is saved as that file's bytes.
     private static bool WriteIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
     {
-        var existing = FileExists(path) ? ReadAllBytes(path) : null;
+        var existing = File.Exists(path) ? File.ReadAllBytes(path) : null;
         var bytes = loadedBytes != null && IsUnchanged(document, loadedBytes)
             ? loadedBytes
             : Serialize(document, existing, indent);
         if (existing != null && existing.SequenceEqual(bytes)) return false;
 
-        WriteAllBytes(path, bytes);
+        File.WriteAllBytes(path, bytes);
         return true;
     }
 
@@ -176,7 +176,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "m2mrelationshipschemaname", m2m.RelationshipSchemaName);
 
         var targets = Container(element, "targetids", true)!;
-        var current = targets.Elements("targetid").Select(e => CmtXml.ParseGuid(e.Value) ?? Guid.Empty);
+        var current = targets.Elements("targetid").Select(e => CmtPackageXmlReader.ParseGuid(e.Value) ?? Guid.Empty);
         if (!current.SequenceEqual(m2m.TargetIds)) XmlPatch.ReplaceValues(targets, "targetid", m2m.TargetIds.Select(id => id.ToString()));
     }
 
@@ -230,8 +230,8 @@ public sealed class CmtPackageXmlWriter
 
     private static string ElementKey(XElement element) => element.Name.LocalName switch
     {
-        "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, CmtXml.ParseGuid(element.Attribute("sourceid")?.Value) ?? Guid.Empty),
-        "record" or "activitypointerrecords" => GuidKey(CmtXml.ParseGuid(element.Attribute("id")?.Value) ?? Guid.Empty),
+        "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, CmtPackageXmlReader.ParseGuid(element.Attribute("sourceid")?.Value) ?? Guid.Empty),
+        "record" or "activitypointerrecords" => GuidKey(CmtPackageXmlReader.ParseGuid(element.Attribute("id")?.Value) ?? Guid.Empty),
         _ => element.Attribute("name")?.Value ?? string.Empty
     };
 
@@ -256,7 +256,7 @@ public sealed class CmtPackageXmlWriter
     private static void SetBool(XElement element, string name, bool value)
     {
         var current = element.Attribute(name);
-        if (current is null ? !value : CmtXml.ParseBool(current.Value) == value) return;
+        if (current is null ? !value : CmtPackageXmlReader.ParseBool(current.Value) == value) return;
         element.SetAttributeValue(name, value ? "true" : "false");
     }
 
@@ -270,7 +270,7 @@ public sealed class CmtPackageXmlWriter
             return;
         }
 
-        if (current is not null && CmtXml.ParseBool(current.Value) == value.Value) return;
+        if (current is not null && CmtPackageXmlReader.ParseBool(current.Value) == value.Value) return;
         element.SetAttributeValue(name, value.Value ? "true" : "false");
     }
 
@@ -312,15 +312,6 @@ public sealed class CmtPackageXmlWriter
             text = ReplaceFirst(text, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", "<?xml version=\"1.0\"?>");
         return settings.Encoding.GetBytes(text);
     }
-
-    // TODO(layering): route the four helpers below through IWorkspaceContext once the metamodel-layering branch lands.
-    private static bool FileExists(string path) => File.Exists(path);
-
-    private static byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
-
-    private static void WriteAllBytes(string path, byte[] bytes) => File.WriteAllBytes(path, bytes);
-
-    private static void CreateDirectory(string path) => Directory.CreateDirectory(path);
 
     // The CMT tool writes an attribute-less schema root as "<entities >", which XDocument cannot preserve.
     private static bool KeepsSpacedEmptyRoot(XDocument document, byte[]? existing, Encoding encoding) =>

@@ -6,8 +6,6 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml;
 /// Element insert/remove helpers that keep the indentation of a hand-edited document intact, so patching
 /// a loaded <see cref="XDocument"/> changes only the lines the model changed.
 /// </summary>
-// TODO: XmlWorkspaceWriter.AddChildElementPreservingWhitespace / ReplaceChildElementsPreservingWhitespace
-// implement the same idea with less indent detection; converge both writers on this class.
 internal static class XmlPatch
 {
     /// <summary>Inserts <paramref name="element"/> after <paramref name="previous"/>, or before the first <paramref name="name"/> sibling, or appends.</summary>

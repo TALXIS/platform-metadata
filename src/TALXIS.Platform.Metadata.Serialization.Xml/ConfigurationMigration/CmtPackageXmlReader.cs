@@ -28,7 +28,7 @@ public sealed class CmtPackageXmlReader
         var schema = schemaFile == null ? new CmtDataSchema() : ReadSchema(schemaFile.Value.Document, schemaPath);
 
         CmtData? data = null;
-        var dataFile = dataPath == null || !FileExists(dataPath) ? null : TryLoad(dataPath, errors);
+        var dataFile = dataPath == null || !File.Exists(dataPath) ? null : TryLoad(dataPath, errors);
         if (dataFile != null) data = ReadData(dataFile.Value.Document, dataPath, errors);
 
         return new CmtPackage(schema, data, errors)
@@ -81,6 +81,18 @@ public sealed class CmtPackageXmlReader
     /// <see cref="Read"/> or <see cref="Load"/> to receive them as load errors.
     /// </summary>
     public CmtData ReadData(XDocument document, string? sourcePath = null) => ReadData(document, sourcePath, new List<WorkspaceLoadError>());
+
+    // XmlSerializer boolean forms both importers accept: true|false|1|0. Anything else reads as false.
+    internal static bool ParseBool(string? value) => value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+
+    internal static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : null;
+
+    /// <summary>Parses document bytes the way the reader loads files: whitespace and line information preserved.</summary>
+    internal static XDocument Parse(byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        return XDocument.Load(stream, XmlLoadOptions);
+    }
 
     private static CmtData ReadData(XDocument document, string? sourcePath, List<WorkspaceLoadError> errors)
     {
@@ -178,14 +190,14 @@ public sealed class CmtPackageXmlReader
     private static CmtDataRecord? ReadRecord(XElement element, string? sourcePath, List<WorkspaceLoadError> errors, bool isParty = false)
     {
         var idText = Attr(element, "id");
-        if ((isParty && idText is null ? Guid.Empty : CmtXml.ParseGuid(idText)) is not { } id)
+        if ((isParty && idText is null ? Guid.Empty : ParseGuid(idText)) is not { } id)
         {
             errors.Add(LoadError(element, sourcePath, $"<{element.Name.LocalName}> has no valid GUID in its id attribute ('{idText}'); the record is skipped."));
             return null;
         }
 
         var newId = Attr(element, "newId");
-        var record = new CmtDataRecord { Id = id, NewId = newId is null ? null : CmtXml.ParseGuid(newId) };
+        var record = new CmtDataRecord { Id = id, NewId = newId is null ? null : ParseGuid(newId) };
         SetSource(record, element, sourcePath);
         foreach (var fieldElement in element.Elements("field"))
         {
@@ -210,7 +222,7 @@ public sealed class CmtPackageXmlReader
 
     private static CmtDataManyToManyRelationship? ReadManyToMany(XElement element, string? sourcePath, List<WorkspaceLoadError> errors)
     {
-        if (CmtXml.ParseGuid(Attr(element, "sourceid")) is not { } sourceId)
+        if (ParseGuid(Attr(element, "sourceid")) is not { } sourceId)
         {
             errors.Add(LoadError(element, sourcePath, $"<m2mrelationship> has no valid GUID in its sourceid attribute ('{Attr(element, "sourceid")}'); the association is skipped."));
             return null;
@@ -227,24 +239,17 @@ public sealed class CmtPackageXmlReader
         SetSource(m2m, element, sourcePath);
         foreach (var target in element.Elements("targetids").Elements("targetid"))
         {
-            if (CmtXml.ParseGuid(target.Value) is { } targetId) m2m.TargetIds.Add(targetId);
+            if (ParseGuid(target.Value) is { } targetId) m2m.TargetIds.Add(targetId);
             else errors.Add(LoadError(target, sourcePath, $"<targetid> '{target.Value}' is not a GUID; the target is skipped."));
         }
         return m2m;
-    }
-
-    /// <summary>Parses document bytes the way the reader loads files: whitespace and line information preserved.</summary>
-    internal static XDocument Parse(byte[] bytes)
-    {
-        using var stream = new MemoryStream(bytes);
-        return XDocument.Load(stream, XmlLoadOptions);
     }
 
     private static (XDocument Document, byte[] Bytes)? TryLoad(string path, List<WorkspaceLoadError> errors)
     {
         try
         {
-            var bytes = ReadAllBytes(path);
+            var bytes = File.ReadAllBytes(path);
             return (Parse(bytes), bytes);
         }
         catch (XmlException ex)
@@ -257,11 +262,6 @@ public sealed class CmtPackageXmlReader
         }
         return null;
     }
-
-    // TODO(layering): route through IWorkspaceContext once the metamodel-layering branch lands; these are the reader's only file accesses.
-    private static byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
-
-    private static bool FileExists(string path) => File.Exists(path);
 
     private static WorkspaceLoadError LoadError(XElement element, string? sourcePath, string message)
     {
@@ -282,5 +282,5 @@ public sealed class CmtPackageXmlReader
     private static bool Bool(XElement element, string name) => BoolOrNull(element, name) == true;
 
     private static bool? BoolOrNull(XElement element, string name) =>
-        Attr(element, name) is { } value ? CmtXml.ParseBool(value) : null;
+        Attr(element, name) is { } value ? ParseBool(value) : null;
 }
