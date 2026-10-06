@@ -9,7 +9,7 @@ public sealed class CmtSchemaField : MetadataBase
     /// <summary>Column logical name.</summary>
     public required string Name { get; set; }
 
-    /// <summary>Display name. Required by CMT's schema, ignored by both importers; absent on M2M intersect fields.</summary>
+    /// <summary>Display name. Written by CMT's generator, ignored by both importers; absent on M2M intersect fields.</summary>
     public string? DisplayName { get; set; }
 
     /// <summary>
@@ -29,8 +29,9 @@ public sealed class CmtSchemaField : MetadataBase
     public bool IsCustomField { get; set; }
 
     /// <summary>
-    /// For entityreference/customer columns: the target table logical names joined with <c>|</c>
-    /// (for example <c>account|contact</c>), or <c>*</c> when any table is allowed. CMT writes none for owner.
+    /// For entityreference columns: the target table logical names joined with <c>|</c> (for example
+    /// <c>account|contact</c>), or <c>*</c> when any table is allowed. CMT writes none for owner and ignores it on
+    /// import (each value's lookupentity decides); TXM021 checks values against it.
     /// </summary>
     public string? LookupType { get; set; }
 

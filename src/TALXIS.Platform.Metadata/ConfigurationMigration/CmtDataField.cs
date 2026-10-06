@@ -10,10 +10,11 @@ public sealed class CmtDataField : MetadataBase
     public required string Name { get; set; }
 
     /// <summary>
-    /// The value in CMT's text encoding for the declared type: <c>true|false</c> for bool, invariant numbers
-    /// (money may carry a currency symbol), invariant round-trip datetimes, the GUID for lookups and guid
-    /// columns, the integer for optionsetvalue, comma-separated integers for optionsetvaluecollection,
-    /// base64 for imagedata, the file id for filedata, and HTML-encoded text for string. <c>null</c> when
+    /// The value in CMT's text encoding for the declared type: <c>true|false</c> in any case for bool (CMT writes
+    /// <c>True|False</c> and reads <c>1</c>/<c>0</c>/<c>yes</c> as false), invariant numbers without currency symbols or
+    /// thousands separators, invariant round-trip datetimes, the GUID for lookups and guid columns, the integer for
+    /// optionsetvalue, comma-separated integers or the exported <c>[-1,a,b,-1]</c> for optionsetvaluecollection,
+    /// base64 for imagedata, the file id for filedata, and text for string, which CMT HTML-decodes once. <c>null</c> when
     /// the attribute is absent (partylist fields carry an empty value and <see cref="ActivityPointerRecords"/>).
     /// </summary>
     public string? Value { get; set; }
@@ -24,7 +25,7 @@ public sealed class CmtDataField : MetadataBase
     /// <summary>For lookups: logical name of the referenced table (<c>field@lookupentity</c>).</summary>
     public string? LookupEntity { get; set; }
 
-    /// <summary>For lookups: primary name of the referenced record, used by CMT as a fallback when the id is not found. The TALXIS importer ignores it.</summary>
+    /// <summary>For lookups: primary name of the referenced record, used by CMT as a fallback when the id is not found; CMT skips a lookup without it. The TALXIS importer ignores it.</summary>
     public string? LookupEntityName { get; set; }
 
     /// <summary>

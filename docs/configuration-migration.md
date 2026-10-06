@@ -22,7 +22,7 @@ Nothing here touches Dataverse, discovers files or bakes in folder names. `CmtPa
 | `CmtFieldTypes`, `CmtDateModes`, `CmtPackageLayout` | constants; `CmtFieldTypes.Importable` is the set CMT can import |
 | `CmtFieldTypeMapper` | `AttributeType` → CMT type, as CMT's generator maps it (Customer → `entityreference`); `null` where CMT has no type |
 
-Names are compared **ordinally** everywhere, because that is what CMT's importer does. A name that matches only when case is ignored is a validation warning (TXM015), not a match.
+Names are compared **ordinally** everywhere, because that is what CMT's importer does. A name that matches only when case is ignored is reported (TXM015), not a match.
 
 ## Create, load, change, save
 
@@ -68,30 +68,42 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 
 - `CmtDataSchemaValidator.Validate(CmtDataSchema)` (also `ValidateFile`/`ValidateXml`): the schema on its own.
 - `CmtPackageValidator.Validate(CmtPackage)`: data.xml against its schema.
+- `WorkspaceValidator` itself checks `files/` payloads (TXM023), the one rule that needs the package folder.
 
-| Code | Rule | Severity | Why |
+| Code | Rule | Severity | What CMT does |
 |---|---|---|---|
-| TXM006 | entity has no `updateCompare="true"` field | error | imports cannot match existing records and duplicate data |
-| TXM007 | `entityImportOrder` names an undeclared entity / a declared entity is missing from it | error / warning | CMT skips unknown names; missing entities get an undefined position |
-| TXM008 | `primaryidfield` missing, undeclared, not `primaryKey`, not `guid` | error | records cannot be identified |
-| TXM009 | `primarynamefield` not declared | warning | CMT uses it as a matching fallback; TALXIS ignores it |
-| TXM010 | `entityreference`/`customer` field without `lookupType` | warning | schema does not say where the lookup points; `owner` never carries one |
+| TXM006 | entity has no `updateCompare="true"` field | error without `primarynamefield`, else warning | matches existing records on the primary name; with neither, every re-import duplicates the records |
+| TXM007 | `entityImportOrder` names an undeclared entity / a declared entity is missing from it | warning | ignores unknown names; lookups to later records are deferred to a second pass |
+| TXM008 | `primaryidfield` missing, undeclared or not `guid` / not marked `primaryKey` | error / warning | creates the records but the second-pass update fails (self lookups lost); the flag itself is not needed |
+| TXM009 | `primarynamefield` not declared | warning | uses it as the matching fallback; TALXIS ignores it |
 | TXM011 | duplicate entity or field name (case-insensitive) | error | TALXIS throws on its case-insensitive dictionary |
-| TXM012 | data.xml entity or field not declared in the schema | error | CMT silently drops it, TALXIS throws |
-| TXM013 | record `lookupentity` not declared in the package | warning | target may exist in the environment already |
-| TXM014 | M2M relationship not declared on the entity / target entity not in the package | error / warning | TALXIS reads M2M from data.xml, targets may be external |
-| TXM015 | a name matches a declaration only when case is ignored | warning | CMT compares ordinally; the import will not find it |
-| TXM016 | field type not importable: unknown name, not lowercase, `bigint`, `unknown` | error (`file` synonym: warning) | CMT has no conversion for it |
-| TXM017 | entity `displayname`/`etc`/`disableplugins` or field `displayname` absent | warning | CMT's schema requires them, TALXIS omits them |
-| TXM018 | `dateMode` not `absolute`/`relative`/`relativeDaily` | error | CMT cannot deserialise the schema |
-| TXM019 | data.xml `timestamp` does not parse | error | CMT aborts the import |
-| TXM020 | `<filter>` is not FetchXML with a `<fetch>` root | warning | export-only; the CMT GUI fails to open it |
+| TXM012 | data.xml entity or field not declared in the schema | error | skips it with a log warning and exits 0; TALXIS throws |
+| TXM013 | record `lookupentity` not declared in the package (`systemuser`, `team`, `businessunit`, `transactioncurrency`, `organization` excepted) | warning | the target must already exist in the environment |
+| TXM014 | M2M relationship not declared on the entity, or `targetentitynameidfield` is not the declared target's `primaryidfield` / target entity not in the package | error / warning | crashes after the records are committed; targets may come from another package |
+| TXM015 | schema entity or field name not lowercase, data.xml entity matching only case-insensitively / any other case-only match | error / warning | rejects the package or aborts the import / skips the field, lookup or association |
+| TXM016 | field type missing, not in the vocabulary, not lowercase, `customer`, `unknown` / `bigint`, TALXIS `file` | error / warning | rejects the package (`customer` columns are `entityreference`) / drops `bigint` values; rejects `file` |
+| TXM017 | record's primary-id field value empty, not a GUID or different from `record@id`, or a repeated `record@id` / the field absent | error / warning | creates the record under the field value or under a new id; skips lookups to a repeated id |
+| TXM018 | `dateMode` not `absolute`/`relative`/`relativeDaily` | error | cannot deserialise the schema |
+| TXM019 | data.xml `timestamp` does not parse | error | aborts the import |
+| TXM020 | `<filter>` is not FetchXML with a `<fetch>` root | warning | ignored on import; the CMT GUI fails to open it |
+| TXM021 | lookup value without `lookupentity` or `lookupentityname`, or with a `lookupentity` outside the field's `lookupType` | warning | skips the lookup, exits 0 |
+| TXM022 | value not in the text form CMT reads for its type (see below) | warning | drops, zeroes or misreads it, exits 0 |
+| TXM023 | `filedata` value without `files/<value>.bin` in the package folder | warning | fails that record, exits 0 |
 
-Rules are derived from the importers' observed behaviour; no decompiled code is used.
+TXM010 (`lookupType` missing) was dropped before release and stays unassigned: CMT ignores `lookupType` on import and exports the same data without it. Rules are derived from the importers' observed behaviour; no decompiled code is used.
 
 ### Value encodings (`CmtDataField.Value`)
 
-bool `true|false` (CMT also writes `True|False`); numbers invariant, commas stripped, money may carry a currency symbol; datetime invariant round-trip (`2026-01-01T00:00:00.0000000`, unspecified kind = UTC); guid; `optionsetvalue` the integer; `optionsetvaluecollection` comma-separated integers (TALXIS writes a JSON array, both parse); `string` HTML-encoded (CMT decodes once on import, TALXIS does not); `imagedata` base64; `filedata` the file id with `FileName` as display name and the payload at `files/<id>.bin`; lookups the GUID plus `LookupEntity`/`LookupEntityName`; `partylist` an empty value plus one `<activitypointerrecords id="…">` element per party directly under the field (`ActivityPointerRecords`: the activitypartyid as id, `partyid` lookup, `participationtypemask` and the other party columns as fields; CMT also imports parties without an id). Multi-line text is entitised (`&#xD;&#xA;`) and preserved as such.
+bool `true|false` in any case (CMT writes `True|False`; it reads `1`, `0`, `yes`, `t` and `f` as false); numbers invariant, without currency symbols or thousands separators (`number` and `optionsetvalue` integers only: `42.0` is dropped); datetime invariant round-trip (`2026-01-01T00:00:00.0000000`, unspecified kind = UTC; CMT writes `Z` for user-local columns); guid; `optionsetvalue` the integer; `optionsetvaluecollection` comma-separated integers or the form CMT exports, `[-1,71000010,71000012,-1]` (both import); `string` HTML-encoded (CMT decodes once on import, TALXIS does not); `imagedata` base64; `filedata` the file id with `FileName` as display name and the payload at `files/<id>.bin`; lookups the GUID plus `LookupEntity`/`LookupEntityName` (CMT needs both); `partylist` an empty value plus one `<activitypointerrecords id="…">` element per party directly under the field (`ActivityPointerRecords`: the activitypartyid as id, `partyid` lookup, `participationtypemask` and the other party columns as fields; CMT also imports parties without an id). Multi-line text is entitised (`&#xD;&#xA;`) and preserved as such.
+
+### Verified against Dataverse (CMT 9.x via txc, 2026-10)
+
+The severities above come from running Microsoft's CMT engine (9.1, in-process through txc) against a scratch environment: one import per single change to a known-good package, repeat imports, and exports.
+
+- Ignored on import: `etc`, `displayname` (schema and data), `disableplugins`, `primaryKey` on the id field, `lookupType` (absent, wrong or `*`), unknown `entityImportOrder` names, `<filter>`, an absent `timestamp`, unknown attributes and the TALXIS attributes (`renderliquid`, `guidswap`, `skipupdate`; Liquid in a value is stored as text). Import order did not matter: lookups to later records are set in a second pass.
+- Rejected, nothing written: schema names in the wrong case, `customer`, `file`, `unknown`, capitalised or missing types, an invalid `dateMode`, an unparseable `timestamp`, and (metadata needed, #124) a type that differs from the column or an unknown column or table.
+- Silently dropped or changed, exit 0: data.xml entities and fields the schema does not declare, data.xml field names in the wrong case, `bigint` values (also never exported), lookups without `lookupentity`/`lookupentityname` or to the wrong table, values CMT cannot parse, records without a usable primary-id field value (created under a new id), `filedata` without its payload, and (metadata needed) option values outside the set, which fail the record.
+- Exported shapes: party lists as repeated `<activitypointerrecords>`, multichoice as `[-1,…,-1]`, bool as `True|False`; a package with both re-imports with the values applied.
 
 ### TALXIS dialect
 
@@ -99,7 +111,7 @@ The TALXIS importer reads only `name`, `primaryidfield`, `skipupdate`, `renderli
 
 ### Deliberately not validated
 
-Liquid syntax in values (runtime templates are normal data), `displayname` content, schema entities without data, a missing `<m2mrelationships>`, `lookupentityname` content, double-encoded text, and anything that needs Dataverse metadata (entity/column existence, type agreement, option values, lookup targets) or the zip (`files/` presence). Metadata-aware rules are tracked in #124, value parsing per type and file references with them.
+Liquid syntax in values (runtime templates are normal data), `displayname` content, schema entities without data, a missing `<m2mrelationships>`, `lookupentityname` content (any non-empty name works), double-encoded text, and anything that needs Dataverse metadata (entity/column existence, type agreement, option values, whether a lookup target exists). Metadata-aware rules are tracked in #124. A declaration that says `utf-16` over UTF-8 bytes stays a load error although CMT's reader tolerates it.
 
 ### Limits
 

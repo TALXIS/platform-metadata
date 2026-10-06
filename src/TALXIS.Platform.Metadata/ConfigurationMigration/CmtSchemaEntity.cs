@@ -10,24 +10,24 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Table logical name.</summary>
     public required string Name { get; set; }
 
-    /// <summary>Display name. Required by CMT's schema but ignored by both importers; TALXIS packages use <c>#</c> as a placeholder.</summary>
+    /// <summary>Display name. Written by CMT's generator but ignored by both importers; TALXIS packages use <c>#</c> as a placeholder.</summary>
     public string? DisplayName { get; set; }
 
     /// <summary>
-    /// Entity type code (<c>etc</c>). CMT's schema requires it but its importer only uses it for a batch-mode
-    /// capability probe; the TALXIS dialect omits it, hence nullable.
+    /// Entity type code (<c>etc</c>). CMT imports and exports without it (its importer only uses it for a batch-mode
+    /// capability probe); the TALXIS dialect omits it, hence nullable.
     /// </summary>
     public int? ObjectTypeCode { get; set; }
 
-    /// <summary>Primary id column (<c>primaryidfield</c>); must be a declared <c>guid</c> field marked primaryKey.</summary>
+    /// <summary>Primary id column (<c>primaryidfield</c>); must be a declared <c>guid</c> field, which CMT's generator marks primaryKey.</summary>
     public string? PrimaryIdField { get; set; }
 
-    /// <summary>Primary name column (<c>primarynamefield</c>); CMT falls back to it when matching by id fails and no updateCompare fields are set.</summary>
+    /// <summary>Primary name column (<c>primarynamefield</c>); CMT matches existing records on it when no updateCompare fields are set.</summary>
     public string? PrimaryNameField { get; set; }
 
     /// <summary>
     /// When <c>true</c>, CMT bypasses plug-in execution and deactivates the entity's plug-in steps around the
-    /// import. Required by CMT's schema (always written by its generator); omitted by the TALXIS dialect, which
+    /// import. Always written by CMT's generator but optional on import; omitted by the TALXIS dialect, which
     /// ignores it, hence nullable.
     /// </summary>
     public bool? DisablePlugins { get; set; }
@@ -70,7 +70,7 @@ public sealed class CmtSchemaEntity : MetadataBase
 
     /// <summary>
     /// Declares a column. <paramref name="type"/> is a <see cref="CmtFieldTypes"/> value; <paramref name="lookupType"/>
-    /// names the target tables of an entityreference/customer column (<c>account|contact</c>). Throws when a field of
+    /// names the target tables of an entityreference column (<c>account|contact</c>). Throws when a field of
     /// that name exists.
     /// </summary>
     public CmtSchemaField AddField(string name, string type, string? displayName = null, bool updateCompare = false, string? lookupType = null)

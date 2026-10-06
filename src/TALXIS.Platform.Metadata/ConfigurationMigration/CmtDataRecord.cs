@@ -5,7 +5,10 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 /// </summary>
 public sealed class CmtDataRecord : MetadataBase
 {
-    /// <summary>Primary key of the record (<c>record@id</c>). CMT matches existing records by it unless the schema's updateCompare fields say otherwise.</summary>
+    /// <summary>
+    /// Primary key of the record (<c>record@id</c>), used for lookups and associations within the package. CMT creates the record
+    /// under its primary-id field value, so that field must carry the same GUID (TXM017); the TALXIS importer uses this id.
+    /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>

@@ -103,7 +103,7 @@ The model separates concepts that Dataverse treats differently:
 - JSON validation for flow definition payloads.
 - Duplicate GUID detection.
 - Reader/load diagnostics for malformed component files.
-- Configuration Migration packages: XSD plus structural rules TXM006–TXM020 (import order, primary fields, lookup types, data.xml against its schema, importable types, case-only name matches), calibrated so both Microsoft CMT and TALXIS-dialect packages validate.
+- Configuration Migration packages: XSD plus structural rules TXM006–TXM023 (import order, primary fields, data.xml against its schema, importable types, name case, record identity, lookup completeness, value encodings, file payloads), calibrated against Microsoft CMT on Dataverse so both CMT and TALXIS-dialect packages validate.
 - File, line, and column information where available.
 
 ## Core concepts
