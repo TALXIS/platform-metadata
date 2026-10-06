@@ -95,4 +95,10 @@ public static class ValidationDiagnostics
 
     /// <summary>A CMT schema entity filter is present but is not well-formed FetchXML with a &lt;fetch&gt; root.</summary>
     public const string CmtFilterNotFetchXml = "TXM020";
+
+    /// <summary>
+    /// A CMT data.xml lookup value (entityreference, customer, owner) has no lookupentity, no lookupentityname, or a lookupentity
+    /// outside the schema field's lookupType. CMT skips such a lookup silently and the import still succeeds.
+    /// </summary>
+    public const string CmtDataLookupIncomplete = "TXM021";
 }

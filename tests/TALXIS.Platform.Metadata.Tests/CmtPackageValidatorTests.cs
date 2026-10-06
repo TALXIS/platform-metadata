@@ -126,6 +126,44 @@ public class CmtPackageValidatorTests
             """));
     }
 
+    [Theory]
+    [InlineData("""value="11111111-1111-1111-1111-111111111111" lookupentityname="Contoso" """, "has no lookupentity")]
+    [InlineData("""value="11111111-1111-1111-1111-111111111111" lookupentity="account" """, "has no lookupentityname")]
+    [InlineData("""value="11111111-1111-1111-1111-111111111111" lookupentity="contact" lookupentityname="Jane" """, "points to 'contact', which is not in its lookupType 'account'")]
+    public void IncompleteLookup_ReportsOneWarningPerFieldAndProblem(string attributes, string expectedText)
+    {
+        var finding = Assert.Single(Validate($"""
+            <entities>
+              <entity name="new_tag">
+                <records>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="new_tagid" value="22222222-2222-2222-2222-222222222222" /><field name="new_parent" {attributes}/></record>
+                  <record id="33333333-3333-3333-3333-333333333333"><field name="new_tagid" value="33333333-3333-3333-3333-333333333333" /><field name="new_parent" {attributes}/></record>
+                </records>
+              </entity>
+            </entities>
+            """).Where(r => r.Code != ValidationDiagnostics.CmtDataLookupEntityUndeclared));
+
+        Assert.Equal(ValidationDiagnostics.CmtDataLookupIncomplete, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("'new_tag.new_parent' (2 records)", finding.Message);
+        Assert.Contains(expectedText, finding.Message);
+    }
+
+    [Fact]
+    public void CompleteLookupOrEmptyValue_HasNoFinding()
+    {
+        Assert.Empty(Validate("""
+            <entities>
+              <entity name="new_tag">
+                <records>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="new_tagid" value="22222222-2222-2222-2222-222222222222" /><field name="new_parent" value="11111111-1111-1111-1111-111111111111" lookupentity="account" lookupentityname="Contoso" /></record>
+                  <record id="33333333-3333-3333-3333-333333333333"><field name="new_tagid" value="33333333-3333-3333-3333-333333333333" /><field name="new_parent" value="" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
+    }
+
     [Fact]
     public void ManyToManyNotInSchema_ReportsErrors()
     {

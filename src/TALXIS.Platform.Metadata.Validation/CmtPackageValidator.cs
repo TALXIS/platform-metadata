@@ -6,12 +6,17 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
 /// Cross-file rules for a CMT package: everything data.xml references must be declared in data_schema.xml,
-/// and each record's primary-id field must carry its id (TXM017).
+/// each record's primary-id field must carry its id (TXM017) and each lookup must name its target (TXM021).
 /// Names are compared ordinally, as CMT's importer does; a match that only succeeds when letter case is
 /// ignored is reported as <see cref="ValidationDiagnostics.CmtNameCaseMismatch"/> instead of "undeclared".
 /// </summary>
 public sealed class CmtPackageValidator
 {
+    private static readonly HashSet<string> LookupFieldTypes = new(StringComparer.Ordinal)
+    {
+        CmtFieldTypes.EntityReference, CmtFieldTypes.Customer, CmtFieldTypes.Owner
+    };
+
     // Lookup targets every CMT export references (owner, createdby, currency) and that exist in every environment.
     private static readonly HashSet<string> SystemLookupTargets = new(StringComparer.Ordinal)
     {
@@ -43,6 +48,7 @@ public sealed class CmtPackageValidator
 
             CheckRecordIdentity(schemaEntity, dataEntity, results);
             CheckFields(package.Schema, schemaEntity, dataEntity, results);
+            CheckLookups(schemaEntity, dataEntity, results);
             CheckManyToMany(package.Schema, schemaEntity, dataEntity, results);
         }
 
@@ -115,6 +121,34 @@ public sealed class CmtPackageValidator
                 : CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch.Name}'. Dataverse logical names are lowercase; CMT will not resolve the lookup."));
         }
+    }
+
+    // CMT resolves a lookup through lookupentity and lookupentityname from data.xml and silently skips it when either is
+    // missing or names the wrong table. One finding per entity, field and problem.
+    private static void CheckLookups(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    {
+        var problems = dataEntity.Records.SelectMany(r => r.Fields)
+            .Where(f => !string.IsNullOrEmpty(f.Value))
+            .Select(f => (Field: f, Schema: schemaEntity.FindField(f.Name)))
+            .Where(p => p.Schema is not null && LookupFieldTypes.Contains(p.Schema.Type))
+            .Select(p => (p.Field, Problem: LookupProblem(p.Field, p.Schema!)))
+            .Where(p => p.Problem is not null)
+            .GroupBy(p => (p.Field.Name, p.Problem));
+        foreach (var group in problems)
+        {
+            results.Add(CmtFindings.Finding(ValidationSeverity.Warning, group.First().Field, ValidationDiagnostics.CmtDataLookupIncomplete,
+                $"CMT data.xml lookup '{dataEntity.Name}.{group.Key.Name}' ({group.Count()} records) {group.Key.Problem}; CMT skips the lookup without failing the import."));
+        }
+    }
+
+    private static string? LookupProblem(CmtDataField field, CmtSchemaField schemaField)
+    {
+        if (string.IsNullOrEmpty(field.LookupEntity)) return "has no lookupentity";
+        if (string.IsNullOrEmpty(field.LookupEntityName)) return "has no lookupentityname";
+        if (string.IsNullOrEmpty(schemaField.LookupType) || schemaField.LookupType == "*") return null;
+        return schemaField.LookupType!.Split('|').Contains(field.LookupEntity, StringComparer.Ordinal)
+            ? null
+            : $"points to '{field.LookupEntity}', which is not in its lookupType '{schemaField.LookupType}'";
     }
 
     private static void CheckManyToMany(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
