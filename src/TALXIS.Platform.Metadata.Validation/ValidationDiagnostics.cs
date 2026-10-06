@@ -63,7 +63,8 @@ public static class ValidationDiagnostics
     public const string CmtDataLookupEntityUndeclared = "TXM013";
 
     /// <summary>
-    /// A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare.
+    /// A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare, or a
+    /// targetentitynameidfield that is not the declared target entity's primaryidfield.
     /// </summary>
     public const string CmtDataManyToManyUndeclared = "TXM014";
 
@@ -108,4 +109,7 @@ public static class ValidationDiagnostics
     /// misreads it and the import still succeeds. Liquid templates (TALXIS renderliquid) are not checked.
     /// </summary>
     public const string CmtDataValueInvalid = "TXM022";
+
+    /// <summary>A CMT data.xml filedata value has no payload at files/&lt;value&gt;.bin in the package folder; CMT fails that record's import.</summary>
+    public const string CmtDataFilePayloadMissing = "TXM023";
 }

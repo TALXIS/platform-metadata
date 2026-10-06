@@ -282,6 +282,58 @@ public class WorkspaceValidatorTests
     }
 
     [Fact]
+    public void ValidateDirectory_CmtFileDataWithoutPayload_ReportsWarning()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-cmtfiles-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolution(tempDir, "SolA");
+            var cmtDir = Path.Combine(tempDir, "Packages.Main", "Data", "Default");
+            Directory.CreateDirectory(Path.Combine(cmtDir, "files"));
+            File.WriteAllText(Path.Combine(cmtDir, "files", "present.bin"), "payload");
+            File.WriteAllText(Path.Combine(cmtDir, "data_schema.xml"), """
+                <entities>
+                  <entity name="account" primaryidfield="accountid" primarynamefield="name">
+                    <fields>
+                      <field name="accountid" type="guid" primaryKey="true" />
+                      <field name="name" type="string" updateCompare="true" />
+                      <field name="new_document" type="filedata" />
+                    </fields>
+                  </entity>
+                </entities>
+                """);
+            File.WriteAllText(Path.Combine(cmtDir, "data.xml"), """
+                <entities>
+                  <entity name="account">
+                    <records>
+                      <record id="11111111-1111-1111-1111-111111111111">
+                        <field name="accountid" value="11111111-1111-1111-1111-111111111111" />
+                        <field name="new_document" value="present" filename="a.txt" />
+                      </record>
+                      <record id="22222222-2222-2222-2222-222222222222">
+                        <field name="accountid" value="22222222-2222-2222-2222-222222222222" />
+                        <field name="new_document" value="missing" filename="b.txt" />
+                      </record>
+                    </records>
+                  </entity>
+                </entities>
+                """);
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+
+            var finding = Assert.Single(report.Results, r => r.Code == ValidationDiagnostics.CmtDataFilePayloadMissing);
+            Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+            Assert.Equal(ValidationStage.CmtData, finding.Stage);
+            Assert.Contains("files/missing.bin", finding.Message);
+            Assert.EndsWith("data.xml", finding.FilePath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
     public void ValidateRelationships_ExplicitRoots_ReportsMissingRootAndRelationshipFindings()
     {
         var missingRoot = Path.Combine(Path.GetTempPath(), $"ws-test-missing-{Guid.NewGuid():N}");

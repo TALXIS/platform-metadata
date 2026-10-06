@@ -259,6 +259,28 @@ public class CmtPackageValidatorTests
     }
 
     [Fact]
+    public void ManyToManyTargetIdFieldThatIsNotThePrimaryId_ReportsError()
+    {
+        var finding = Assert.Single(Validate("""
+            <entities>
+              <entity name="new_tag">
+                <records />
+                <m2mrelationships>
+                  <m2mrelationship sourceid="22222222-2222-2222-2222-222222222222" targetentityname="account" targetentitynameidfield="accountidx" m2mrelationshipname="new_tag_account">
+                    <targetids><targetid>11111111-1111-1111-1111-111111111111</targetid></targetids>
+                  </m2mrelationship>
+                </m2mrelationships>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtDataManyToManyUndeclared, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("'accountidx'", finding.Message);
+        Assert.Contains("primaryidfield 'accountid'", finding.Message);
+    }
+
+    [Fact]
     public void DataNamesDifferingOnlyByCase_ReportCaseMismatches()
     {
         var results = Validate("""

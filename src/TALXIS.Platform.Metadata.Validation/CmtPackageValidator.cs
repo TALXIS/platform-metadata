@@ -193,7 +193,8 @@ public sealed class CmtPackageValidator
             }
 
             // Packages are often split per area, so the target may come from another package already imported.
-            if (schema.FindEntity(first.TargetEntityName) is null)
+            var target = schema.FindEntity(first.TargetEntityName);
+            if (target is null)
             {
                 var caseMatch = FindEntityIgnoringCase(schema, first.TargetEntityName);
                 results.Add(caseMatch is null
@@ -201,7 +202,15 @@ public sealed class CmtPackageValidator
                         $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment.")
                     : CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch.Name}'. CMT compares names case-sensitively."));
+                continue;
             }
+
+            // CMT reads the target ids through this column and crashes after the records are committed when it is not the target's primary id.
+            var wrongIdField = string.IsNullOrEmpty(target.PrimaryIdField) ? null
+                : group.FirstOrDefault(m => m.TargetEntityNameIdField is not null && !string.Equals(m.TargetEntityNameIdField, target.PrimaryIdField, StringComparison.Ordinal));
+            if (wrongIdField is null) continue;
+            results.Add(CmtFindings.Error(wrongIdField, ValidationDiagnostics.CmtDataManyToManyUndeclared,
+                $"CMT data.xml many-to-many relationship '{group.Key}' has targetentitynameidfield '{wrongIdField.TargetEntityNameIdField}', but target entity '{target.Name}' has primaryidfield '{target.PrimaryIdField}'. CMT fails the association."));
         }
     }
 
