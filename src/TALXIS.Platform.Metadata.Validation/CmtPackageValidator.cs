@@ -50,6 +50,7 @@ public sealed class CmtPackageValidator
             CheckFields(package.Schema, schemaEntity, dataEntity, results);
             CheckLookups(schemaEntity, dataEntity, results);
             CheckValues(schemaEntity, dataEntity, results);
+            CheckMatchKeys(schemaEntity, dataEntity, results);
             CheckManyToMany(package.Schema, schemaEntity, dataEntity, results);
         }
 
@@ -127,13 +128,13 @@ public sealed class CmtPackageValidator
             results.Add(caseMatch == null
                 ? CmtFindings.Warning(first, ValidationDiagnostics.CmtDataLookupEntityUndeclared,
                     $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package does not declare. The records must already exist in the target environment.")
-                : CmtFindings.Warning(first, ValidationDiagnostics.CmtNameCaseMismatch,
-                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch}'. Dataverse logical names are lowercase; CMT will not resolve the lookup."));
+                : CmtFindings.Error(first, ValidationDiagnostics.CmtNameCaseMismatch,
+                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch}'. CMT compares names case-sensitively and fails to insert those records."));
         }
     }
 
     // CMT resolves a lookup through lookupentity and lookupentityname from data.xml and silently skips it when either is
-    // missing or names the wrong table. One finding per entity, field and problem.
+    // missing; it ignores the schema's lookupType. One finding per entity, field and problem.
     private static void CheckLookups(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var problems = new List<(CmtDataField Field, string Problem)>();
@@ -142,7 +143,7 @@ public sealed class CmtPackageValidator
             var schemaField = schemaEntity.FindField(field.Name);
             if (schemaField == null || !LookupFieldTypes.Contains(schemaField.Type)) continue;
 
-            var problem = LookupProblem(field, schemaField);
+            var problem = LookupProblem(field);
             if (problem != null) problems.Add((field, problem));
         }
 
@@ -153,14 +154,11 @@ public sealed class CmtPackageValidator
         }
     }
 
-    private static string? LookupProblem(CmtDataField field, CmtSchemaField schemaField)
+    private static string? LookupProblem(CmtDataField field)
     {
         if (string.IsNullOrEmpty(field.LookupEntity)) return "has no lookupentity";
         if (string.IsNullOrEmpty(field.LookupEntityName)) return "has no lookupentityname";
-        if (string.IsNullOrEmpty(schemaField.LookupType) || schemaField.LookupType == "*") return null;
-        return schemaField.LookupType!.Split('|').Contains(field.LookupEntity, StringComparer.Ordinal)
-            ? null
-            : $"points to '{field.LookupEntity}', which is not in its lookupType '{schemaField.LookupType}'";
+        return null;
     }
 
     // CMT parses values per schema type and silently drops, zeroes or misreads what it cannot parse. One finding per
@@ -183,8 +181,41 @@ public sealed class CmtPackageValidator
         {
             var (first, type) = group.First();
             results.Add(CmtFindings.Warning(first, ValidationDiagnostics.CmtDataValueInvalid,
-                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) has a value CMT cannot read as {type} (first: '{first.Value}'); "
-                + (type == CmtFieldTypes.Bool ? "CMT imports it as false." : "CMT drops or misreads it without failing the import.")));
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) has a value CMT cannot reliably read as {type} (first: '{first.Value}'). "
+                + ValueConsequence(type, first.Value!)));
+        }
+    }
+
+    private static string ValueConsequence(string type, string value)
+    {
+        if (type == CmtFieldTypes.Bool) return "CMT imports it as false.";
+        if (CmtValueFormats.HasThousandsSeparator(type, value)) return "It has a thousands separator, so how CMT parses it depends on the importing machine's culture.";
+        return "CMT drops or misreads it without failing the import.";
+    }
+
+    // CMT matches existing records on the updateCompare fields, or on the primary name when there are none. Records that
+    // share those values all match the same existing record on re-import, so it is updated repeatedly and the others never land.
+    private static void CheckMatchKeys(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    {
+        if (schemaEntity.RenderLiquid == true) return;
+
+        var keyFields = schemaEntity.Fields.Where(f => f.IsUpdateCompare).Select(f => f.Name).ToList();
+        if (keyFields.Count == 0 && !string.IsNullOrEmpty(schemaEntity.PrimaryNameField)) keyFields.Add(schemaEntity.PrimaryNameField!);
+        if (keyFields.Count == 0) return;
+
+        var keyed = new List<(CmtDataRecord Record, string Key)>();
+        foreach (var record in dataEntity.Records)
+        {
+            var values = keyFields.Select(name => record.Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal))?.Value).ToList();
+            if (values.All(string.IsNullOrEmpty)) continue;
+            keyed.Add((record, string.Join("', '", values)));
+        }
+
+        foreach (var group in keyed.GroupBy(k => k.Key, StringComparer.Ordinal).Where(g => g.Count() > 1))
+        {
+            results.Add(CmtFindings.Warning(group.ElementAt(1).Record, ValidationDiagnostics.CmtDataDuplicateMatchKey,
+                $"CMT data.xml entity '{dataEntity.Name}' has {group.Count()} records with {string.Join(", ", keyFields)} '{group.Key}'. "
+                + "CMT matches records on these values, so on re-import they all update the same existing record. Make the values unique."));
         }
     }
 
@@ -202,8 +233,8 @@ public sealed class CmtPackageValidator
                 results.Add(caseMatch == null
                     ? CmtFindings.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
                         $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml does not declare on that entity. CMT fails the import after the records are created.")
-                    : CmtFindings.Warning(first, ValidationDiagnostics.CmtNameCaseMismatch,
-                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml declares as '{caseMatch}'. CMT compares names case-sensitively."));
+                    : CmtFindings.Error(first, ValidationDiagnostics.CmtNameCaseMismatch,
+                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml declares as '{caseMatch}'. CMT compares names case-sensitively and fails the import after the records are created."));
             }
 
             // Packages are often split per area, so the target may come from another package already imported.

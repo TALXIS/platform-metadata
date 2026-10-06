@@ -82,7 +82,8 @@ public sealed class CmtDataSchemaValidator
         return results;
     }
 
-    // Without updateCompare fields CMT matches existing records on the primary name column; without that either, re-imports duplicate every record.
+    // Without updateCompare fields CMT matches existing records on the primary name column, across the whole table; without
+    // that either, re-imports duplicate every record.
     private static void CheckUpdateCompare(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (entity.Fields.Any(f => f.IsUpdateCompare)) return;
@@ -91,7 +92,7 @@ public sealed class CmtDataSchemaValidator
             ? CmtFindings.Error(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
                 $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\" and no primarynamefield, so CMT cannot match existing records and re-deploys duplicate data.")
             : CmtFindings.Warning(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
-                $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\". CMT matches existing records on the primary name '{entity.PrimaryNameField}', which may not be unique."));
+                $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\". CMT matches existing records on the primary name '{entity.PrimaryNameField}' and overwrites them, including unrelated records with the same name. Mark the fields that identify a record with updateCompare=\"true\"."));
     }
 
     // Dataverse logical names are lowercase and CMT looks them up case-sensitively: it rejects a package whose schema spells an entity or column otherwise.

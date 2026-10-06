@@ -27,6 +27,13 @@ internal static class CmtValueFormats
         _ => true
     };
 
+    /// <summary>Whether a numeric <paramref name="value"/> is only readable with a thousands separator, as in <c>1,234</c>.</summary>
+    public static bool HasThousandsSeparator(string type, string value)
+    {
+        if (type != CmtFieldTypes.Number && type != CmtFieldTypes.Decimal && type != CmtFieldTypes.Money && type != CmtFieldTypes.Float) return false;
+        return value.IndexOf(',') >= 0 && decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
+    }
+
     // Comma-separated integers, or the form CMT exports: the same list between -1 sentinels, [-1,a,b,-1].
     private static bool IsOptionSetValueCollection(string value)
     {
