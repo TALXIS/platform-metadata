@@ -14,7 +14,7 @@ public static class CmtFieldTypeMapper
     /// (Virtual, ManagedProperty, CalendarRules). CMT's generator writes <see cref="CmtFieldTypes.Unknown"/>
     /// in that case; this mapper returns <c>null</c> so callers can leave the column out instead of emitting a
     /// type the importer rejects. <see cref="CmtFieldTypes.BigInt"/> is returned for BigInt although CMT
-    /// cannot import it either (TXM016 reports both).
+    /// drops its values (TXM016 warns).
     /// </summary>
     public static string? ToCmtType(AttributeType attributeType) => attributeType switch
     {

@@ -25,16 +25,19 @@ public static class ValidationDiagnostics
     /// <summary>The directory passed to solution validation has no Other/Solution.xml manifest.</summary>
     public const string SolutionManifestFileAbsent = "TXM005";
 
-    /// <summary>A CMT data schema entity declares no field with updateCompare="true", so configuration imports cannot match existing records.</summary>
+    /// <summary>
+    /// A CMT data schema entity declares no field with updateCompare="true". An error when it has no primarynamefield either
+    /// (CMT then cannot match existing records and duplicates them); a warning otherwise (CMT matches on the primary name).
+    /// </summary>
     public const string CmtEntityMissingUpdateCompare = "TXM006";
 
     /// <summary>
-    /// The CMT entityImportOrder names an entity the schema does not declare, or a declared entity is missing from it.
+    /// The CMT entityImportOrder names an entity the schema does not declare (CMT ignores it), or a declared entity is missing from it.
     /// </summary>
     public const string CmtImportOrderEntityUndeclared = "TXM007";
 
     /// <summary>
-    /// A CMT schema entity's primaryidfield is missing, not declared as a field, not marked primaryKey="true" or not of type guid.
+    /// A CMT schema entity's primaryidfield is missing, not declared as a field or not of type guid (errors), or not marked primaryKey="true" (warning).
     /// </summary>
     public const string CmtPrimaryIdFieldInvalid = "TXM008";
 
@@ -42,11 +45,6 @@ public static class ValidationDiagnostics
     /// A CMT schema entity's primarynamefield is not declared as a field.
     /// </summary>
     public const string CmtPrimaryNameFieldUndeclared = "TXM009";
-
-    /// <summary>
-    /// A CMT schema lookup field (entityreference, customer) does not say which entity it points to. Owner fields never carry lookupType in CMT exports and are not checked.
-    /// </summary>
-    public const string CmtLookupTypeMissing = "TXM010";
 
     /// <summary>
     /// A CMT schema declares the same entity twice, or an entity declares the same field twice.
@@ -60,6 +58,7 @@ public static class ValidationDiagnostics
 
     /// <summary>
     /// A CMT data.xml lookup value points to an entity the package schema does not declare; legal when the target already exists in the environment.
+    /// Not reported for the system tables every export references (systemuser, team, businessunit, transactioncurrency, organization).
     /// </summary>
     public const string CmtDataLookupEntityUndeclared = "TXM013";
 
@@ -69,19 +68,17 @@ public static class ValidationDiagnostics
     public const string CmtDataManyToManyUndeclared = "TXM014";
 
     /// <summary>
-    /// A CMT name (entity in entityImportOrder, data.xml entity, field, lookupentity or many-to-many target) matches a schema declaration only when letter case is ignored. CMT compares names ordinally, so the import treats the two spellings as different names.
+    /// A CMT name has the wrong letter case. Errors: a schema entity or field name that is not lowercase, and a data.xml entity that matches a
+    /// schema entity only when case is ignored (CMT rejects or aborts the import). Warnings: an entityImportOrder name, data.xml field, lookupentity
+    /// or many-to-many name that matches only when case is ignored (CMT skips it).
     /// </summary>
     public const string CmtNameCaseMismatch = "TXM015";
 
     /// <summary>
-    /// A CMT schema field type is not one CMT can import: not in the vocabulary, not lowercase (CMT compares case-sensitively), or bigint/unknown (no import conversion). The TALXIS synonym "file" is reported as a warning.
+    /// A CMT schema field type is not one CMT can import: not in the vocabulary, not lowercase (CMT compares case-sensitively), customer or unknown (errors).
+    /// bigint (values dropped) and the TALXIS synonym "file" (rejected by Microsoft CMT) are warnings.
     /// </summary>
     public const string CmtFieldTypeNotImportable = "TXM016";
-
-    /// <summary>
-    /// A CMT schema entity or field lacks an attribute CMT's own schema requires (entity displayname, etc, disableplugins; field displayname). Warning only: the TALXIS importer tolerates their absence.
-    /// </summary>
-    public const string CmtRequiredAttributeMissing = "TXM017";
 
     /// <summary>A CMT dateMode value is not absolute, relative or relativeDaily; CMT cannot deserialise the schema.</summary>
     public const string CmtDateModeInvalid = "TXM018";

@@ -11,6 +11,12 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class CmtPackageValidator
 {
+    // Lookup targets every CMT export references (owner, createdby, currency) and that exist in every environment.
+    private static readonly HashSet<string> SystemLookupTargets = new(StringComparer.Ordinal)
+    {
+        "systemuser", "team", "businessunit", "transactioncurrency", "organization"
+    };
+
     /// <summary>
     /// Validates the data of a package against its schema. A package without data has nothing to check.
     /// </summary>
@@ -29,8 +35,8 @@ public sealed class CmtPackageValidator
                 results.Add(caseMatch is null
                     ? CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
                         $"CMT data.xml contains entity '{dataEntity.Name}' ({dataEntity.Records.Count} records), which data_schema.xml does not declare.")
-                    : CmtFindings.Finding(ValidationSeverity.Warning, dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
-                        $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and will skip the entity."));
+                    : CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
+                        $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch.Name}' in data_schema.xml. CMT compares names case-sensitively and fails the import."));
                 continue;
             }
 
@@ -58,7 +64,7 @@ public sealed class CmtPackageValidator
         }
 
         var unknownLookups = fields
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) is null)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) is null && !SystemLookupTargets.Contains(f.LookupEntity!))
             .GroupBy(f => (Field: f.Name, Target: f.LookupEntity!));
         foreach (var group in unknownLookups)
         {

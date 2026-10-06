@@ -97,7 +97,7 @@ public class CmtPackageValidatorTests
               <entity name="account">
                 <records>
                   <record id="11111111-1111-1111-1111-111111111111">
-                    <field name="name" value="Contoso" lookupentity="systemuser" lookupentityname="Admin" />
+                    <field name="name" value="Contoso" lookupentity="contact" lookupentityname="Jane" />
                   </record>
                 </records>
               </entity>
@@ -106,6 +106,22 @@ public class CmtPackageValidatorTests
 
         Assert.Equal(ValidationDiagnostics.CmtDataLookupEntityUndeclared, finding.Code);
         Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+    }
+
+    [Fact]
+    public void LookupToSystemTable_HasNoFinding()
+    {
+        // Every CMT export carries ownerid/createdby/transactioncurrencyid lookups to tables outside the package.
+        Assert.Empty(Validate("""
+            <entities>
+              <entity name="account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="name" value="Contoso" lookupentity="systemuser" lookupentityname="Admin" /></record>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="name" value="Fabrikam" lookupentity="transactioncurrency" lookupentityname="Euro" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
     }
 
     [Fact]
@@ -130,7 +146,7 @@ public class CmtPackageValidatorTests
     }
 
     [Fact]
-    public void DataNamesDifferingOnlyByCase_ReportCaseMismatchWarningsNotErrors()
+    public void DataNamesDifferingOnlyByCase_ReportCaseMismatches()
     {
         var results = Validate("""
             <entities>
@@ -155,10 +171,11 @@ public class CmtPackageValidatorTests
             </entities>
             """);
 
-        // entity, field, lookupentity, m2m relationship name and m2m target: five case-only matches.
+        // entity, field, lookupentity, m2m relationship name and m2m target: five case-only matches. CMT fails the
+        // import on the entity (error); it skips the others (warnings).
         Assert.Equal(5, results.Count(r => r.Code == ValidationDiagnostics.CmtNameCaseMismatch));
-        Assert.All(results, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
-        Assert.Contains(results, r => r.Message.Contains("entity 'Account' is declared as 'account'"));
+        var error = Assert.Single(results, r => r.Severity == ValidationSeverity.Error);
+        Assert.Contains("entity 'Account' is declared as 'account'", error.Message);
         Assert.Contains(results, r => r.Message.Contains("'new_tag.New_Name'") && r.Message.Contains("'new_name'"));
         Assert.Contains(results, r => r.Message.Contains("'ACCOUNT'") && r.Message.Contains("'account'"));
         Assert.Contains(results, r => r.Message.Contains("'New_Tag_Account'") && r.Message.Contains("'new_tag_account'"));
@@ -192,12 +209,9 @@ public class CmtPackageValidatorTests
 
         var results = new CmtDataSchemaValidator().Validate(package.Schema).Concat(new CmtPackageValidator().Validate(package)).ToList();
 
-        // Warnings are expected (TALXIS omits etc, uses type="file", references entities outside the package); errors are not.
+        // Warnings are expected (TALXIS uses type="file", references entities outside the package); errors are not.
         Assert.Empty(results.Where(r => r.Severity == ValidationSeverity.Error));
         if (fixture == "talxis-dialect")
-        {
-            Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtRequiredAttributeMissing && r.Message.Contains("has no etc"));
             Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtFieldTypeNotImportable && r.Message.Contains("'file'"));
-        }
     }
 }

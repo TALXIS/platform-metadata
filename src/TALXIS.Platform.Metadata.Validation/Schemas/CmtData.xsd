@@ -3,9 +3,9 @@
   Configuration Migration Tool (CMT) package files: data_schema.xml and data.xml share the <entities> root.
   The schema is the union of what Microsoft CMT / Package Deployer / pac data write and read and what the
   TALXIS importer (INT0014-DataMovement) accepts. Attributes CMT's own schema marks as required (entity
-  displayname, etc, disableplugins; field displayname) are optional here because the TALXIS dialect omits
-  them; CmtDataSchemaValidator reports their absence as a warning instead. anyAttribute="skip" keeps
-  forward compatibility with attributes neither tool documents.
+  displayname, etc, disableplugins; field displayname) are optional here: the TALXIS dialect omits them
+  and CMT imports and exports without them. anyAttribute="skip" keeps forward compatibility with
+  attributes neither tool documents.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 

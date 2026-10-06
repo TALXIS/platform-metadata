@@ -5,11 +5,7 @@ namespace TALXIS.Platform.Metadata.Tests;
 
 public class CmtDataSchemaValidatorTests
 {
-    // The compact fixtures below omit etc/disableplugins/displayname on purpose; TXM017 has its own tests.
     private static IReadOnlyList<ValidationResult> Validate(string xml) =>
-        ValidateAll(xml).Where(r => r.Code != ValidationDiagnostics.CmtRequiredAttributeMissing).ToList();
-
-    private static IReadOnlyList<ValidationResult> ValidateAll(string xml) =>
         new CmtDataSchemaValidator().ValidateXml(XDocument.Parse(xml, LoadOptions.SetLineInfo), "data_schema.xml");
 
     [Fact]
@@ -48,6 +44,25 @@ public class CmtDataSchemaValidatorTests
         Assert.Equal(ValidationDiagnostics.CmtEntityMissingUpdateCompare, finding.Code);
         Assert.Contains("talxis_configuration", finding.Message);
         Assert.True(finding.Line > 0);
+    }
+
+    [Fact]
+    public void EntityWithoutUpdateCompareButWithPrimaryName_ReportsWarning()
+    {
+        var finding = Assert.Single(Validate("""
+            <entities>
+              <entity name="account" primaryidfield="accountid" primarynamefield="name">
+                <fields>
+                  <field name="accountid" type="guid" primaryKey="true" />
+                  <field name="name" type="string" />
+                </fields>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtEntityMissingUpdateCompare, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("primary name 'name'", finding.Message);
     }
 
     [Fact]
@@ -154,7 +169,7 @@ public class CmtDataSchemaValidatorTests
     }
 
     [Fact]
-    public void ImportOrderNamingUndeclaredEntity_ReportsError()
+    public void ImportOrderNamingUndeclaredEntity_ReportsWarning()
     {
         var results = Validate($"""
             <entities>
@@ -165,12 +180,12 @@ public class CmtDataSchemaValidatorTests
 
         var finding = Assert.Single(results);
         Assert.Equal(ValidationDiagnostics.CmtImportOrderEntityUndeclared, finding.Code);
-        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
         Assert.Contains("acount", finding.Message);
     }
 
     [Fact]
-    public void EntityMissingFromImportOrder_ReportsWarningAndUndeclaredNameError()
+    public void EntityMissingFromImportOrder_ReportsWarnings()
     {
         var results = Validate($"""
             <entities>
@@ -179,7 +194,7 @@ public class CmtDataSchemaValidatorTests
             </entities>
             """);
 
-        Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtImportOrderEntityUndeclared && r.Severity == ValidationSeverity.Error && r.Message.Contains("'contact'"));
+        Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtImportOrderEntityUndeclared && r.Severity == ValidationSeverity.Warning && r.Message.Contains("'contact'"));
         Assert.Contains(results, r => r.Code == ValidationDiagnostics.CmtImportOrderEntityUndeclared && r.Severity == ValidationSeverity.Warning && r.Message.Contains("'account'"));
     }
 
@@ -210,13 +225,22 @@ public class CmtDataSchemaValidatorTests
     [Theory]
     [InlineData("""<entity name="account"><fields><field name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields></entity>""", "no primaryidfield")]
     [InlineData("""<entity name="account" primaryidfield="accountid"><fields><field name="name" type="string" updateCompare="true" /></fields></entity>""", "is not declared")]
-    [InlineData("""<entity name="account" primaryidfield="accountid"><fields><field name="accountid" type="guid" updateCompare="true" /></fields></entity>""", "primaryKey")]
     [InlineData("""<entity name="account" primaryidfield="accountid"><fields><field name="accountid" type="string" primaryKey="true" updateCompare="true" /></fields></entity>""", "instead of 'guid'")]
     public void InvalidPrimaryIdField_ReportsError(string entity, string expectedText)
     {
         var finding = Assert.Single(Validate($"<entities>{entity}</entities>"));
         Assert.Equal(ValidationDiagnostics.CmtPrimaryIdFieldInvalid, finding.Code);
         Assert.Contains(expectedText, finding.Message);
+    }
+
+    [Fact]
+    public void PrimaryIdFieldWithoutPrimaryKeyFlag_ReportsWarning()
+    {
+        var finding = Assert.Single(Validate("""<entities><entity name="account" primaryidfield="accountid"><fields><field name="accountid" type="guid" updateCompare="true" /></fields></entity></entities>"""));
+
+        Assert.Equal(ValidationDiagnostics.CmtPrimaryIdFieldInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("primaryKey", finding.Message);
     }
 
     [Fact]
@@ -234,36 +258,25 @@ public class CmtDataSchemaValidatorTests
         Assert.Equal(ValidationSeverity.Warning, finding.Severity);
     }
 
-    [Theory]
-    [InlineData("entityreference")]
-    [InlineData("customer")]
-    public void LookupWithoutLookupType_ReportsWarning(string type)
-    {
-        var finding = Assert.Single(Validate(LookupEntity(type)));
-
-        Assert.Equal(ValidationDiagnostics.CmtLookupTypeMissing, finding.Code);
-        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
-        Assert.Contains("contact.parentid", finding.Message);
-        Assert.True(finding.Line > 0);
-    }
-
     [Fact]
-    public void OwnerWithoutLookupType_HasNoFinding()
+    public void NamesThatAreNotLowercase_ReportErrors()
     {
-        // CMT never emits lookupType for owner fields, so a real export must not warn.
-        Assert.Empty(Validate(LookupEntity("owner")));
-    }
+        var results = Validate("""
+            <entities>
+              <entity name="CMTL_child" primaryidfield="cmtl_childid">
+                <fields>
+                  <field name="cmtl_childid" type="guid" primaryKey="true" updateCompare="true" />
+                  <field name="cmtl_String" type="string" />
+                </fields>
+              </entity>
+            </entities>
+            """);
 
-    private static string LookupEntity(string type) => $"""
-        <entities>
-          <entity name="contact" primaryidfield="contactid">
-            <fields>
-              <field name="contactid" type="guid" primaryKey="true" updateCompare="true" />
-              <field name="parentid" type="{type}" />
-            </fields>
-          </entity>
-        </entities>
-        """;
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal((ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error), (r.Code, r.Severity)));
+        Assert.Contains(results, r => r.Message.Contains("entity 'CMTL_child' is not lowercase"));
+        Assert.Contains(results, r => r.Message.Contains("field 'CMTL_child.cmtl_String' is not lowercase"));
+    }
 
     [Fact]
     public void DuplicateEntitiesAndFields_ReportError()
@@ -287,7 +300,7 @@ public class CmtDataSchemaValidatorTests
     [Theory]
     [InlineData("Guid", "instead of 'guid'")]
     [InlineData("lookup", "not a CMT field type")]
-    [InlineData("bigint", "cannot import")]
+    [InlineData("customer", "use 'entityreference'")]
     [InlineData("unknown", "cannot import")]
     [InlineData("", "has no type")]
     public void FieldTypeCmtCannotImport_ReportsError(string type, string expectedText)
@@ -309,15 +322,17 @@ public class CmtDataSchemaValidatorTests
         Assert.Contains(expectedText, finding.Message);
     }
 
-    [Fact]
-    public void FileTypeSynonym_ReportsWarning()
+    [Theory]
+    [InlineData("file", "use 'filedata'")]
+    [InlineData("bigint", "drops the values")]
+    public void FileSynonymAndBigInt_ReportWarning(string type, string expectedText)
     {
-        var finding = Assert.Single(Validate("""
+        var finding = Assert.Single(Validate($"""
             <entities>
               <entity name="account" primaryidfield="accountid">
                 <fields>
                   <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
-                  <field name="doc" type="file" />
+                  <field name="doc" type="{type}" />
                 </fields>
               </entity>
             </entities>
@@ -325,7 +340,7 @@ public class CmtDataSchemaValidatorTests
 
         Assert.Equal(ValidationDiagnostics.CmtFieldTypeNotImportable, finding.Code);
         Assert.Equal(ValidationSeverity.Warning, finding.Severity);
-        Assert.Contains("filedata", finding.Message);
+        Assert.Contains(expectedText, finding.Message);
     }
 
     [Fact]
@@ -349,38 +364,19 @@ public class CmtDataSchemaValidatorTests
     }
 
     [Fact]
-    public void AttributesCmtRequires_AbsentReportsWarnings()
+    public void AttributesCmtIgnores_AbsentHaveNoFinding()
     {
-        var results = ValidateAll("""
+        // No etc, displayname or disableplugins: CMT imports and exports without them.
+        Assert.Empty(Validate("""
             <entities>
               <entity name="account" primaryidfield="accountid">
                 <fields>
                   <field name="accountid" type="guid" primaryKey="true" updateCompare="true" />
-                  <field displayname="Name" name="name" type="string" />
                   <field name="telephone1" type="string" />
                 </fields>
               </entity>
             </entities>
-            """).Where(r => r.Code == ValidationDiagnostics.CmtRequiredAttributeMissing).ToList();
-
-        Assert.Equal(2, results.Count);
-        Assert.All(results, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
-        Assert.Contains(results, r => r.Message.Contains("has no displayname, etc, disableplugins"));
-        Assert.Contains(results, r => r.Message.Contains("2 field(s) have no displayname (first: 'accountid')"));
-    }
-
-    [Fact]
-    public void AttributesCmtRequires_PresentHasNoWarning()
-    {
-        var results = ValidateAll("""
-            <entities>
-              <entity name="account" displayname="Account" etc="1" disableplugins="false" primaryidfield="accountid">
-                <fields><field displayname="Id" name="accountid" type="guid" primaryKey="true" updateCompare="true" /></fields>
-              </entity>
-            </entities>
-            """);
-
-        Assert.Empty(results);
+            """));
     }
 
     [Theory]
