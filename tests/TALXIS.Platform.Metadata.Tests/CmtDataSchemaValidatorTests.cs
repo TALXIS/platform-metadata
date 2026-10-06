@@ -300,7 +300,7 @@ public class CmtDataSchemaValidatorTests
     [Theory]
     [InlineData("Guid", "instead of 'guid'")]
     [InlineData("lookup", "not a CMT field type")]
-    [InlineData("customer", "use 'entityreference'")]
+    [InlineData("customer", "Use 'entityreference'")]
     [InlineData("unknown", "cannot import")]
     [InlineData("", "has no type")]
     public void FieldTypeCmtCannotImport_ReportsError(string type, string expectedText)

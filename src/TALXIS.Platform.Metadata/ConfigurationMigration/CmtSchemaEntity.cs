@@ -71,7 +71,7 @@ public sealed class CmtSchemaEntity : MetadataBase
     public CmtSchemaField AddField(string name, string type, string? displayName = null, bool updateCompare = false, string? lookupType = null)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field must have a non-empty name.", nameof(name));
-        if (FindField(name) is not null) throw new InvalidOperationException($"A field named '{name}' already exists on entity '{Name}'.");
+        if (FindField(name) != null) throw new InvalidOperationException($"A field named '{name}' already exists on entity '{Name}'.");
 
         var field = new CmtSchemaField { Name = name, Type = type, DisplayName = displayName, IsUpdateCompare = updateCompare, LookupType = lookupType };
         Fields.Add(field);

@@ -1,5 +1,5 @@
-using TALXIS.Platform.Metadata.Serialization.Xml;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Serialization.Xml;
 using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 namespace TALXIS.Platform.Metadata.Validation;
@@ -166,11 +166,14 @@ public sealed class WorkspaceValidator
         var results = new List<ValidationResult>();
         foreach (var dataEntity in package.Data!.Entities)
         {
-            if (package.Schema.FindEntity(dataEntity.Name) is not { } schemaEntity) continue;
-            var payloads = dataEntity.Records.SelectMany(r => r.Fields)
-                .Where(f => !string.IsNullOrEmpty(f.Value) && schemaEntity.FindField(f.Name)?.Type == CmtFieldTypes.FileData);
-            foreach (var field in payloads.Where(f => !File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, f.Value + ".bin"))))
+            var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
+            if (schemaEntity == null) continue;
+
+            foreach (var field in dataEntity.Records.SelectMany(r => r.Fields))
             {
+                if (string.IsNullOrEmpty(field.Value) || schemaEntity.FindField(field.Name)?.Type != CmtFieldTypes.FileData) continue;
+                if (File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, field.Value + ".bin"))) continue;
+
                 results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtDataFilePayloadMissing,
                     $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package."));
             }

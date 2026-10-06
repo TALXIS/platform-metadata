@@ -30,13 +30,13 @@ public sealed class CmtDataSchema : MetadataBase
     /// <see cref="EntityImportOrder"/>, appends the name to it. Throws when an entity of that name exists.
     /// </summary>
     /// <returns>The new entity, ready for <see cref="CmtSchemaEntity.AddField"/>.</returns>
-    public CmtSchemaEntity AddEntity(string name, string displayName, string primaryIdField, string primaryNameField)
+    public CmtSchemaEntity AddEntity(string name, string primaryIdField, string primaryNameField, string? displayName = null)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An entity must have a non-empty name.", nameof(name));
-        if (FindEntity(name) is not null) throw new InvalidOperationException($"An entity named '{name}' already exists in the data schema.");
+        if (FindEntity(name) != null) throw new InvalidOperationException($"An entity named '{name}' already exists in the data schema.");
 
         var entity = new CmtSchemaEntity { Name = name, DisplayName = displayName, PrimaryIdField = primaryIdField, PrimaryNameField = primaryNameField };
-        entity.Fields.Add(new CmtSchemaField { Name = primaryIdField, DisplayName = string.IsNullOrEmpty(displayName) ? name : displayName, Type = CmtFieldTypes.Guid, IsPrimaryKey = true });
+        entity.Fields.Add(new CmtSchemaField { Name = primaryIdField, DisplayName = displayName ?? name, Type = CmtFieldTypes.Guid, IsPrimaryKey = true });
         Entities.Add(entity);
         if (EntityImportOrder.Count > 0) EntityImportOrder.Add(name);
         return entity;

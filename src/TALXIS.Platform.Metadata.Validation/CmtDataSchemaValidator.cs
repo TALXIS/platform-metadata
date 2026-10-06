@@ -12,9 +12,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// </summary>
 public sealed class CmtDataSchemaValidator
 {
-    /// <summary>
-    /// Validates a file on disk. Files that are not CMT data schemas are skipped.
-    /// </summary>
+    /// <summary>Validates a file on disk; files that are not CMT data schemas are skipped.</summary>
+    /// <param name="filePath">Path to the XML file.</param>
     public IReadOnlyList<ValidationResult> ValidateFile(string filePath)
     {
         if (!File.Exists(filePath))
@@ -43,6 +42,8 @@ public sealed class CmtDataSchemaValidator
     /// &lt;entities&gt; element are skipped, as are data files (data.xml) whose
     /// entities carry records instead of field declarations.
     /// </summary>
+    /// <param name="document">The document to validate.</param>
+    /// <param name="sourcePath">File path reported on findings.</param>
     public IReadOnlyList<ValidationResult> ValidateXml(XDocument document, string? sourcePath = null)
     {
         var root = document.Root;
@@ -53,13 +54,12 @@ public sealed class CmtDataSchemaValidator
         if (!isSchema) return Array.Empty<ValidationResult>();
 
         return Validate(new CmtPackageXmlReader().ReadSchema(document, sourcePath))
-            .Select(r => r.FilePath is null ? r with { FilePath = sourcePath } : r)
+            .Select(r => r.FilePath == null ? r with { FilePath = sourcePath } : r)
             .ToList();
     }
 
-    /// <summary>
-    /// Validates a CMT data schema model, for example one built in memory before it is saved.
-    /// </summary>
+    /// <summary>Validates a CMT data schema model, for example one built in memory before it is saved.</summary>
+    /// <param name="schema">The schema to validate.</param>
     public IReadOnlyList<ValidationResult> Validate(CmtDataSchema schema)
     {
         var results = new List<ValidationResult>();
@@ -112,74 +112,6 @@ public sealed class CmtDataSchemaValidator
 
     private static bool IsLowercase(string name) => string.Equals(name, name.ToLowerInvariant(), StringComparison.Ordinal);
 
-    // CMT's importer looks the type up ordinally in a fixed table; a misspelled or capitalised type and unknown have no conversion.
-    private static void CheckFieldTypes(CmtSchemaEntity entity, List<ValidationResult> results)
-    {
-        var fields = entity.Fields.Select(f => (Field: f, Owner: entity.Name))
-            .Concat(entity.Relationships.SelectMany(r => r.Fields.Select(f => (Field: f, Owner: $"{entity.Name}/{r.Name}"))));
-
-        foreach (var (field, owner) in fields)
-        {
-            var type = field.Type;
-            string? problem;
-            if (string.IsNullOrEmpty(type))
-                problem = "has no type";
-            else if (type == CmtFieldTypes.File)
-            {
-                results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
-                    $"CMT data schema field '{owner}.{field.Name}' has type 'file', a TALXIS synonym for 'filedata'. Microsoft CMT and txc reject the package; use 'filedata' for them."));
-                continue;
-            }
-            else if (type == CmtFieldTypes.BigInt)
-            {
-                results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
-                    $"CMT data schema field '{owner}.{field.Name}' has type 'bigint'. CMT accepts the schema but drops the values on export and import."));
-                continue;
-            }
-            else if (type == CmtFieldTypes.Customer)
-                problem = "has type 'customer', which CMT rejects; use 'entityreference' with lookupType=\"account|contact\"";
-            else if (type == CmtFieldTypes.Unknown)
-                problem = "has type 'unknown', which CMT exports but cannot import (no conversion)";
-            else if (CmtFieldTypes.Importable.Contains(type!))
-                continue;
-            else if (CmtFieldTypes.Importable.Contains(type!.ToLowerInvariant()))
-                problem = $"has type '{type}' instead of '{type.ToLowerInvariant()}'; CMT compares type names case-sensitively";
-            else
-                problem = $"has type '{type}', which is not a CMT field type";
-
-            results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
-                $"CMT data schema field '{owner}.{field.Name}' {problem}."));
-        }
-    }
-
-    private static void CheckDateMode(MetadataBase element, string? dateMode, string subject, List<ValidationResult> results)
-    {
-        if (dateMode is null || CmtDateModes.All.Contains(dateMode)) return;
-        results.Add(CmtFindings.Error(element, ValidationDiagnostics.CmtDateModeInvalid,
-            $"{subject} has dateMode '{dateMode}'; CMT only accepts {string.Join(", ", CmtDateModes.All.Select(m => $"'{m}'"))}."));
-    }
-
-    // The importer ignores <filter>, but the CMT GUI parses it as FetchXML and fails to open a schema with a broken one.
-    private static void CheckFilter(CmtSchemaEntity entity, List<ValidationResult> results)
-    {
-        if (entity.FetchXmlFilter is null) return;
-
-        string? problem = null;
-        try
-        {
-            var root = XDocument.Parse(entity.FetchXmlFilter).Root;
-            if (root is null || root.Name.LocalName != "fetch") problem = $"its root element is <{root?.Name.LocalName}> instead of <fetch>";
-        }
-        catch (XmlException ex)
-        {
-            problem = $"it is not well-formed XML ({ex.Message})";
-        }
-
-        if (problem is null) return;
-        results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtFilterNotFetchXml,
-            $"CMT data schema entity '{entity.Name}' has a filter that is not FetchXML: {problem}."));
-    }
-
     private static void CheckPrimaryIdField(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (string.IsNullOrEmpty(entity.PrimaryIdField))
@@ -190,29 +122,106 @@ public sealed class CmtDataSchemaValidator
         }
 
         var field = entity.FindField(entity.PrimaryIdField!);
-        string? problem =
-            field is null ? "is not declared in <fields>"
-            : !string.Equals(field.Type, CmtFieldTypes.Guid, StringComparison.Ordinal) ? $"has type '{field.Type}' instead of 'guid'"
-            : null;
-        if (problem is not null)
+        if (field == null)
         {
-            results.Add(CmtFindings.Error((MetadataBase?)field ?? entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-                $"CMT data schema entity '{entity.Name}': primaryidfield '{entity.PrimaryIdField}' {problem}."));
+            results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
+                $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}', which is not declared in <fields>. CMT cannot update the imported records."));
+            return;
+        }
+
+        if (!string.Equals(field.Type, CmtFieldTypes.Guid, StringComparison.Ordinal))
+        {
+            results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
+                $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' of type '{field.Type}' instead of 'guid'. CMT cannot update the imported records."));
             return;
         }
 
         // CMT imports identically without the flag; its own generator always writes it.
-        if (field!.IsPrimaryKey) return;
+        if (field.IsPrimaryKey) return;
+
         results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-            $"CMT data schema entity '{entity.Name}': primaryidfield '{entity.PrimaryIdField}' is not marked primaryKey=\"true\" as CMT writes it."));
+            $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' without primaryKey=\"true\". Mark it as CMT's generator does."));
     }
 
     private static void CheckPrimaryNameField(CmtSchemaEntity entity, List<ValidationResult> results)
     {
-        if (string.IsNullOrEmpty(entity.PrimaryNameField) || entity.FindField(entity.PrimaryNameField!) is not null) return;
+        if (string.IsNullOrEmpty(entity.PrimaryNameField) || entity.FindField(entity.PrimaryNameField!) != null) return;
 
         results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryNameFieldUndeclared,
-            $"CMT data schema entity '{entity.Name}': primarynamefield '{entity.PrimaryNameField}' is not declared in <fields>."));
+            $"CMT data schema entity '{entity.Name}' has primarynamefield '{entity.PrimaryNameField}', which is not declared in <fields>. Declare it so CMT can match existing records on it."));
+    }
+
+    // CMT's importer looks the type up ordinally in a fixed table; a misspelled or capitalised type and unknown have no conversion.
+    private static void CheckFieldTypes(CmtSchemaEntity entity, List<ValidationResult> results)
+    {
+        var fields = entity.Fields.Select(f => (Field: f, Owner: entity.Name))
+            .Concat(entity.Relationships.SelectMany(r => r.Fields.Select(f => (Field: f, Owner: $"{entity.Name}/{r.Name}"))));
+
+        foreach (var (field, owner) in fields)
+        {
+            var subject = $"CMT data schema field '{owner}.{field.Name}'";
+            var type = field.Type;
+            switch (type)
+            {
+                case CmtFieldTypes.File:
+                    results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+                        $"{subject} has type 'file', a TALXIS synonym for 'filedata'. Microsoft CMT rejects the package; use 'filedata' for it."));
+                    break;
+                case CmtFieldTypes.BigInt:
+                    results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+                        $"{subject} has type 'bigint'. CMT accepts the schema but drops the values on export and import."));
+                    break;
+                case CmtFieldTypes.Customer:
+                    results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+                        $"{subject} has type 'customer', which CMT rejects. Use 'entityreference' with lookupType=\"account|contact\"."));
+                    break;
+                case CmtFieldTypes.Unknown:
+                    results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
+                        $"{subject} has type 'unknown', which CMT exports but cannot import. CMT rejects the package."));
+                    break;
+                default:
+                    if (CmtFieldTypes.Importable.Contains(type)) break;
+                    results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeNotImportable, $"{subject} {TypeProblem(type)}. CMT rejects the package."));
+                    break;
+            }
+        }
+    }
+
+    private static string TypeProblem(string type)
+    {
+        if (string.IsNullOrEmpty(type)) return "has no type";
+        if (CmtFieldTypes.Importable.Contains(type.ToLowerInvariant())) return $"has type '{type}' instead of '{type.ToLowerInvariant()}', and CMT compares type names case-sensitively";
+        return $"has type '{type}', which is not a CMT field type";
+    }
+
+    private static void CheckDateMode(MetadataBase element, string? dateMode, string subject, List<ValidationResult> results)
+    {
+        if (dateMode == null || CmtDateModes.All.Contains(dateMode)) return;
+
+        results.Add(CmtFindings.Error(element, ValidationDiagnostics.CmtDateModeInvalid,
+            $"{subject} has dateMode '{dateMode}', which CMT cannot read. Use {string.Join(", ", CmtDateModes.All.Select(m => $"'{m}'"))}."));
+    }
+
+    // The importer ignores <filter>, but the CMT GUI parses it as FetchXML and fails to open a schema with a broken one.
+    private static void CheckFilter(CmtSchemaEntity entity, List<ValidationResult> results)
+    {
+        if (entity.FetchXmlFilter == null) return;
+
+        string? problem = null;
+        try
+        {
+            var root = XDocument.Parse(entity.FetchXmlFilter).Root;
+            if (root == null || root.Name.LocalName != "fetch") problem = $"its root element is <{root?.Name.LocalName}> instead of <fetch>";
+        }
+        catch (XmlException ex)
+        {
+            problem = $"it is not well-formed XML ({ex.Message})";
+        }
+
+        if (problem == null) return;
+
+        results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtFilterNotFetchXml,
+            $"CMT data schema entity '{entity.Name}' has a filter that is not FetchXML: {problem}. The CMT GUI cannot open the schema; fix or remove the filter."));
     }
 
     private static void CheckDuplicateFields(CmtSchemaEntity entity, List<ValidationResult> results)
@@ -220,7 +229,7 @@ public sealed class CmtDataSchemaValidator
         foreach (var duplicate in Duplicates(entity.Fields, f => f.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data schema entity '{entity.Name}' declares field '{duplicate.Name}' more than once."));
+                $"CMT data schema entity '{entity.Name}' declares field '{duplicate.Name}' more than once. The TALXIS importer fails on the duplicate."));
         }
     }
 
@@ -229,7 +238,7 @@ public sealed class CmtDataSchemaValidator
         foreach (var duplicate in Duplicates(schema.Entities, e => e.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data schema declares entity '{duplicate.Name}' more than once."));
+                $"CMT data schema declares entity '{duplicate.Name}' more than once. The TALXIS importer fails on the duplicate."));
         }
     }
 
@@ -240,10 +249,10 @@ public sealed class CmtDataSchemaValidator
         if (schema.EntityImportOrder.Count == 0) return;
 
         var ordered = new HashSet<string>(schema.EntityImportOrder, StringComparer.Ordinal);
-        foreach (var name in schema.EntityImportOrder.Where(n => schema.FindEntity(n) is null))
+        foreach (var name in schema.EntityImportOrder.Where(n => schema.FindEntity(n) == null))
         {
             var caseMatch = CmtFindings.CaseMatch(schema.Entities.Select(e => e.Name), name);
-            if (caseMatch is not null)
+            if (caseMatch != null)
             {
                 results.Add(CmtFindings.Warning(schema, ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT entityImportOrder names entity '{name}', but the data schema declares it as '{caseMatch}'. CMT compares names case-sensitively and will not find it."));

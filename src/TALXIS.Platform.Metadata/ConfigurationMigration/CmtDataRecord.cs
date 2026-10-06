@@ -30,7 +30,7 @@ public sealed class CmtDataRecord : MetadataBase
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field must have a non-empty name.", nameof(name));
 
         var field = Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));
-        if (field is null)
+        if (field == null)
         {
             field = new CmtDataField { Name = name };
             Fields.Add(field);

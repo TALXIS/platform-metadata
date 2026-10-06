@@ -50,23 +50,6 @@ public sealed class CmtPackageXmlWriter
         return WriteIfChanged(BuildData(package), package.DataBytes, path, indent: package.DataDocument == null);
     }
 
-    // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
-    // example), so a document that still matches the file it was loaded from is saved as that file's bytes.
-    private static bool WriteIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
-    {
-        var existing = File.Exists(path) ? File.ReadAllBytes(path) : null;
-        var bytes = loadedBytes != null && IsUnchanged(document, loadedBytes)
-            ? loadedBytes
-            : Serialize(document, existing, indent);
-        if (existing != null && existing.SequenceEqual(bytes)) return false;
-
-        File.WriteAllBytes(path, bytes);
-        return true;
-    }
-
-    private static bool IsUnchanged(XDocument document, byte[] loadedBytes) =>
-        CmtPackageXmlReader.Parse(loadedBytes).ToString(SaveOptions.DisableFormatting) == document.ToString(SaveOptions.DisableFormatting);
-
     private static XDocument BuildSchema(CmtPackage package)
     {
         var document = package.SchemaDocument ?? NewDocument(new XElement("entities"));
@@ -115,7 +98,7 @@ public sealed class CmtPackageXmlWriter
         SetBool(element, "updateCompare", field.IsUpdateCompare);
         SetString(element, "displayname", field.DisplayName);
         SetString(element, "name", field.Name);
-        if (field.Type.Length > 0 || element.Attribute("type") is not null) SetString(element, "type", field.Type);
+        if (field.Type.Length > 0 || element.Attribute("type") != null) SetString(element, "type", field.Type);
         SetString(element, "lookupType", field.LookupType);
         SetString(element, "dateMode", field.DateMode);
         SetBool(element, "primaryKey", field.IsPrimaryKey);
@@ -175,7 +158,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "m2mrelationshipname", m2m.RelationshipName);
         SetString(element, "m2mrelationshipschemaname", m2m.RelationshipSchemaName);
 
-        var targets = Container(element, "targetids", true)!;
+        var targets = Container(element, "targetids", create: true)!;
         var current = targets.Elements("targetid").Select(e => CmtPackageXmlReader.ParseGuid(e.Value) ?? Guid.Empty);
         if (!current.SequenceEqual(m2m.TargetIds)) XmlPatch.ReplaceValues(targets, "targetid", m2m.TargetIds.Select(id => id.ToString()));
     }
@@ -193,19 +176,19 @@ public sealed class CmtPackageXmlWriter
     private static void SyncFilter(XElement entity, string? filter)
     {
         var element = entity.Element("filter");
-        if (filter is null)
+        if (filter == null)
         {
-            if (element is not null) XmlPatch.Remove(element);
+            if (element != null) XmlPatch.Remove(element);
             return;
         }
 
-        if (element is null) XmlPatch.Append(entity, new XElement("filter", filter));
+        if (element == null) XmlPatch.Append(entity, new XElement("filter", filter));
         else if (element.Value != filter) element.Value = filter;
     }
 
     private static void SyncChildren<T>(XElement? container, string name, IList<T> items, Func<T, string> key, Action<T, XElement> apply)
     {
-        if (container is null) return;
+        if (container == null) return;
 
         var available = new Dictionary<string, Queue<XElement>>(StringComparer.Ordinal);
         foreach (var existing in container.Elements(name))
@@ -242,7 +225,7 @@ public sealed class CmtPackageXmlWriter
     private static XElement? Container(XElement parent, string name, bool create)
     {
         var container = parent.Element(name);
-        if (container is null && create) container = XmlPatch.Append(parent, new XElement(name));
+        if (container == null && create) container = XmlPatch.Append(parent, new XElement(name));
         return container;
     }
 
@@ -256,7 +239,7 @@ public sealed class CmtPackageXmlWriter
     private static void SetBool(XElement element, string name, bool value)
     {
         var current = element.Attribute(name);
-        if (current is null ? !value : CmtPackageXmlReader.ParseBool(current.Value) == value) return;
+        if (current == null ? !value : CmtPackageXmlReader.ParseBool(current.Value) == value) return;
         element.SetAttributeValue(name, value ? "true" : "false");
     }
 
@@ -264,13 +247,13 @@ public sealed class CmtPackageXmlWriter
     private static void SetNullableBool(XElement element, string name, bool? value)
     {
         var current = element.Attribute(name);
-        if (value is null)
+        if (value == null)
         {
             current?.Remove();
             return;
         }
 
-        if (current is not null && CmtPackageXmlReader.ParseBool(current.Value) == value.Value) return;
+        if (current != null && CmtPackageXmlReader.ParseBool(current.Value) == value.Value) return;
         element.SetAttributeValue(name, value.Value ? "true" : "false");
     }
 
@@ -282,20 +265,40 @@ public sealed class CmtPackageXmlWriter
 
     private static void SetNullableGuid(XElement element, string name, Guid? value)
     {
-        if (value is null) element.Attribute(name)?.Remove();
+        if (value == null) element.Attribute(name)?.Remove();
         else SetGuid(element, name, value.Value);
+    }
+
+    // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
+    // example), so a document that still matches the file it was loaded from is saved as that file's bytes.
+    private static bool WriteIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
+    {
+        var existing = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        var bytes = loadedBytes != null && IsUnchanged(document, loadedBytes)
+            ? loadedBytes
+            : Serialize(document, existing, indent);
+        if (existing != null && existing.SequenceEqual(bytes)) return false;
+
+        File.WriteAllBytes(path, bytes);
+        return true;
+    }
+
+    private static bool IsUnchanged(XDocument document, byte[] loadedBytes)
+    {
+        var loaded = CmtPackageXmlReader.Parse(loadedBytes);
+        return loaded.ToString(SaveOptions.DisableFormatting) == document.ToString(SaveOptions.DisableFormatting);
     }
 
     private static byte[] Serialize(XDocument document, byte[]? existing, bool indent)
     {
-        var newLine = existing is null ? "\r\n" : DetectNewLine(existing);
+        var newLine = existing == null ? "\r\n" : DetectNewLine(existing);
         var encodingName = document.Declaration?.Encoding;
         var settings = new XmlWriterSettings
         {
-            Encoding = encodingName is null || encodingName.Equals("utf-8", StringComparison.OrdinalIgnoreCase)
-                ? new UTF8Encoding(existing is not null && HasBom(existing))
+            Encoding = encodingName == null || encodingName.Equals("utf-8", StringComparison.OrdinalIgnoreCase)
+                ? new UTF8Encoding(existing != null && HasBom(existing))
                 : Encoding.GetEncoding(encodingName),
-            OmitXmlDeclaration = document.Declaration is null,
+            OmitXmlDeclaration = document.Declaration == null,
             NewLineChars = newLine,
             NewLineHandling = NewLineHandling.Replace,
             Indent = indent,
@@ -308,16 +311,18 @@ public sealed class CmtPackageXmlWriter
         var text = settings.Encoding.GetString(buffer.ToArray());
         if (KeepsSpacedEmptyRoot(document, existing, settings.Encoding)) text = ReplaceFirst(text, "<entities>", "<entities >");
         // TALXIS packages declare <?xml version="1.0"?> without encoding; XmlWriter always adds one.
-        if (document.Declaration is { } declaration && string.IsNullOrEmpty(declaration.Encoding))
+        if (document.Declaration != null && string.IsNullOrEmpty(document.Declaration.Encoding))
             text = ReplaceFirst(text, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", "<?xml version=\"1.0\"?>");
         return settings.Encoding.GetBytes(text);
     }
 
     // The CMT tool writes an attribute-less schema root as "<entities >", which XDocument cannot preserve.
-    private static bool KeepsSpacedEmptyRoot(XDocument document, byte[]? existing, Encoding encoding) =>
-        document.Root is { Name.LocalName: "entities" } root
-        && !root.HasAttributes
-        && (existing is null || encoding.GetString(existing).Contains("<entities >"));
+    private static bool KeepsSpacedEmptyRoot(XDocument document, byte[]? existing, Encoding encoding)
+    {
+        var root = document.Root;
+        if (root == null || root.Name.LocalName != "entities" || root.HasAttributes) return false;
+        return existing == null || encoding.GetString(existing).Contains("<entities >");
+    }
 
     private static string ReplaceFirst(string text, string oldValue, string newValue)
     {

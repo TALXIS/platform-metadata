@@ -11,7 +11,7 @@ public class CmtAuthoringTests
     {
         var schema = new CmtDataSchema();
 
-        var account = schema.AddEntity("account", "Account", "accountid", "name");
+        var account = schema.AddEntity("account", "accountid", "name", "Account");
 
         Assert.Same(account, schema.FindEntity("account"));
         var key = Assert.Single(account.Fields);
@@ -28,10 +28,10 @@ public class CmtAuthoringTests
     public void AddEntity_AppendsToImportOrderOnlyWhenPresent()
     {
         var schema = new CmtDataSchema();
-        schema.AddEntity("account", "Account", "accountid", "name");
+        schema.AddEntity("account", "accountid", "name", "Account");
         schema.EntityImportOrder.Add("account");
 
-        schema.AddEntity("contact", "Contact", "contactid", "fullname");
+        schema.AddEntity("contact", "contactid", "fullname", "Contact");
 
         Assert.Equal(new[] { "account", "contact" }, schema.EntityImportOrder);
     }
@@ -40,16 +40,16 @@ public class CmtAuthoringTests
     public void AddEntity_RejectsDuplicateNameOrdinally()
     {
         var schema = new CmtDataSchema();
-        schema.AddEntity("account", "Account", "accountid", "name");
+        schema.AddEntity("account", "accountid", "name", "Account");
 
-        Assert.Throws<InvalidOperationException>(() => schema.AddEntity("account", "Account", "accountid", "name"));
-        schema.AddEntity("Account", "Account", "accountid", "name"); // a different name to CMT
+        Assert.Throws<InvalidOperationException>(() => schema.AddEntity("account", "accountid", "name", "Account"));
+        schema.AddEntity("Account", "accountid", "name", "Account"); // a different name to CMT
     }
 
     [Fact]
     public void AddField_ReturnsFieldAndRejectsDuplicates()
     {
-        var entity = new CmtDataSchema().AddEntity("account", "Account", "accountid", "name");
+        var entity = new CmtDataSchema().AddEntity("account", "accountid", "name", "Account");
 
         var name = entity.AddField("name", CmtFieldTypes.String, "Account Name", updateCompare: true);
         var parent = entity.AddField("parentaccountid", CmtFieldTypes.EntityReference, lookupType: "account");
@@ -71,7 +71,7 @@ public class CmtAuthoringTests
     [Fact]
     public void AddRelationship_RejectsDuplicateName()
     {
-        var entity = new CmtDataSchema().AddEntity("account", "Account", "accountid", "name");
+        var entity = new CmtDataSchema().AddEntity("account", "accountid", "name", "Account");
         entity.AddRelationship(new CmtSchemaRelationship { Name = "account_contact", IsManyToMany = true });
 
         Assert.Throws<InvalidOperationException>(() => entity.AddRelationship(new CmtSchemaRelationship { Name = "account_contact" }));
@@ -103,7 +103,7 @@ public class CmtAuthoringTests
         try
         {
             var schema = new CmtDataSchema();
-            var account = schema.AddEntity("account", "Account", "accountid", "name");
+            var account = schema.AddEntity("account", "accountid", "name", "Account");
             account.AddField("name", CmtFieldTypes.String, "Account Name", updateCompare: true);
             var data = new CmtData();
             data.AddEntity("account", "Account").AddRecord(new Guid("11111111-1111-1111-1111-111111111111")).Set("name", "Contoso");

@@ -25,7 +25,7 @@ public sealed class CmtData : MetadataBase
     public CmtDataEntity AddEntity(string name, string? displayName = null)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An entity must have a non-empty name.", nameof(name));
-        if (FindEntity(name) is not null) throw new InvalidOperationException($"An entity named '{name}' already exists in the data file.");
+        if (FindEntity(name) != null) throw new InvalidOperationException($"An entity named '{name}' already exists in the data file.");
 
         var entity = new CmtDataEntity { Name = name, DisplayName = displayName };
         Entities.Add(entity);

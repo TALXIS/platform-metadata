@@ -11,18 +11,19 @@ internal static class XmlPatch
     /// <summary>Inserts <paramref name="element"/> after <paramref name="previous"/>, or before the first <paramref name="name"/> sibling, or appends.</summary>
     public static XElement Insert(XElement container, string name, XElement? previous, XElement element)
     {
-        if (previous is not null)
+        if (previous != null)
         {
             previous.AddAfterSelf(element);
-            if (LeadingWhitespace(previous) is { } indent) previous.AddAfterSelf(new XText(indent));
+            AddIndentAfter(previous, LeadingWhitespace(previous));
             return element;
         }
 
         var first = container.Elements(name).FirstOrDefault();
-        if (first is null) return Append(container, element);
+        if (first == null) return Append(container, element);
 
         first.AddBeforeSelf(element);
-        if (LeadingWhitespace(element) is { } firstIndent) first.AddBeforeSelf(new XText(firstIndent));
+        var indent = LeadingWhitespace(element);
+        if (indent != null) first.AddBeforeSelf(new XText(indent));
         return element;
     }
 
@@ -30,15 +31,15 @@ internal static class XmlPatch
     public static XElement Append(XElement container, XElement element)
     {
         var last = container.Elements().LastOrDefault();
-        if (last is not null)
+        if (last != null)
         {
             last.AddAfterSelf(element);
-            if (LeadingWhitespace(last) is { } indent) last.AddAfterSelf(new XText(indent));
+            AddIndentAfter(last, LeadingWhitespace(last));
             return element;
         }
 
         var outer = LeadingWhitespace(container);
-        if (outer is null || container.Nodes().Any(n => !IsWhitespace(n)))
+        if (outer == null || container.Nodes().Any(n => !IsWhitespace(n)))
         {
             container.Add(element);
             return element;
@@ -53,16 +54,16 @@ internal static class XmlPatch
     /// <summary>Removes <paramref name="element"/> together with the whitespace that indented it.</summary>
     public static void Remove(XElement element)
     {
-        if (element.PreviousNode is { } previous && IsWhitespace(previous)) previous.Remove();
+        var previous = element.PreviousNode;
+        if (previous != null && IsWhitespace(previous)) previous.Remove();
         element.Remove();
     }
 
     /// <summary>Replaces every <paramref name="name"/> child with one element per value.</summary>
     public static void ReplaceValues(XElement container, string name, IEnumerable<string> values)
     {
-        var list = values.ToList();
         foreach (var element in container.Elements(name).ToList()) Remove(element);
-        foreach (var value in list) Append(container, new XElement(name, value));
+        foreach (var value in values) Append(container, new XElement(name, value));
     }
 
     /// <summary>The whitespace text node (containing a line break) directly before <paramref name="element"/>, or <c>null</c>.</summary>
@@ -70,4 +71,10 @@ internal static class XmlPatch
         element.PreviousNode is XText text && IsWhitespace(text) && text.Value.IndexOf('\n') >= 0 ? text.Value : null;
 
     public static bool IsWhitespace(XNode node) => node is XText text && node is not XCData && string.IsNullOrWhiteSpace(text.Value);
+
+    // Inserting after an element puts the new one on the same line; repeating the element's indent restores the layout.
+    private static void AddIndentAfter(XElement element, string? indent)
+    {
+        if (indent != null) element.AddAfterSelf(new XText(indent));
+    }
 }

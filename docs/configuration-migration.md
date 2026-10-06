@@ -14,7 +14,7 @@ Nothing here touches Dataverse, discovers files or bakes in folder names. `CmtPa
 
 ```csharp
 var schema = new CmtDataSchema();
-var account = schema.AddEntity("account", "Account", primaryIdField: "accountid", primaryNameField: "name");
+var account = schema.AddEntity("account", primaryIdField: "accountid", primaryNameField: "name", displayName: "Account");
 account.AddField("name", CmtFieldTypes.String, "Account Name", updateCompare: true);
 account.AddField("telephone1", CmtFieldTypes.String, "Main Phone");
 account.AddField("primarycontactid", CmtFieldTypes.EntityReference, "Primary Contact", lookupType: "contact");
