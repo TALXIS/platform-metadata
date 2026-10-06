@@ -48,11 +48,11 @@ The writer does not regenerate files. It patches the documents the package was l
 
 ## Validation
 
-Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceValidator.ValidateDirectory` for every `data_schema.xml` in a workspace (stage `CmtData`), plus the XSD `CmtData.xsd` in the schema stage:
+Two validators in `TALXIS.Platform.Metadata.Validation`, run by `WorkspaceValidator.ValidateDirectory` in stage `CmtData`, plus the XSD `CmtData.xsd` in the schema stage:
 
-- `CmtDataSchemaValidator.Validate(CmtDataSchema)` (also `ValidateFile`/`ValidateXml`): the schema on its own.
-- `CmtPackageValidator.Validate(CmtPackage)`: data.xml against its schema.
-- `WorkspaceValidator` itself checks `files/` payloads (TXM023), the one rule that needs the package folder.
+- `CmtDataSchemaValidator.Validate(CmtDataSchema)` (also `ValidateFile`/`ValidateXml`): the schema on its own. Runs on every `data_schema.xml` in the workspace.
+- `CmtPackageValidator.Validate(CmtPackage)`: data.xml against its schema. Runs only when a `data.xml` sits next to the schema and both files load without errors; load errors are left to the XSD stage.
+- `WorkspaceValidator` itself checks `files/` payloads (TXM023) under the same condition; it is the one rule that needs the package folder.
 
 | Code | Rule | Severity | What CMT does |
 |---|---|---|---|
@@ -64,7 +64,7 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM012 | data.xml entity or field not declared in the schema | error | skips it with a log warning and exits 0; TALXIS throws |
 | TXM013 | record `lookupentity` not declared in the package (`systemuser`, `team`, `businessunit`, `transactioncurrency`, `organization` excepted) | warning | the target must already exist in the environment |
 | TXM014 | M2M relationship not declared on the entity / target entity not in the package | error / warning | crashes after the records are committed; targets may come from another package |
-| TXM015 | schema entity or field name not lowercase; data.xml entity, `lookupentity` or M2M name matching only case-insensitively / data.xml field, import order or M2M target name matching only case-insensitively | error / warning | rejects the package, fails the record or crashes after the records are committed / skips the field |
+| TXM015 | name in the wrong letter case (see below) | error / warning | see below |
 | TXM016 | field type missing, not in the vocabulary, not lowercase, `customer`, `unknown` / `bigint`, TALXIS `file` | error / warning | rejects the package (`customer` columns are `entityreference`) / drops `bigint` values; rejects `file` |
 | TXM017 | record's primary-id field value empty, not a GUID or different from `record@id`, or a repeated `record@id` / the field absent | error / warning | creates the record under the field value or under a new id; skips lookups to a repeated id |
 | TXM018 | `dateMode` not `absolute`/`relative`/`relativeDaily` | error | cannot deserialise the schema |
@@ -76,9 +76,22 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM024 | M2M `targetentitynameidfield` is not the target entity's `primaryidfield` | error | crashes after the records are committed |
 | TXM025 | two records of an entity share their `updateCompare` values (or primary name when there are none) | warning | on re-import every one of them updates the same existing record |
 
+TXM015 in detail, because CMT compares every name ordinally:
+
+- **Errors:** a schema entity or field name that is not lowercase (CMT rejects the package); a data.xml entity that matches only when case is ignored (the import fails); a `lookupentity` that differs only by case (CMT fails to insert the record); an `m2mrelationshipname` that differs only by case (CMT crashes after the records are committed).
+- **Warnings:** a data.xml field (CMT drops its values), an `entityImportOrder` name or an M2M target entity that differs only by case.
+
 ### Value encodings (`CmtDataField.Value`)
 
-bool `true|false` in any case (CMT writes `True|False`; it reads `1`, `0`, `yes`, `t` and `f` as false); numbers invariant, without currency symbols or thousands separators (`number` and `optionsetvalue` integers only: `42.0` and `71000000.5` are dropped); datetime invariant round-trip (`2026-01-01T00:00:00.0000000`, unspecified kind = UTC; CMT writes `Z` for user-local columns); guid; `optionsetvalue` the integer; `optionsetvaluecollection` comma-separated integers or the form CMT exports, `[-1,71000010,71000012,-1]` (both import; `[-1,-1]` is empty, while `[a,b]` and `a;b` are dropped); `string` HTML-encoded (CMT decodes once on import, TALXIS does not); `imagedata` base64; `filedata` the file id with `FileName` as display name and the payload at `files/<id>.bin`; lookups the GUID plus `LookupEntity`/`LookupEntityName` (CMT needs both); `partylist` an empty value plus one `<activitypointerrecords id="…">` element per party directly under the field (`ActivityPointerRecords`: the activitypartyid as id, `partyid` lookup, `participationtypemask` and the other party columns as fields; CMT also imports parties without an id). Multi-line text is entitised (`&#xD;&#xA;`) and preserved as such.
+- **bool:** `true|false` in any case. CMT writes `True|False` and reads `1`, `0`, `yes`, `t` and `f` as false.
+- **number, decimal, float, money:** invariant, without currency symbols or thousands separators. `number` and `optionsetvalue` take integers only: `42.0` and `71000000.5` are dropped.
+- **datetime:** invariant round-trip (`2026-01-01T00:00:00.0000000`, unspecified kind = UTC); CMT writes `Z` for user-local columns.
+- **guid:** the GUID. **optionsetvalue:** the integer.
+- **optionsetvaluecollection:** comma-separated integers or the form CMT exports, `[-1,71000010,71000012,-1]`; both import. `[-1,-1]` is empty; `[a,b]` and `a;b` are dropped.
+- **string:** HTML-encoded; CMT decodes once on import, TALXIS does not. Multi-line text is entitised (`&#xD;&#xA;`) and preserved as such.
+- **imagedata:** base64. **filedata:** the file id, with `FileName` as display name and the payload at `files/<id>.bin`.
+- **Lookups:** the GUID plus `LookupEntity` and `LookupEntityName`; CMT needs both.
+- **partylist:** an empty value plus one `<activitypointerrecords id="...">` element per party directly under the field (`ActivityPointerRecords`): the activitypartyid as id, the `partyid` lookup, `participationtypemask` and the other party columns as fields. CMT also imports parties without an id.
 
 ### TALXIS dialect
 

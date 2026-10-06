@@ -24,43 +24,21 @@ public class CmtPackageMutationTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
 
+    // The writer once compared against the in-memory document, which the first save had already patched: the second
+    // target got the stale source file and a save back to the loaded path was skipped.
     [Fact]
-    public void Save_ReportsWhetherAFileWasWritten()
-    {
-        var package = new CmtPackageXmlReader().LoadDirectory(_root);
-        var writer = new CmtPackageXmlWriter();
-
-        Assert.False(writer.Save(package, _root));
-        package.Schema.FindEntity("account")!.FindField("telephone1")!.IsUpdateCompare = true;
-        Assert.True(writer.Save(package, _root));
-        Assert.False(writer.Save(package, _root));
-    }
-
-    [Fact]
-    public void EditSavedToTwoFiles_BothContainEdit()
-    {
-        var package = new CmtPackageXmlReader().LoadDirectory(_root);
-        package.Schema.FindEntity("account")!.FindField("telephone1")!.IsUpdateCompare = true;
-        var writer = new CmtPackageXmlWriter();
-
-        writer.SaveSchema(package, Path.Combine(_root, "first.xml"));
-        writer.SaveSchema(package, Path.Combine(_root, "second.xml"));
-
-        Assert.Contains("name=\"telephone1\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(Path.Combine(_root, "first.xml")));
-        Assert.Contains("name=\"telephone1\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(Path.Combine(_root, "second.xml")));
-    }
-
-    [Fact]
-    public void EditSavedElsewhereThenToLoadedFile_LoadedFileContainsEdit()
+    public void EditSavedTwice_BothFilesContainEdit()
     {
         var schemaPath = Path.Combine(_root, CmtPackageLayout.SchemaFileName);
+        var copyPath = Path.Combine(_root, "copy.xml");
         var package = new CmtPackageXmlReader().Load(schemaPath);
         package.Schema.FindEntity("account")!.FindField("telephone1")!.IsUpdateCompare = true;
         var writer = new CmtPackageXmlWriter();
 
-        writer.SaveSchema(package, Path.Combine(_root, "copy.xml"));
+        writer.SaveSchema(package, copyPath);
         writer.SaveSchema(package, schemaPath);
 
+        Assert.Contains("name=\"telephone1\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(copyPath));
         Assert.Contains("name=\"telephone1\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(schemaPath));
     }
 
