@@ -141,7 +141,7 @@ public class CmtPackageValidatorTests
                 </records>
               </entity>
             </entities>
-            """).Where(r => r.Code != ValidationDiagnostics.CmtDataLookupEntityUndeclared));
+            """), r => r.Code != ValidationDiagnostics.CmtDataLookupEntityUndeclared);
 
         Assert.Equal(ValidationDiagnostics.CmtDataLookupIncomplete, finding.Code);
         Assert.Equal(ValidationSeverity.Warning, finding.Severity);
@@ -162,6 +162,79 @@ public class CmtPackageValidatorTests
               </entity>
             </entities>
             """));
+    }
+
+    private const string TypedSchema = """
+        <entities>
+          <entity name="new_item" primaryidfield="new_itemid">
+            <fields>
+              <field name="new_itemid" type="guid" primaryKey="true" updateCompare="true" />
+              <field name="new_flag" type="bool" />
+              <field name="new_count" type="number" />
+              <field name="new_price" type="money" />
+              <field name="new_ratio" type="float" />
+              <field name="new_when" type="datetime" />
+              <field name="new_ref" type="guid" />
+              <field name="new_choice" type="optionsetvalue" />
+              <field name="new_choices" type="optionsetvaluecollection" />
+            </fields>
+          </entity>
+        </entities>
+        """;
+
+    private static IReadOnlyList<ValidationResult> ValidateValue(string field, string value) =>
+        new CmtPackageValidator().Validate(new CmtPackageXmlReader().Read(XDocument.Parse(TypedSchema), XDocument.Parse($"""
+            <entities>
+              <entity name="new_item">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111">
+                    <field name="new_itemid" value="11111111-1111-1111-1111-111111111111" />
+                    <field name="{field}" value="{value}" />
+                  </record>
+                </records>
+              </entity>
+            </entities>
+            """)));
+
+    [Theory]
+    [InlineData("new_flag", "1")]
+    [InlineData("new_flag", "yes")]
+    [InlineData("new_count", "42.0")]
+    [InlineData("new_count", "1,234")]
+    [InlineData("new_price", "$12.50")]
+    [InlineData("new_price", "12,50")]
+    [InlineData("new_ratio", "abc")]
+    [InlineData("new_when", "notadate")]
+    [InlineData("new_ref", "not-a-guid")]
+    [InlineData("new_choice", "1.5")]
+    [InlineData("new_choices", "[71000010,71000012]")]
+    [InlineData("new_choices", "71000010;71000012")]
+    public void ValueCmtCannotRead_ReportsWarning(string field, string value)
+    {
+        var finding = Assert.Single(ValidateValue(field, value));
+
+        Assert.Equal(ValidationDiagnostics.CmtDataValueInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains($"'new_item.{field}'", finding.Message);
+        Assert.Contains($"(first: '{value}')", finding.Message);
+    }
+
+    [Theory]
+    [InlineData("new_flag", "True")]
+    [InlineData("new_flag", "false")]
+    [InlineData("new_count", "-42")]
+    [InlineData("new_price", "11.5000000000")]
+    [InlineData("new_ratio", "1E-05")]
+    [InlineData("new_when", "2026-03-11T10:30:00.0000000Z")]
+    [InlineData("new_when", "2026-04-01T00:00:00.0000000")]
+    [InlineData("new_choice", "71000000")]
+    [InlineData("new_choices", "71000010,71000012")]
+    [InlineData("new_choices", "[-1,71000010,71000012,-1]")]
+    [InlineData("new_choices", "[-1,-1]")]
+    [InlineData("new_flag", "{{ flag }}")]
+    public void ValueCmtReads_HasNoFinding(string field, string value)
+    {
+        Assert.Empty(ValidateValue(field, value));
     }
 
     [Fact]

@@ -6,7 +6,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
 /// Cross-file rules for a CMT package: everything data.xml references must be declared in data_schema.xml,
-/// each record's primary-id field must carry its id (TXM017) and each lookup must name its target (TXM021).
+/// each record's primary-id field must carry its id (TXM017), each lookup must name its target (TXM021) and each
+/// value must be in the text form CMT reads for its type (TXM022).
 /// Names are compared ordinally, as CMT's importer does; a match that only succeeds when letter case is
 /// ignored is reported as <see cref="ValidationDiagnostics.CmtNameCaseMismatch"/> instead of "undeclared".
 /// </summary>
@@ -49,6 +50,7 @@ public sealed class CmtPackageValidator
             CheckRecordIdentity(schemaEntity, dataEntity, results);
             CheckFields(package.Schema, schemaEntity, dataEntity, results);
             CheckLookups(schemaEntity, dataEntity, results);
+            CheckValues(schemaEntity, dataEntity, results);
             CheckManyToMany(package.Schema, schemaEntity, dataEntity, results);
         }
 
@@ -138,6 +140,27 @@ public sealed class CmtPackageValidator
         {
             results.Add(CmtFindings.Finding(ValidationSeverity.Warning, group.First().Field, ValidationDiagnostics.CmtDataLookupIncomplete,
                 $"CMT data.xml lookup '{dataEntity.Name}.{group.Key.Name}' ({group.Count()} records) {group.Key.Problem}; CMT skips the lookup without failing the import."));
+        }
+    }
+
+    // CMT parses values per schema type and silently drops, zeroes or misreads what it cannot parse. One finding per
+    // entity and field. Templates are only values once the TALXIS importer has rendered them; the primary id is TXM017's.
+    private static void CheckValues(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    {
+        if (schemaEntity.RenderLiquid == true) return;
+
+        var invalid = dataEntity.Records.SelectMany(r => r.Fields)
+            .Where(f => !string.IsNullOrEmpty(f.Value) && !f.Value!.Contains("{{") && !f.Value.Contains("{%"))
+            .Where(f => !string.Equals(f.Name, schemaEntity.PrimaryIdField, StringComparison.Ordinal))
+            .Select(f => (Field: f, Type: schemaEntity.FindField(f.Name)?.Type))
+            .Where(p => p.Type is not null && !CmtValueFormats.IsValid(p.Type, p.Field.Value!))
+            .GroupBy(p => p.Field.Name, StringComparer.Ordinal);
+        foreach (var group in invalid)
+        {
+            var (first, type) = group.First();
+            results.Add(CmtFindings.Finding(ValidationSeverity.Warning, first, ValidationDiagnostics.CmtDataValueInvalid,
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) has a value CMT cannot read as {type} (first: '{first.Value}'); "
+                + (type == CmtFieldTypes.Bool ? "CMT imports it as false." : "CMT drops or misreads it without failing the import.")));
         }
     }
 

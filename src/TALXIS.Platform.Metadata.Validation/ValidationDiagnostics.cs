@@ -101,4 +101,11 @@ public static class ValidationDiagnostics
     /// outside the schema field's lookupType. CMT skips such a lookup silently and the import still succeeds.
     /// </summary>
     public const string CmtDataLookupIncomplete = "TXM021";
+
+    /// <summary>
+    /// A CMT data.xml value is not in the text form CMT reads for the field's schema type (bool other than true/false, a non-integer
+    /// number, a number with a currency symbol or comma decimal, an unparseable datetime/guid/option value). CMT drops, zeroes or
+    /// misreads it and the import still succeeds. Liquid templates (TALXIS renderliquid) are not checked.
+    /// </summary>
+    public const string CmtDataValueInvalid = "TXM022";
 }
