@@ -154,7 +154,8 @@ public class CmtPackageRoundtripTests : IDisposable
         Assert.Equal(5, package.Schema.Entities.Count);
     }
 
-    private static string ReadFixture(string fileName) => File.ReadAllText(Path.Combine(FixturePath, fileName));
+    // The variants add their own line endings, so start from LF whatever the checkout produced.
+    private static string ReadFixture(string fileName) => File.ReadAllText(Path.Combine(FixturePath, fileName)).Replace("\r\n", "\n");
 
     private static byte[] Variant(string variant, string text)
     {

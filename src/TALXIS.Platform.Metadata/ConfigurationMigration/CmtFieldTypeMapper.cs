@@ -1,4 +1,5 @@
 using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Components.Attributes;
 
 namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
@@ -34,4 +35,10 @@ public static class CmtFieldTypeMapper
         AttributeType.File => CmtFieldTypes.FileData,
         _ => null
     };
+
+    /// <summary>
+    /// Returns the CMT field type for a column, telling owner lookups apart from plain and customer ones (<see cref="LookupKind"/>).
+    /// </summary>
+    public static string? ToCmtType(AttributeMetadata attribute) =>
+        attribute is LookupAttributeMetadata { LookupKind: LookupKind.Owner } ? CmtFieldTypes.Owner : ToCmtType(attribute.AttributeType);
 }

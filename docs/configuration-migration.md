@@ -46,6 +46,76 @@ var changed = new CmtPackageXmlWriter().Save(package, @"C:\MyPackage");   // fal
 
 The writer does not regenerate files. It patches the documents the package was loaded from, matching elements by name (entities, fields, relationships) or id (records, associations), so unknown attributes and elements, XML comments, attribute order, BOM, line endings, the declaration and CMT's `<entities >` root survive, and the diff contains only the intended change. `Load → Save` is a zero-byte diff; an unchanged document is never re-serialised. Elements are written in CMT's order (`entityImportOrder` after the entities; `fields`, `relationships`, `filter` inside an entity). A package built in memory (`new CmtPackage(schema, data)`) is written as a new, indented document.
 
+## Build, merge and order
+
+Package-level operations live next to the model in `TALXIS.Platform.Metadata.ConfigurationMigration`: `CmtSchemaBuilder` for data_schema.xml and `CmtDataBuilder` for data.xml. They change the in-memory model only; save it with the writer as usual.
+
+### Build an entity from table metadata
+
+```csharp
+var warnings = new List<string>();
+var options = new CmtSchemaBuildOptions { FieldSelection = CmtFieldSelection.Standard, IncludeManyToMany = true };
+
+// From a loaded workspace (solution sources, or a workspace hydrated from a live environment):
+var account = CmtWorkspaceSchemaBuilder.BuildEntity(workspace, "account", options, warnings, target: package.Schema);
+
+// Or from the metadata objects directly:
+var contact = CmtSchemaBuilder.BuildEntity(entityMetadata, relationships, options, warnings, package.Schema);
+
+CmtSchemaBuilder.AddOrReplaceEntity(package.Schema, account);
+```
+
+`FieldSelection` decides which columns go in:
+
+| Selection | Columns |
+|---|---|
+| `Minimal` | primary id and name, custom columns, required (`ApplicationRequired`/`SystemRequired`) non-system columns |
+| `Standard` (default) | `Minimal` plus every lookup, customer and choice column, and `overriddencreatedon` |
+| `Full` | every column valid for both create and update, plus `overriddencreatedon`, `createdby`, `modifiedby` |
+
+Never included, whatever the selection: calculated, rollup and formula columns (`SourceType`), columns not valid for read, derived columns (`AttributeOf`, except image and multi-select), `_base` money columns, `versionnumber`, `createdon`, `modifiedon`, the `ownerid*name` helpers, and types `CmtFieldTypeMapper` cannot map. A flag the source does not carry (`null`) counts as allowed.
+
+Each field gets its CMT type from `CmtFieldTypeMapper` (owner lookups become `owner` with no `lookupType`, customer and plain lookups `entityreference`), `lookupType` from the column's targets or, when the source does not list them, from the N:1 relationships, `customfield` and the display name. The primary name field is marked `updateCompare`, or the primary id when the table has no primary name. Names coming from relationship files (`Account`, `talxis_PriceListHeaderId`) are lowercased to logical names.
+
+Relationships need `target`, the schema the entity is going into. An N:1 entry is added only when `target` declares the referenced table; otherwise the field stays and a warning says so. With `IncludeManyToMany`, an M2M entry is added for every many-to-many relationship of the table, also when the other table is not in the package (CMT exports those too, for tables delivered by another package); that case adds a warning, and the other table's primary key comes from `target`, then from the workspace, then `<table>id`.
+
+`BuildEntity` returns a detached entity. `AddOrReplaceEntity(target, entity, replaceFields: false)` adds it, or refreshes an entity of the same name: fields already declared stay as they are (hand edits such as `updateCompare` win) and only new fields are appended, unless `replaceFields` is set; relationships are taken from the new entity; attributes it leaves `null` keep their value. `RemoveEntity(target, name)` drops an entity, its import-order entry and the N:1/M2M entries of other entities that point at it; lookup fields that target it stay.
+
+### Merge packages
+
+Merging several packages into one (what the build does for a PD package) uses dedicated operations that join instead of replace, so the result does not depend on the order the packages come in:
+
+```csharp
+var schema = new CmtDataSchema();
+var data = new CmtData();
+var warnings = new List<string>();
+foreach (var package in packages)
+{
+    foreach (var entity in package.Schema.Entities) CmtSchemaBuilder.MergeEntity(schema, entity, warnings);
+    foreach (var entity in package.Data?.Entities ?? Enumerable.Empty<CmtDataEntity>()) CmtDataBuilder.MergeEntity(data, entity, warnings);
+}
+```
+
+- `CmtSchemaBuilder.MergeEntity`: the first package that declares an entity wins its attributes, later packages only fill attributes that are still absent; fields and relationships are joined by name, the first declaration winning. Two packages setting an attribute to different values is a warning.
+- `CmtDataBuilder.MergeEntity`: a record that is already there (same id) gains the fields it lacks instead of being dropped; when copies give one field different values the first is kept and the conflict is reported once per field. Records repeated inside one package are merged the same way, which produces a record neither copy had when the copies differ: validate each package first (TXM017 reports the repeated id) and treat that error as a stop. Many-to-many associations are joined by source record and relationship, their target ids united.
+
+Use `AddOrReplaceEntity` to refresh an entity from metadata and `MergeEntity` to combine packages: `AddOrReplaceEntity` replaces the relationship list, which would drop M2M entries declared in an earlier package.
+
+### Import order
+
+```csharp
+CmtSchemaBuilder.ResolveImportOrder(schema, warnings, manualOrder: new[] { "talxis_permissionleveldefaults", "talxis_entityauthtemplate" });
+```
+
+`ResolveImportOrder` writes `EntityImportOrder` and reorders `Entities` to match (the writer moves the `<entity>` blocks in the file). The starting point is the current order: the existing import order, then the element order.
+
+- An entity comes after the entities it looks up: N:1 relationships and `entityreference`/`customer` fields with a `lookupType` (`account|contact` counts both). `ReferencedEntities(entity)` returns that list. A lookup without `lookupType` is invisible here: CMT itself ignores the attribute on import, but the order cannot be derived without it.
+- Entities in `manualOrder` swap places only among themselves, on the slots they already occupy, and keep exactly that relative order even when a lookup disagrees; each conflict is a warning (and TXM026 when the schema is validated). The list may be partial.
+- Every other entity stays where it is unless a lookup forces it to move; then the child waits for its parent and nothing else shifts. A name in `manualOrder` the schema does not declare is ignored with a warning.
+- Self-references are ignored. A lookup cycle is broken at the earliest entity in the current order that does not jump ahead of the manual order, with a warning.
+
+When merging packages, pass the `entityImportOrder` lists of the source packages as `manualOrder`: hand-written orders survive and the remaining entities follow their lookups.
+
 ## Validation
 
 Two validators in `TALXIS.Platform.Metadata.Validation`, run by `WorkspaceValidator.ValidateDirectory` in stage `CmtData`, plus the XSD `CmtData.xsd` in the schema stage:
@@ -75,6 +145,7 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, run by `WorkspaceValida
 | TXM023 | `filedata` value without `files/<value>.bin` in the package folder | warning | fails that record, exits 0 |
 | TXM024 | M2M `targetentitynameidfield` is not the target entity's `primaryidfield` | error | crashes after the records are committed |
 | TXM025 | two records of an entity share their `updateCompare` values (or primary name when there are none) | warning | on re-import every one of them updates the same existing record |
+| TXM026 | `entityImportOrder` imports an entity before an entity it looks up (two entities that look each other up are not reported) | warning | fills those lookups in its second pass; flags an order that disagrees with the lookups |
 
 TXM015 in detail, because CMT compares every name ordinally:
 

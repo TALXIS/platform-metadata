@@ -32,6 +32,11 @@ public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata
     public OwnershipType Ownership { get; set; } = OwnershipType.UserOwned;
 
     /// <summary>
+    /// Entity type code (<c>ObjectTypeCode</c>); <c>null</c> when the source does not carry it, which is the case for unpacked solutions.
+    /// </summary>
+    public int? ObjectTypeCode { get; set; }
+
+    /// <summary>
     /// Gets or sets the primary key attribute logical name.
     /// </summary>
     public string? PrimaryIdAttribute { get; set; }

@@ -79,6 +79,7 @@ public sealed class CmtDataSchemaValidator
         ValidateDateMode(schema, schema.DateMode, "CMT data_schema.xml root", results);
         ValidateDuplicateEntities(schema, results);
         ValidateImportOrder(schema, results);
+        ValidateChildBeforeParent(schema, results);
         return results;
     }
 
@@ -240,6 +241,30 @@ public sealed class CmtDataSchemaValidator
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
                 $"CMT data_schema.xml entity '{duplicate.Name}' is declared more than once. The TALXIS importer fails on the duplicate."));
+        }
+    }
+
+    // A two-entity cycle (account and contact looking each other up) cannot be ordered at all, so it is not reported.
+    private static void ValidateChildBeforeParent(CmtDataSchema schema, List<ValidationResult> results)
+    {
+        if (schema.EntityImportOrder.Count == 0) return;
+
+        var position = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < schema.EntityImportOrder.Count; i++)
+        {
+            if (!position.ContainsKey(schema.EntityImportOrder[i])) position[schema.EntityImportOrder[i]] = i;
+        }
+
+        foreach (var child in schema.Entities.Where(e => position.ContainsKey(e.Name)))
+        {
+            foreach (var parent in CmtSchemaBuilder.ReferencedEntities(child).Where(p => position.ContainsKey(p) && position[p] > position[child.Name]))
+            {
+                var parentEntity = schema.FindEntity(parent);
+                if (parentEntity is not null && CmtSchemaBuilder.ReferencedEntities(parentEntity).Contains(child.Name)) continue;
+
+                results.Add(CmtFindings.Warning(child, ValidationDiagnostics.CmtImportOrderChildBeforeParent,
+                    $"CMT entityImportOrder imports '{child.Name}' before '{parent}', which it looks up. CMT fills those lookups in its second pass; keep the order only if it is intentional."));
+            }
         }
     }
 

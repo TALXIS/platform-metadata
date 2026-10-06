@@ -540,4 +540,64 @@ public class XmlWorkspaceReaderTests
             </Entity>
             """);
     }
+
+    [Fact]
+    public void Load_ReadsApiFlagsSourceTypeAndLookupKind()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        CopyDirectory(SamplePath, root);
+        try
+        {
+            var entityPath = Directory.GetFiles(Path.Combine(root, "Entities"), "Entity.xml", SearchOption.AllDirectories)[0];
+            var xml = File.ReadAllText(entityPath).Replace("</attributes>", """
+                <attribute PhysicalName="OwnerId">
+                  <Type>owner</Type>
+                  <LogicalName>ownerid</LogicalName>
+                  <ValidForCreateApi>1</ValidForCreateApi>
+                  <ValidForUpdateApi>1</ValidForUpdateApi>
+                  <ValidForReadApi>1</ValidForReadApi>
+                </attribute>
+                <attribute PhysicalName="tp_customerid">
+                  <Type>customer</Type>
+                  <LogicalName>tp_customerid</LogicalName>
+                </attribute>
+                <attribute PhysicalName="tp_total">
+                  <Type>int</Type>
+                  <LogicalName>tp_total</LogicalName>
+                  <ValidForCreateApi>0</ValidForCreateApi>
+                  <ValidForUpdateApi>0</ValidForUpdateApi>
+                  <ValidForReadApi>1</ValidForReadApi>
+                  <SourceType>2</SourceType>
+                </attribute>
+              </attributes>
+              """);
+            File.WriteAllText(entityPath, xml);
+
+            var entity = new XmlWorkspaceReader().Load(root).Entities[0];
+
+            var owner = Assert.IsType<LookupAttributeMetadata>(entity.FindAttribute("ownerid"));
+            Assert.Equal(LookupKind.Owner, owner.LookupKind);
+            Assert.Equal(AttributeType.Lookup, owner.AttributeType);
+            Assert.True(owner.IsValidForCreate);
+            Assert.Equal(LookupKind.Customer, Assert.IsType<LookupAttributeMetadata>(entity.FindAttribute("tp_customerid")).LookupKind);
+
+            var total = entity.FindAttribute("tp_total")!;
+            Assert.Equal(AttributeSourceType.Rollup, total.SourceType);
+            Assert.False(total.IsValidForCreate);
+            Assert.False(total.IsValidForUpdate);
+            Assert.True(total.IsValidForRead);
+            Assert.Null(entity.FindAttribute("tp_customerid")!.IsValidForCreate);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories)) Directory.CreateDirectory(directory.Replace(source, target));
+        Directory.CreateDirectory(target);
+        foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories)) File.Copy(file, file.Replace(source, target));
+    }
 }

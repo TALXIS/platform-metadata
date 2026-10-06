@@ -201,9 +201,9 @@ public sealed class CmtPackageXmlWriter
         XElement? previous = null;
         foreach (var item in items)
         {
-            var element = available.TryGetValue(key(item), out var matches) && matches.Count > 0
-                ? matches.Dequeue()
-                : XmlPatch.Insert(container, name, previous, new XElement(name));
+            var isNew = !available.TryGetValue(key(item), out var matches) || matches.Count == 0;
+            var element = isNew ? XmlPatch.Insert(container, name, previous, new XElement(name)) : matches!.Dequeue();
+            if (!isNew) XmlPatch.MoveAfter(container, name, previous, element);
             apply(item, element);
             previous = element;
         }

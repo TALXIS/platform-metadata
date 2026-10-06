@@ -298,6 +298,12 @@ public sealed class XmlWorkspaceReader
         attr.IsAuditEnabled = attrEl.Element("IsAuditEnabled")?.Value == "1";
         attr.IsSecured = attrEl.Element("IsSecured")?.Value == "1";
         attr.IsSearchable = attrEl.Element("IsSearchable")?.Value == "1";
+        attr.IsValidForCreate = ParseBit(attrEl.Element("ValidForCreateApi"));
+        attr.IsValidForUpdate = ParseBit(attrEl.Element("ValidForUpdateApi"));
+        attr.IsValidForRead = ParseBit(attrEl.Element("ValidForReadApi"));
+        attr.SourceType = int.TryParse(attrEl.Element("SourceType")?.Value, out var sourceType) && Enum.IsDefined(typeof(AttributeSourceType), sourceType)
+            ? (AttributeSourceType)sourceType
+            : null;
         attr.Source = CreateSourceLocation(filePath, attrEl);
 
         // Required level
@@ -313,6 +319,13 @@ public sealed class XmlWorkspaceReader
 
         return attr;
     }
+
+    private static bool? ParseBit(XElement? element) => element?.Value switch
+    {
+        "1" or "true" => true,
+        "0" or "false" => false,
+        _ => null
+    };
 
     private static AttributeMetadata? CreateTypedAttribute(string typeStr, XElement attrEl, string logicalName)
     {
@@ -339,11 +352,11 @@ public sealed class XmlWorkspaceReader
                 return new UniqueIdentifierAttributeMetadata { LogicalName = logicalName };
 
             case "lookup" or "customer" or "owner":
-            {
-                if (typeStr == "owner")
-                    return new LookupAttributeMetadata { LogicalName = logicalName }; // Owner type maps to Lookup in model
-                return new LookupAttributeMetadata { LogicalName = logicalName };
-            }
+                return new LookupAttributeMetadata
+                {
+                    LogicalName = logicalName,
+                    LookupKind = typeStr == "owner" ? LookupKind.Owner : typeStr == "customer" ? LookupKind.Customer : LookupKind.Lookup
+                };
             case "datetime":
             {
                 var da = new DateTimeAttributeMetadata { LogicalName = logicalName };

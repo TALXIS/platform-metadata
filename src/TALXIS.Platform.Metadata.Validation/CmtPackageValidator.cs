@@ -73,8 +73,10 @@ public sealed class CmtPackageValidator
     {
         foreach (var duplicate in dataEntity.Records.GroupBy(r => r.Id).Where(g => g.Count() > 1))
         {
+            var differing = DifferingFields(duplicate.ToList());
+            var content = differing.Count == 0 ? "identical copies" : $"copies differ in {string.Join(", ", differing)}";
             results.Add(CmtFindings.Error(duplicate.ElementAt(1), ValidationDiagnostics.CmtRecordIdentityInvalid,
-                $"CMT data.xml entity '{dataEntity.Name}' has {duplicate.Count()} records with id '{duplicate.Key}'. CMT imports each copy, but lookups to that id are skipped."));
+                $"CMT data.xml entity '{dataEntity.Name}' has {duplicate.Count()} records with id '{duplicate.Key}' ({content}). CMT imports each copy, but lookups to that id are skipped."));
         }
 
         var idField = schemaEntity.PrimaryIdField;
@@ -272,4 +274,19 @@ public sealed class CmtPackageValidator
 
     // TALXIS Liquid templates ({{ }} and {% %}) are values only once the TALXIS importer has rendered them.
     private static bool IsTemplate(string? value) => value != null && (value.Contains("{{") || value.Contains("{%"));
+
+    // Lets the repeated-id finding say what the copies disagree on: the environment keeps the last copy.
+    private static List<string> DifferingFields(IReadOnlyList<CmtDataRecord> records)
+    {
+        string Content(CmtDataRecord record, string name)
+        {
+            var field = record.Fields.FirstOrDefault(f => f.Name == name);
+            return field is null ? " absent" : $"{field.Value} {field.LookupEntity} {field.FileName}";
+        }
+
+        var names = records.SelectMany(r => r.Fields.Select(f => f.Name)).Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal);
+        var differing = names.Where(name => records.Select(r => Content(r, name)).Distinct(StringComparer.Ordinal).Count() > 1).ToList();
+        if (records.Select(r => r.NewId).Distinct().Count() > 1) differing.Insert(0, "newId");
+        return differing;
+    }
 }

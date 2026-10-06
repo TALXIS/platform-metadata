@@ -15,8 +15,11 @@ public class CmtPackageMutationTests : IDisposable
     public CmtPackageMutationTests()
     {
         Directory.CreateDirectory(_root);
+        // The expectations are written with LF; a Windows checkout of the fixture has CRLF.
         foreach (var file in new[] { CmtPackageLayout.SchemaFileName, CmtPackageLayout.DataFileName })
-            File.Copy(Path.Combine(FixturePath, file), Path.Combine(_root, file));
+        {
+            File.WriteAllText(Path.Combine(_root, file), File.ReadAllText(Path.Combine(FixturePath, file)).Replace("\r\n", "\n"));
+        }
     }
 
     public void Dispose()
