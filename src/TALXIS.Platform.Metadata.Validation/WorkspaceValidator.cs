@@ -149,14 +149,13 @@ public sealed class WorkspaceValidator
             results.AddRange(SolutionValidator.WithStage(cmtValidator.ValidateFile(file), ValidationStage.CmtData));
 
             if (!string.Equals(Path.GetFileName(file), CmtPackageLayout.SchemaFileName, StringComparison.OrdinalIgnoreCase)) continue;
-            var dataFile = Path.Combine(Path.GetDirectoryName(file)!, CmtPackageLayout.DataFileName);
-            if (!File.Exists(dataFile)) continue;
 
             // Load errors are left to the XSD stage, which already reports malformed files.
-            var package = new CmtPackageXmlReader().Load(file, dataFile);
-            if (package.LoadErrors.Count > 0) continue;
+            var packageDirectory = Path.GetDirectoryName(file)!;
+            var package = new CmtPackageXmlReader().LoadDirectory(packageDirectory);
+            if (package.Data == null || package.LoadErrors.Count > 0) continue;
             results.AddRange(SolutionValidator.WithStage(packageValidator.Validate(package), ValidationStage.CmtData));
-            results.AddRange(SolutionValidator.WithStage(CmtFilePayloadFindings(package, Path.GetDirectoryName(file)!), ValidationStage.CmtData));
+            results.AddRange(SolutionValidator.WithStage(CmtFilePayloadFindings(package, packageDirectory), ValidationStage.CmtData));
         }
     }
 

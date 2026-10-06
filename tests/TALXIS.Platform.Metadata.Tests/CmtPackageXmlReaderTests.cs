@@ -236,13 +236,13 @@ public class CmtPackageXmlReaderTests
     }
 
     [Fact]
-    public void MissingDataFileIsReportedAsLoadError()
+    public void MissingDataFile_LeavesDataNullWithoutLoadError()
     {
         var package = new CmtPackageXmlReader().Load(
             Path.Combine(FixtureRoot, "basic", "data_schema.xml"),
             Path.Combine(FixtureRoot, "basic", "missing.xml"));
 
-        Assert.Single(package.LoadErrors);
+        Assert.Empty(package.LoadErrors);
         Assert.Null(package.Data);
         Assert.Equal(3, package.Schema.Entities.Count);
     }

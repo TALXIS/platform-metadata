@@ -109,18 +109,18 @@ public class CmtAuthoringTests
             data.AddEntity("account", "Account").AddRecord(new Guid("11111111-1111-1111-1111-111111111111")).Set("name", "Contoso");
 
             var writer = new CmtPackageXmlWriter();
-            Assert.True(writer.SaveIfChanged(new CmtPackage(schema, data), directory));
+            Assert.True(writer.Save(new CmtPackage(schema, data), directory));
             Assert.True(File.Exists(Path.Combine(directory, CmtPackageLayout.SchemaFileName)));
             Assert.True(File.Exists(Path.Combine(directory, CmtPackageLayout.DataFileName)));
 
-            var loaded = new CmtPackageXmlReader().Load(directory);
+            var loaded = new CmtPackageXmlReader().LoadDirectory(directory);
             Assert.Empty(loaded.LoadErrors);
             Assert.Equal("Contoso", loaded.Data!.FindEntity("account")!.Records.Single().Fields.Single().Value);
-            Assert.False(writer.SaveIfChanged(loaded, directory));
+            Assert.False(writer.Save(loaded, directory));
 
             loaded.Schema.FindEntity("account")!.AddField("telephone1", CmtFieldTypes.String, "Phone");
-            Assert.True(writer.SaveIfChanged(loaded, directory));
-            Assert.NotNull(new CmtPackageXmlReader().Load(directory).Schema.FindEntity("account")!.FindField("telephone1"));
+            Assert.True(writer.Save(loaded, directory));
+            Assert.NotNull(new CmtPackageXmlReader().LoadDirectory(directory).Schema.FindEntity("account")!.FindField("telephone1"));
         }
         finally
         {
@@ -137,7 +137,7 @@ public class CmtAuthoringTests
         {
             File.WriteAllText(Path.Combine(directory, CmtPackageLayout.SchemaFileName), "<entities><entity name=\"account\"><fields /></entity></entities>");
 
-            var package = new CmtPackageXmlReader().Load(directory);
+            var package = new CmtPackageXmlReader().LoadDirectory(directory);
 
             Assert.Empty(package.LoadErrors);
             Assert.Null(package.Data);

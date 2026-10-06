@@ -48,17 +48,17 @@ new CmtPackageXmlWriter().Save(new CmtPackage(schema, data), @"C:\MyPackage");  
 Editing an existing one:
 
 ```csharp
-var package = new CmtPackageXmlReader().Load(@"C:\MyPackage");
+var package = new CmtPackageXmlReader().LoadDirectory(@"C:\MyPackage");
 // package.LoadErrors lists unreadable files and records whose id is not a GUID (those are skipped).
 
 var account = package.Schema.FindEntity("account")!;
 account.FindField("telephone1")!.IsUpdateCompare = true;
 account.AddField("websiteurl", CmtFieldTypes.String, "Website");
 
-bool changed = new CmtPackageXmlWriter().SaveIfChanged(package, @"C:\MyPackage");   // false when nothing changed
+var changed = new CmtPackageXmlWriter().Save(package, @"C:\MyPackage");   // false when nothing changed
 ```
 
-`Load(directory)`/`Save(package, directory)` combine the directory with CMT's fixed file names (`CmtPackageLayout`); the two-path overloads (`Load(schemaPath, dataPath)`, `SaveSchema`, `SaveData`) stay for callers that resolved the files themselves. Object initialisers keep working (`new CmtSchemaField { Name = …, Type = … }`); the helpers only add duplicate checks and the conventions CMT expects (a `guid` primary-key field, the import-order entry).
+`LoadDirectory(directory)`/`Save(package, directory)` combine the directory with CMT's fixed file names (`CmtPackageLayout`); `Load(schemaPath, dataPath)`, `SaveSchema` and `SaveData` take file paths. A missing data file leaves `Data` null in both loaders. Object initialisers keep working (`new CmtSchemaField { Name = …, Type = … }`); the helpers only add duplicate checks and the conventions CMT expects (a `guid` primary-key field, the import-order entry).
 
 The writer does not regenerate files. It patches the documents the package was loaded from, matching elements by name (entities, fields, relationships) or id (records, associations), so unknown attributes and elements, XML comments, attribute order, BOM, line endings, the declaration and CMT's `<entities >` root survive, and the diff contains only the intended change. `Load → Save` is a zero-byte diff; an unchanged document is never re-serialised. Elements are written in CMT's order (`entityImportOrder` after the entities; `fields`, `relationships`, `filter` inside an entity). A package built in memory (`new CmtPackage(schema, data)`) is written as a new, indented document.
 

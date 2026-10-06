@@ -15,18 +15,20 @@ public sealed class CmtPackageXmlReader
     private const LoadOptions XmlLoadOptions = LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo;
 
     /// <summary>
-    /// Loads a package from explicit file paths (<paramref name="dataPath"/> <c>null</c> for a schema-only package).
-    /// Missing or malformed files, and records or associations whose ids do not parse (those are skipped), are
-    /// reported in <see cref="CmtPackage.LoadErrors"/>. A single path means a package directory: see <see cref="Load(string)"/>.
+    /// Loads a package from <paramref name="schemaPath"/> and, when it exists, <paramref name="dataPath"/>; a missing
+    /// data file leaves <see cref="CmtPackage.Data"/> null. Unreadable or malformed files, and records or associations
+    /// whose ids do not parse (those are skipped), are reported in <see cref="CmtPackage.LoadErrors"/>.
     /// </summary>
-    public CmtPackage Load(string schemaPath, string? dataPath)
+    /// <param name="schemaPath">Path to data_schema.xml.</param>
+    /// <param name="dataPath">Path to data.xml, or <c>null</c> for a schema-only package.</param>
+    public CmtPackage Load(string schemaPath, string? dataPath = null)
     {
         var errors = new List<WorkspaceLoadError>();
         var schemaFile = TryLoad(schemaPath, errors);
         var schema = schemaFile == null ? new CmtDataSchema() : ReadSchema(schemaFile.Value.Document, schemaPath);
 
         CmtData? data = null;
-        var dataFile = dataPath == null ? null : TryLoad(dataPath, errors);
+        var dataFile = dataPath == null || !FileExists(dataPath) ? null : TryLoad(dataPath, errors);
         if (dataFile != null) data = ReadData(dataFile.Value.Document, dataPath, errors);
 
         return new CmtPackage(schema, data, errors)
@@ -39,14 +41,13 @@ public sealed class CmtPackageXmlReader
     }
 
     /// <summary>
-    /// Loads the package in <paramref name="packageDirectory"/>: <see cref="CmtPackageLayout.SchemaFileName"/> and,
-    /// when present, <see cref="CmtPackageLayout.DataFileName"/> (a missing data file leaves <see cref="CmtPackage.Data"/>
-    /// null without a load error). The directory is the caller's; nothing is searched for.
+    /// Loads the package in <paramref name="packageDirectory"/> from CMT's fixed file names (<see cref="CmtPackageLayout"/>),
+    /// with the same rules as <see cref="Load"/>. The directory is the caller's; nothing is searched for.
     /// </summary>
-    public CmtPackage Load(string packageDirectory)
+    /// <param name="packageDirectory">Folder holding data_schema.xml and, optionally, data.xml.</param>
+    public CmtPackage LoadDirectory(string packageDirectory)
     {
-        var dataPath = Path.Combine(packageDirectory, CmtPackageLayout.DataFileName);
-        return Load(Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName), FileExists(dataPath) ? dataPath : null);
+        return Load(Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName), Path.Combine(packageDirectory, CmtPackageLayout.DataFileName));
     }
 
     /// <summary>

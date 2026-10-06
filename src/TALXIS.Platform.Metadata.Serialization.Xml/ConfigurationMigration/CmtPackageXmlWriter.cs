@@ -18,55 +18,41 @@ public sealed class CmtPackageXmlWriter
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
     /// <summary>
-    /// Writes the package schema as data_schema.xml to the supplied writer. The package's original document is
-    /// patched in place (and stays patched), then serialised with the writer's own settings: BOM, newline style
-    /// and the <c>&lt;entities &gt;</c> quirk that <see cref="SaveSchema"/> preserves are the caller's business here.
-    /// </summary>
-    public void WriteSchema(CmtPackage package, XmlWriter writer) => BuildSchema(package).Save(writer);
-
-    /// <summary>
-    /// Writes the package data as data.xml to the supplied writer. Same contract as <see cref="WriteSchema"/>.
-    /// </summary>
-    public void WriteData(CmtPackage package, XmlWriter writer) => BuildData(package).Save(writer);
-
-    /// <summary>
-    /// Saves the package schema to a data_schema.xml file, keeping the existing file's BOM, newline style and
-    /// declaration. An unchanged document is not rewritten.
-    /// </summary>
-    public void SaveSchema(CmtPackage package, string path) => SaveSchemaCore(package, path);
-
-    /// <summary>
-    /// Saves the package data to a data.xml file; same contract as <see cref="SaveSchema"/>. Throws when the package has no data.
-    /// </summary>
-    public void SaveData(CmtPackage package, string path) => SaveDataCore(package, path);
-
-    /// <summary>
     /// Saves the schema and, when the package has data, the data file into <paramref name="packageDirectory"/>
-    /// under CMT's fixed names (<see cref="CmtPackageLayout"/>). Unchanged documents are not rewritten.
+    /// under CMT's fixed names (<see cref="CmtPackageLayout"/>). Returns whether any file was written.
     /// </summary>
-    public void Save(CmtPackage package, string packageDirectory) => SaveIfChanged(package, packageDirectory);
-
-    /// <summary>
-    /// Same as <see cref="Save"/>, but reports whether any file was written. Use it when the caller shows
-    /// "created / updated / unchanged".
-    /// </summary>
-    public bool SaveIfChanged(CmtPackage package, string packageDirectory)
+    /// <param name="package">The package to save.</param>
+    /// <param name="packageDirectory">Target folder; created when missing.</param>
+    public bool Save(CmtPackage package, string packageDirectory)
     {
         CreateDirectory(packageDirectory);
-        var written = SaveSchemaCore(package, Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName));
-        if (package.Data is not null) written |= SaveDataCore(package, Path.Combine(packageDirectory, CmtPackageLayout.DataFileName));
+        var written = SaveSchema(package, Path.Combine(packageDirectory, CmtPackageLayout.SchemaFileName));
+        if (package.Data != null) written |= SaveData(package, Path.Combine(packageDirectory, CmtPackageLayout.DataFileName));
         return written;
     }
 
-    private static bool SaveSchemaCore(CmtPackage package, string path) =>
-        SaveIfChanged(BuildSchema(package), package.SchemaBytes, path, indent: package.SchemaDocument == null);
+    /// <summary>
+    /// Saves the package schema to a data_schema.xml file, keeping the existing file's BOM, newline style and
+    /// declaration. Returns <c>false</c> when the file already holds the same content.
+    /// </summary>
+    /// <param name="package">The package to save.</param>
+    /// <param name="path">Target file path.</param>
+    public bool SaveSchema(CmtPackage package, string path)
+    {
+        return WriteIfChanged(BuildSchema(package), package.SchemaBytes, path, indent: package.SchemaDocument == null);
+    }
 
-    private static bool SaveDataCore(CmtPackage package, string path) =>
-        SaveIfChanged(BuildData(package), package.DataBytes, path, indent: package.DataDocument == null);
+    /// <summary>Saves the package data to a data.xml file; same contract as <see cref="SaveSchema"/>. Throws when the package has no data.</summary>
+    /// <param name="package">The package to save.</param>
+    /// <param name="path">Target file path.</param>
+    public bool SaveData(CmtPackage package, string path)
+    {
+        return WriteIfChanged(BuildData(package), package.DataBytes, path, indent: package.DataDocument == null);
+    }
 
     // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
     // example), so a document that still matches the file it was loaded from is saved as that file's bytes.
-    private static bool SaveIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
+    private static bool WriteIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
     {
         var existing = FileExists(path) ? ReadAllBytes(path) : null;
         var bytes = loadedBytes != null && IsUnchanged(document, loadedBytes)
@@ -105,8 +91,10 @@ public sealed class CmtPackageXmlWriter
 
     private static XDocument NewDocument(XElement root) => new(new XDeclaration("1.0", "utf-8", null), root);
 
-    private static void ApplySchemaEntity(CmtSchemaEntity entity, XElement element, bool isNew)
+    private static void ApplySchemaEntity(CmtSchemaEntity entity, XElement element)
     {
+        // A new entity gets the empty <fields> CMT always writes.
+        var isNew = element.IsEmpty && !element.HasAttributes;
         SetString(element, "name", entity.Name);
         SetString(element, "displayname", entity.DisplayName);
         SetString(element, "etc", entity.ObjectTypeCode?.ToString(CultureInfo.InvariantCulture));
@@ -122,7 +110,7 @@ public sealed class CmtPackageXmlWriter
         SyncFilter(element, entity.FetchXmlFilter);
     }
 
-    private static void ApplySchemaField(CmtSchemaField field, XElement element, bool isNew)
+    private static void ApplySchemaField(CmtSchemaField field, XElement element)
     {
         SetBool(element, "updateCompare", field.IsUpdateCompare);
         SetString(element, "displayname", field.DisplayName);
@@ -134,7 +122,7 @@ public sealed class CmtPackageXmlWriter
         SetBool(element, "customfield", field.IsCustomField);
     }
 
-    private static void ApplyRelationship(CmtSchemaRelationship relationship, XElement element, bool isNew)
+    private static void ApplyRelationship(CmtSchemaRelationship relationship, XElement element)
     {
         SetString(element, "name", relationship.Name);
         SetBool(element, "manyToMany", relationship.IsManyToMany);
@@ -149,8 +137,10 @@ public sealed class CmtPackageXmlWriter
         SyncChildren(Container(element, "fields", relationship.Fields.Count > 0), "field", relationship.Fields, f => f.Name, ApplySchemaField);
     }
 
-    private static void ApplyDataEntity(CmtDataEntity entity, XElement element, bool isNew)
+    private static void ApplyDataEntity(CmtDataEntity entity, XElement element)
     {
+        // A new entity gets the empty <records> and <m2mrelationships> CMT always writes.
+        var isNew = element.IsEmpty && !element.HasAttributes;
         SetString(element, "name", entity.Name);
         SetString(element, "displayname", entity.DisplayName);
         SyncChildren(Container(element, "records", isNew || entity.Records.Count > 0), "record", entity.Records, r => GuidKey(r.Id), ApplyRecord);
@@ -158,7 +148,7 @@ public sealed class CmtPackageXmlWriter
             entity.ManyToManyRelationships, m => ManyToManyKey(m.RelationshipName, m.SourceId), ApplyManyToMany);
     }
 
-    private static void ApplyRecord(CmtDataRecord record, XElement element, bool isNew)
+    private static void ApplyRecord(CmtDataRecord record, XElement element)
     {
         // Activity parties may have no id (read as Guid.Empty); records always carry one.
         if (record.Id != Guid.Empty || element.Name.LocalName == "record") SetGuid(element, "id", record.Id);
@@ -166,7 +156,7 @@ public sealed class CmtPackageXmlWriter
         SyncChildren(element, "field", record.Fields, f => f.Name, ApplyDataField);
     }
 
-    private static void ApplyDataField(CmtDataField field, XElement element, bool isNew)
+    private static void ApplyDataField(CmtDataField field, XElement element)
     {
         SetString(element, "name", field.Name);
         SetString(element, "value", field.Value);
@@ -177,7 +167,7 @@ public sealed class CmtPackageXmlWriter
         SyncChildren(element, "activitypointerrecords", field.ActivityPointerRecords, r => GuidKey(r.Id), ApplyRecord);
     }
 
-    private static void ApplyManyToMany(CmtDataManyToManyRelationship m2m, XElement element, bool isNew)
+    private static void ApplyManyToMany(CmtDataManyToManyRelationship m2m, XElement element)
     {
         SetGuid(element, "sourceid", m2m.SourceId);
         SetString(element, "targetentityname", m2m.TargetEntityName);
@@ -213,7 +203,7 @@ public sealed class CmtPackageXmlWriter
         else if (element.Value != filter) element.Value = filter;
     }
 
-    private static void SyncChildren<T>(XElement? container, string name, IList<T> items, Func<T, string> key, Action<T, XElement, bool> apply)
+    private static void SyncChildren<T>(XElement? container, string name, IList<T> items, Func<T, string> key, Action<T, XElement> apply)
     {
         if (container is null) return;
 
@@ -228,9 +218,10 @@ public sealed class CmtPackageXmlWriter
         XElement? previous = null;
         foreach (var item in items)
         {
-            var isNew = !available.TryGetValue(key(item), out var matches) || matches.Count == 0;
-            var element = isNew ? XmlPatch.Insert(container, name, previous, new XElement(name)) : matches!.Dequeue();
-            apply(item, element, isNew);
+            var element = available.TryGetValue(key(item), out var matches) && matches.Count > 0
+                ? matches.Dequeue()
+                : XmlPatch.Insert(container, name, previous, new XElement(name));
+            apply(item, element);
             previous = element;
         }
 
