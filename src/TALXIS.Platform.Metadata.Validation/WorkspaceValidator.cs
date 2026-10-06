@@ -171,7 +171,7 @@ public sealed class WorkspaceValidator
                 .Where(f => !string.IsNullOrEmpty(f.Value) && schemaEntity.FindField(f.Name)?.Type == CmtFieldTypes.FileData);
             foreach (var field in payloads.Where(f => !File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, f.Value + ".bin"))))
             {
-                results.Add(CmtFindings.Finding(ValidationSeverity.Warning, field, ValidationDiagnostics.CmtDataFilePayloadMissing,
+                results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtDataFilePayloadMissing,
                     $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package."));
             }
         }

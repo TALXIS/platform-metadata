@@ -62,10 +62,7 @@ public static class ValidationDiagnostics
     /// </summary>
     public const string CmtDataLookupEntityUndeclared = "TXM013";
 
-    /// <summary>
-    /// A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare, or a
-    /// targetentitynameidfield that is not the declared target entity's primaryidfield.
-    /// </summary>
+    /// <summary>A CMT data.xml many-to-many association uses a relationship or target entity the schema does not declare.</summary>
     public const string CmtDataManyToManyUndeclared = "TXM014";
 
     /// <summary>
@@ -98,7 +95,7 @@ public static class ValidationDiagnostics
     public const string CmtFilterNotFetchXml = "TXM020";
 
     /// <summary>
-    /// A CMT data.xml lookup value (entityreference, customer, owner) has no lookupentity, no lookupentityname, or a lookupentity
+    /// A CMT data.xml lookup value (entityreference, owner) has no lookupentity, no lookupentityname, or a lookupentity
     /// outside the schema field's lookupType. CMT skips such a lookup silently and the import still succeeds.
     /// </summary>
     public const string CmtDataLookupIncomplete = "TXM021";
@@ -112,4 +109,7 @@ public static class ValidationDiagnostics
 
     /// <summary>A CMT data.xml filedata value has no payload at files/&lt;value&gt;.bin in the package folder; CMT fails that record's import.</summary>
     public const string CmtDataFilePayloadMissing = "TXM023";
+
+    /// <summary>A CMT data.xml many-to-many association's targetentitynameidfield is not the target entity's primaryidfield.</summary>
+    public const string CmtDataManyToManyTargetIdFieldInvalid = "TXM024";
 }

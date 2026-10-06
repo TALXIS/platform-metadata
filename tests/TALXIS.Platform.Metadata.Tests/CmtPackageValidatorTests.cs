@@ -274,7 +274,7 @@ public class CmtPackageValidatorTests
             </entities>
             """));
 
-        Assert.Equal(ValidationDiagnostics.CmtDataManyToManyUndeclared, finding.Code);
+        Assert.Equal(ValidationDiagnostics.CmtDataManyToManyTargetIdFieldInvalid, finding.Code);
         Assert.Equal(ValidationSeverity.Error, finding.Severity);
         Assert.Contains("'accountidx'", finding.Message);
         Assert.Contains("primaryidfield 'accountid'", finding.Message);

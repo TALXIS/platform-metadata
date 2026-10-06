@@ -79,7 +79,7 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM011 | duplicate entity or field name (case-insensitive) | error | TALXIS throws on its case-insensitive dictionary |
 | TXM012 | data.xml entity or field not declared in the schema | error | skips it with a log warning and exits 0; TALXIS throws |
 | TXM013 | record `lookupentity` not declared in the package (`systemuser`, `team`, `businessunit`, `transactioncurrency`, `organization` excepted) | warning | the target must already exist in the environment |
-| TXM014 | M2M relationship not declared on the entity, or `targetentitynameidfield` is not the declared target's `primaryidfield` / target entity not in the package | error / warning | crashes after the records are committed; targets may come from another package |
+| TXM014 | M2M relationship not declared on the entity / target entity not in the package | error / warning | crashes after the records are committed; targets may come from another package |
 | TXM015 | schema entity or field name not lowercase, data.xml entity matching only case-insensitively / any other case-only match | error / warning | rejects the package or aborts the import / skips the field, lookup or association |
 | TXM016 | field type missing, not in the vocabulary, not lowercase, `customer`, `unknown` / `bigint`, TALXIS `file` | error / warning | rejects the package (`customer` columns are `entityreference`) / drops `bigint` values; rejects `file` |
 | TXM017 | record's primary-id field value empty, not a GUID or different from `record@id`, or a repeated `record@id` / the field absent | error / warning | creates the record under the field value or under a new id; skips lookups to a repeated id |
@@ -89,6 +89,7 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM021 | lookup value without `lookupentity` or `lookupentityname`, or with a `lookupentity` outside the field's `lookupType` | warning | skips the lookup, exits 0 |
 | TXM022 | value not in the text form CMT reads for its type (see below) | warning | drops, zeroes or misreads it, exits 0 |
 | TXM023 | `filedata` value without `files/<value>.bin` in the package folder | warning | fails that record, exits 0 |
+| TXM024 | M2M `targetentitynameidfield` is not the target entity's `primaryidfield` | error | crashes after the records are committed |
 
 TXM010 (`lookupType` missing) was dropped before release and stays unassigned: CMT ignores `lookupType` on import and exports the same data without it. Rules are derived from the importers' observed behaviour; no decompiled code is used.
 
