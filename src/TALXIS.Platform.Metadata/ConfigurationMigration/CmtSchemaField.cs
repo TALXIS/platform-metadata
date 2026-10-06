@@ -31,7 +31,7 @@ public sealed class CmtSchemaField : MetadataBase
     /// <summary>
     /// For entityreference columns: the target table logical names joined with <c>|</c> (for example
     /// <c>account|contact</c>), or <c>*</c> when any table is allowed. CMT writes none for owner and ignores it on
-    /// import (each value's lookupentity decides).
+    /// import (each value's lookupentity decides); TXM021 flags values outside it, which CMT does not resolve.
     /// </summary>
     public string? LookupType { get; set; }
 

@@ -67,7 +67,7 @@ public static class ValidationDiagnostics
     /// <summary>A CMT schema entity filter is not well-formed FetchXML with a &lt;fetch&gt; root.</summary>
     public const string CmtFilterNotFetchXml = "TXM020";
 
-    /// <summary>A CMT data.xml lookup value has no lookupentity or no lookupentityname.</summary>
+    /// <summary>A CMT data.xml lookup value has no lookupentity or lookupentityname, or a lookupentity outside the field's lookupType.</summary>
     public const string CmtDataLookupIncomplete = "TXM021";
 
     /// <summary>A CMT data.xml value is not in the text form CMT reads for the field's schema type.</summary>

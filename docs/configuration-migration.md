@@ -70,7 +70,7 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM018 | `dateMode` not `absolute`/`relative`/`relativeDaily` | error | cannot deserialise the schema |
 | TXM019 | data.xml `timestamp` does not parse | error | aborts the import |
 | TXM020 | `<filter>` is not FetchXML with a `<fetch>` root | warning | ignored on import; the CMT GUI fails to open it |
-| TXM021 | lookup value without `lookupentity` or `lookupentityname` | warning | skips the lookup, exits 0; `lookupType` is ignored |
+| TXM021 | lookup value without `lookupentity` or `lookupentityname`, or with a `lookupentity` outside the field's `lookupType` (a case-only difference is TXM015) | warning | skips the lookup, exits 0 |
 | TXM022 | value not in the text form CMT reads for its type (see below), or a number with a thousands separator | warning | drops, zeroes or misreads it, exits 0; `1,234` parses per the importing machine's culture |
 | TXM023 | `filedata` value without `files/<value>.bin` in the package folder | warning | fails that record, exits 0 |
 | TXM024 | M2M `targetentitynameidfield` is not the target entity's `primaryidfield` | error | crashes after the records are committed |

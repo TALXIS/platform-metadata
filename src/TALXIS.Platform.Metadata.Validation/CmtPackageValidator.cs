@@ -134,7 +134,7 @@ public sealed class CmtPackageValidator
     }
 
     // CMT resolves a lookup through lookupentity and lookupentityname from data.xml and silently skips it when either is
-    // missing; it ignores the schema's lookupType. One finding per entity, field and problem.
+    // missing or names the wrong table. One finding per entity, field and problem.
     private static void CheckLookups(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var problems = new List<(CmtDataField Field, string Problem)>();
@@ -143,7 +143,7 @@ public sealed class CmtPackageValidator
             var schemaField = schemaEntity.FindField(field.Name);
             if (schemaField == null || !LookupFieldTypes.Contains(schemaField.Type)) continue;
 
-            var problem = LookupProblem(field);
+            var problem = LookupProblem(field, schemaField);
             if (problem != null) problems.Add((field, problem));
         }
 
@@ -154,11 +154,15 @@ public sealed class CmtPackageValidator
         }
     }
 
-    private static string? LookupProblem(CmtDataField field)
+    private static string? LookupProblem(CmtDataField field, CmtSchemaField schemaField)
     {
         if (string.IsNullOrEmpty(field.LookupEntity)) return "has no lookupentity";
         if (string.IsNullOrEmpty(field.LookupEntityName)) return "has no lookupentityname";
-        return null;
+        if (string.IsNullOrEmpty(schemaField.LookupType) || schemaField.LookupType == "*") return null;
+
+        // A target that differs only by letter case fails the whole record instead (TXM015).
+        if (schemaField.LookupType!.Split('|').Contains(field.LookupEntity, StringComparer.OrdinalIgnoreCase)) return null;
+        return $"points to '{field.LookupEntity}', which is not in its lookupType '{schemaField.LookupType}'";
     }
 
     // CMT parses values per schema type and silently drops, zeroes or misreads what it cannot parse. One finding per
