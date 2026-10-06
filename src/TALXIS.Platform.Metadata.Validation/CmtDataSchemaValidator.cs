@@ -66,59 +66,59 @@ public sealed class CmtDataSchemaValidator
 
         foreach (var entity in schema.Entities)
         {
-            CheckUpdateCompare(entity, results);
-            CheckLowercaseNames(entity, results);
-            CheckPrimaryIdField(entity, results);
-            CheckPrimaryNameField(entity, results);
-            CheckFieldTypes(entity, results);
-            foreach (var field in entity.Fields) CheckDateMode(field, field.DateMode, $"CMT data schema field '{entity.Name}.{field.Name}'", results);
-            CheckFilter(entity, results);
-            CheckDuplicateFields(entity, results);
+            ValidateUpdateCompare(entity, results);
+            ValidateLowercaseNames(entity, results);
+            ValidatePrimaryIdField(entity, results);
+            ValidatePrimaryNameField(entity, results);
+            ValidateFieldTypes(entity, results);
+            foreach (var field in entity.Fields) ValidateDateMode(field, field.DateMode, $"CMT data_schema.xml field '{entity.Name}.{field.Name}'", results);
+            ValidateFilter(entity, results);
+            ValidateDuplicateFields(entity, results);
         }
 
-        CheckDateMode(schema, schema.DateMode, "CMT data schema root", results);
-        CheckDuplicateEntities(schema, results);
-        CheckImportOrder(schema, results);
+        ValidateDateMode(schema, schema.DateMode, "CMT data_schema.xml root", results);
+        ValidateDuplicateEntities(schema, results);
+        ValidateImportOrder(schema, results);
         return results;
     }
 
     // Without updateCompare fields CMT matches existing records on the primary name column, across the whole table; without
     // that either, re-imports duplicate every record.
-    private static void CheckUpdateCompare(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidateUpdateCompare(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (entity.Fields.Any(f => f.IsUpdateCompare)) return;
 
         results.Add(string.IsNullOrEmpty(entity.PrimaryNameField)
             ? CmtFindings.Error(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
-                $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\" and no primarynamefield, so CMT cannot match existing records and re-deploys duplicate data.")
+                $"CMT data_schema.xml entity '{entity.Name}' declares no field with updateCompare=\"true\" and no primarynamefield, so CMT cannot match existing records and re-deploys duplicate data.")
             : CmtFindings.Warning(entity, ValidationDiagnostics.CmtEntityMissingUpdateCompare,
-                $"CMT data schema entity '{entity.Name}' declares no field with updateCompare=\"true\". CMT matches existing records on the primary name '{entity.PrimaryNameField}' and overwrites them, including unrelated records with the same name. Mark the fields that identify a record with updateCompare=\"true\"."));
+                $"CMT data_schema.xml entity '{entity.Name}' declares no field with updateCompare=\"true\". CMT matches existing records on the primary name '{entity.PrimaryNameField}' and overwrites them, including unrelated records with the same name. Mark the fields that identify a record with updateCompare=\"true\"."));
     }
 
     // Dataverse logical names are lowercase and CMT looks them up case-sensitively: it rejects a package whose schema spells an entity or column otherwise.
-    private static void CheckLowercaseNames(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidateLowercaseNames(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (!IsLowercase(entity.Name))
         {
             results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtNameCaseMismatch,
-                $"CMT data schema entity '{entity.Name}' is not lowercase. Dataverse logical names are lowercase and CMT compares them case-sensitively, so the import fails."));
+                $"CMT data_schema.xml entity '{entity.Name}' is not lowercase. Dataverse logical names are lowercase and CMT compares them case-sensitively, so the import fails."));
         }
 
         foreach (var field in entity.Fields.Where(f => !IsLowercase(f.Name)))
         {
             results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtNameCaseMismatch,
-                $"CMT data schema field '{entity.Name}.{field.Name}' is not lowercase. Dataverse logical names are lowercase and CMT rejects the package with 'Missing Fields'."));
+                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not lowercase. Dataverse logical names are lowercase and CMT rejects the package with 'Missing Fields'."));
         }
     }
 
     private static bool IsLowercase(string name) => string.Equals(name, name.ToLowerInvariant(), StringComparison.Ordinal);
 
-    private static void CheckPrimaryIdField(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidatePrimaryIdField(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (string.IsNullOrEmpty(entity.PrimaryIdField))
         {
             results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-                $"CMT data schema entity '{entity.Name}' has no primaryidfield, so imported records cannot be identified."));
+                $"CMT data_schema.xml entity '{entity.Name}' has no primaryidfield, so imported records cannot be identified."));
             return;
         }
 
@@ -126,14 +126,14 @@ public sealed class CmtDataSchemaValidator
         if (field == null)
         {
             results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-                $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}', which is not declared in <fields>. CMT cannot update the imported records."));
+                $"CMT data_schema.xml entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}', which is not declared in <fields>. CMT cannot update the imported records."));
             return;
         }
 
         if (!string.Equals(field.Type, CmtFieldTypes.Guid, StringComparison.Ordinal))
         {
             results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-                $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' of type '{field.Type}' instead of 'guid'. CMT cannot update the imported records."));
+                $"CMT data_schema.xml entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' of type '{field.Type}' instead of 'guid'. CMT cannot update the imported records."));
             return;
         }
 
@@ -141,26 +141,26 @@ public sealed class CmtDataSchemaValidator
         if (field.IsPrimaryKey) return;
 
         results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtPrimaryIdFieldInvalid,
-            $"CMT data schema entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' without primaryKey=\"true\". Mark it as CMT's generator does."));
+            $"CMT data_schema.xml entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}' without primaryKey=\"true\". Mark it as CMT's generator does."));
     }
 
-    private static void CheckPrimaryNameField(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidatePrimaryNameField(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (string.IsNullOrEmpty(entity.PrimaryNameField) || entity.FindField(entity.PrimaryNameField!) != null) return;
 
         results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryNameFieldUndeclared,
-            $"CMT data schema entity '{entity.Name}' has primarynamefield '{entity.PrimaryNameField}', which is not declared in <fields>. Declare it so CMT can match existing records on it."));
+            $"CMT data_schema.xml entity '{entity.Name}' has primarynamefield '{entity.PrimaryNameField}', which is not declared in <fields>. Declare it so CMT can match existing records on it."));
     }
 
     // CMT's importer looks the type up ordinally in a fixed table; a misspelled or capitalised type and unknown have no conversion.
-    private static void CheckFieldTypes(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidateFieldTypes(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         var fields = entity.Fields.Select(f => (Field: f, Owner: entity.Name))
             .Concat(entity.Relationships.SelectMany(r => r.Fields.Select(f => (Field: f, Owner: $"{entity.Name}/{r.Name}"))));
 
         foreach (var (field, owner) in fields)
         {
-            var subject = $"CMT data schema field '{owner}.{field.Name}'";
+            var subject = $"CMT data_schema.xml field '{owner}.{field.Name}'";
             var type = field.Type;
             switch (type)
             {
@@ -195,7 +195,7 @@ public sealed class CmtDataSchemaValidator
         return $"has type '{type}', which is not a CMT field type";
     }
 
-    private static void CheckDateMode(MetadataBase element, string? dateMode, string subject, List<ValidationResult> results)
+    private static void ValidateDateMode(MetadataBase element, string? dateMode, string subject, List<ValidationResult> results)
     {
         if (dateMode == null || CmtDateModes.All.Contains(dateMode)) return;
 
@@ -204,7 +204,7 @@ public sealed class CmtDataSchemaValidator
     }
 
     // The importer ignores <filter>, but the CMT GUI parses it as FetchXML and fails to open a schema with a broken one.
-    private static void CheckFilter(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidateFilter(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         if (entity.FetchXmlFilter == null) return;
 
@@ -222,30 +222,30 @@ public sealed class CmtDataSchemaValidator
         if (problem == null) return;
 
         results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtFilterNotFetchXml,
-            $"CMT data schema entity '{entity.Name}' has a filter that is not FetchXML: {problem}. The CMT GUI cannot open the schema; fix or remove the filter."));
+            $"CMT data_schema.xml entity '{entity.Name}' has a filter that is not FetchXML: {problem}. The CMT GUI cannot open the schema; fix or remove the filter."));
     }
 
-    private static void CheckDuplicateFields(CmtSchemaEntity entity, List<ValidationResult> results)
+    private static void ValidateDuplicateFields(CmtSchemaEntity entity, List<ValidationResult> results)
     {
         foreach (var duplicate in Duplicates(entity.Fields, f => f.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data schema entity '{entity.Name}' declares field '{duplicate.Name}' more than once. The TALXIS importer fails on the duplicate."));
+                $"CMT data_schema.xml field '{entity.Name}.{duplicate.Name}' is declared more than once. The TALXIS importer fails on the duplicate."));
         }
     }
 
-    private static void CheckDuplicateEntities(CmtDataSchema schema, List<ValidationResult> results)
+    private static void ValidateDuplicateEntities(CmtDataSchema schema, List<ValidationResult> results)
     {
         foreach (var duplicate in Duplicates(schema.Entities, e => e.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data schema declares entity '{duplicate.Name}' more than once. The TALXIS importer fails on the duplicate."));
+                $"CMT data_schema.xml entity '{duplicate.Name}' is declared more than once. The TALXIS importer fails on the duplicate."));
         }
     }
 
     // CMT falls back to the order of <entity> elements when entityImportOrder is absent and ignores names it does not
     // know, so only a present list is checked and every finding is a warning.
-    private static void CheckImportOrder(CmtDataSchema schema, List<ValidationResult> results)
+    private static void ValidateImportOrder(CmtDataSchema schema, List<ValidationResult> results)
     {
         if (schema.EntityImportOrder.Count == 0) return;
 
@@ -256,21 +256,22 @@ public sealed class CmtDataSchemaValidator
             if (caseMatch != null)
             {
                 results.Add(CmtFindings.Warning(schema, ValidationDiagnostics.CmtNameCaseMismatch,
-                    $"CMT entityImportOrder names entity '{name}', but the data schema declares it as '{caseMatch}'. CMT compares names case-sensitively and will not find it."));
+                    $"CMT data_schema.xml entityImportOrder names entity '{name}', but data_schema.xml declares it as '{caseMatch}'. CMT compares names case-sensitively and will not find it."));
                 continue;
             }
 
             results.Add(CmtFindings.Warning(schema, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
-                $"CMT entityImportOrder names entity '{name}', which the data schema does not declare; CMT ignores it."));
+                $"CMT data_schema.xml entityImportOrder names entity '{name}', which data_schema.xml does not declare. CMT ignores it."));
         }
 
         foreach (var entity in schema.Entities.Where(e => !ordered.Contains(e.Name)))
         {
             results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtImportOrderEntityUndeclared,
-                $"CMT data schema entity '{entity.Name}' is missing from entityImportOrder, so its import position is undefined."));
+                $"CMT data_schema.xml entity '{entity.Name}' is missing from entityImportOrder, so its import position is undefined."));
         }
     }
 
+    // The TALXIS importer keys entities and fields in case-insensitive dictionaries, so case-only duplicates count.
     private static IEnumerable<T> Duplicates<T>(IEnumerable<T> items, Func<T, string> name)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

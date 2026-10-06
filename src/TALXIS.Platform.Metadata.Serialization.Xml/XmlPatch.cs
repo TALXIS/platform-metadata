@@ -1,3 +1,4 @@
+using System.Xml;
 using System.Xml.Linq;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml;
@@ -66,11 +67,18 @@ internal static class XmlPatch
         foreach (var value in values) Append(container, new XElement(name, value));
     }
 
-    /// <summary>The whitespace text node (containing a line break) directly before <paramref name="element"/>, or <c>null</c>.</summary>
-    public static string? LeadingWhitespace(XElement element) =>
-        element.PreviousNode is XText text && IsWhitespace(text) && text.Value.IndexOf('\n') >= 0 ? text.Value : null;
+    // The whitespace text (containing a line break) directly before the element, or null.
+    private static string? LeadingWhitespace(XElement element)
+    {
+        var previous = element.PreviousNode;
+        if (previous == null || !IsWhitespace(previous)) return null;
+        var text = ((XText)previous).Value;
+        return text.IndexOf('\n') >= 0 ? text : null;
+    }
 
-    public static bool IsWhitespace(XNode node) => node is XText text && node is not XCData && string.IsNullOrWhiteSpace(text.Value);
+    // CDATA derives from XText but is content, not layout.
+    private static bool IsWhitespace(XNode node) =>
+        node.NodeType == XmlNodeType.Text && string.IsNullOrWhiteSpace(((XText)node).Value);
 
     // Inserting after an element puts the new one on the same line; repeating the element's indent restores the layout.
     private static void AddIndentAfter(XElement element, string? indent)

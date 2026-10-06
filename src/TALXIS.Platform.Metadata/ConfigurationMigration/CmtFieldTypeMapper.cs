@@ -32,6 +32,6 @@ public static class CmtFieldTypeMapper
         AttributeType.Status => CmtFieldTypes.Status,
         AttributeType.Image => CmtFieldTypes.ImageData,
         AttributeType.File => CmtFieldTypes.FileData,
-        _ => null,
+        _ => null
     };
 }

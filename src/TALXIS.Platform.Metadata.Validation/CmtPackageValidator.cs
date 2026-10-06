@@ -31,7 +31,7 @@ public sealed class CmtPackageValidator
         var results = new List<ValidationResult>();
         if (package.Data == null) return results;
 
-        CheckTimestamp(package.Data, results);
+        ValidateTimestamp(package.Data, results);
         foreach (var dataEntity in package.Data.Entities)
         {
             var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
@@ -40,40 +40,41 @@ public sealed class CmtPackageValidator
                 var caseMatch = CmtFindings.CaseMatch(package.Schema.Entities.Select(e => e.Name), dataEntity.Name);
                 results.Add(caseMatch == null
                     ? CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
-                        $"CMT data.xml contains entity '{dataEntity.Name}' ({dataEntity.Records.Count} records), which data_schema.xml does not declare. CMT skips the entity.")
+                        $"CMT data.xml entity '{dataEntity.Name}' ({Records(dataEntity.Records.Count)}) is not declared in data_schema.xml. CMT skips the entity and the TALXIS importer fails.")
                     : CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and fails the import."));
                 continue;
             }
 
-            CheckRecordIdentity(schemaEntity, dataEntity, results);
-            CheckFields(package.Schema, schemaEntity, dataEntity, results);
-            CheckLookups(schemaEntity, dataEntity, results);
-            CheckValues(schemaEntity, dataEntity, results);
-            CheckMatchKeys(schemaEntity, dataEntity, results);
-            CheckManyToMany(package.Schema, schemaEntity, dataEntity, results);
+            ValidateRecordIdentity(schemaEntity, dataEntity, results);
+            ValidateFields(schemaEntity, dataEntity, results);
+            ValidateLookupTargets(package.Schema, dataEntity, results);
+            ValidateLookups(schemaEntity, dataEntity, results);
+            ValidateValues(schemaEntity, dataEntity, results);
+            ValidateMatchKeys(schemaEntity, dataEntity, results);
+            ValidateManyToMany(package.Schema, schemaEntity, dataEntity, results);
         }
 
         return results;
     }
 
     // CMT parses the timestamp before importing anything; the TALXIS importer ignores it.
-    private static void CheckTimestamp(CmtData data, List<ValidationResult> results)
+    private static void ValidateTimestamp(CmtData data, List<ValidationResult> results)
     {
         if (data.Timestamp == null || DateTime.TryParse(data.Timestamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)) return;
 
         results.Add(CmtFindings.Error(data, ValidationDiagnostics.CmtDataTimestampInvalid,
-            $"CMT data.xml timestamp '{data.Timestamp}' is not a valid date-time; CMT aborts the import."));
+            $"CMT data.xml timestamp '{data.Timestamp}' is not a valid date-time. CMT aborts the import."));
     }
 
     // CMT creates a record under its primary-id field value; record@id only serves lookups and the second pass. A
     // stable configuration id therefore needs both to agree. One finding per entity and problem.
-    private static void CheckRecordIdentity(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateRecordIdentity(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         foreach (var duplicate in dataEntity.Records.GroupBy(r => r.Id).Where(g => g.Count() > 1))
         {
             results.Add(CmtFindings.Error(duplicate.ElementAt(1), ValidationDiagnostics.CmtRecordIdentityInvalid,
-                $"CMT data.xml entity '{dataEntity.Name}' contains record id '{duplicate.Key}' {duplicate.Count()} times. CMT imports each copy, but lookups to that id are skipped."));
+                $"CMT data.xml entity '{dataEntity.Name}' has {duplicate.Count()} records with id '{duplicate.Key}'. CMT imports each copy, but lookups to that id are skipped."));
         }
 
         var idField = schemaEntity.PrimaryIdField;
@@ -85,57 +86,61 @@ public sealed class CmtPackageValidator
             .GroupBy(p => p.Problem!.Value);
         foreach (var group in problems)
         {
-            var (severity, text) = group.Key;
+            var (severity, problem, consequence) = group.Key;
             var first = group.First().Record;
             results.Add(CmtFindings.Finding(severity, first, ValidationDiagnostics.CmtRecordIdentityInvalid,
-                $"CMT data.xml entity '{dataEntity.Name}': {group.Count()} record(s) {text} (first: '{first.Id}')."));
+                $"CMT data.xml entity '{dataEntity.Name}' has {Records(group.Count())} {problem}, starting with '{first.Id}'. {consequence}."));
         }
     }
 
-    private static (ValidationSeverity Severity, string Text)? IdentityProblem(CmtDataRecord record, string idField)
+    private static (ValidationSeverity Severity, string Problem, string Consequence)? IdentityProblem(CmtDataRecord record, string idField)
     {
         var field = record.Fields.FirstOrDefault(f => string.Equals(f.Name, idField, StringComparison.Ordinal));
-        if (field == null) return (ValidationSeverity.Warning, $"have no '{idField}' field, so CMT creates them under a new id");
+        if (field == null) return (ValidationSeverity.Warning, $"without a '{idField}' field", "CMT creates them under a new id");
         if (IsTemplate(field.Value)) return null;
-        if (string.IsNullOrEmpty(field.Value)) return (ValidationSeverity.Error, $"have an empty '{idField}' value, so CMT creates them under a new id");
-        if (!Guid.TryParse(field.Value, out var id)) return (ValidationSeverity.Error, $"have a '{idField}' value that is not a GUID, so CMT creates them under a new id");
-        return id == record.Id ? null : (ValidationSeverity.Error, $"have a '{idField}' value that differs from the record id; CMT creates them under the field value");
+        if (string.IsNullOrEmpty(field.Value)) return (ValidationSeverity.Error, $"with an empty '{idField}' value", "CMT creates them under a new id");
+        if (!Guid.TryParse(field.Value, out var id)) return (ValidationSeverity.Error, $"with a '{idField}' value that is not a GUID", "CMT creates them under a new id");
+        return id == record.Id ? null : (ValidationSeverity.Error, $"with a '{idField}' value that differs from the record id", "CMT creates them under the field value");
     }
 
     // One finding per entity and field, not per record, so a large package stays readable.
-    private static void CheckFields(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateFields(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
-        var fields = dataEntity.Records.SelectMany(r => r.Fields).ToList();
         var declared = new HashSet<string>(schemaEntity.Fields.Select(f => f.Name), StringComparer.Ordinal);
+        var undeclared = dataEntity.Records.SelectMany(r => r.Fields).Where(f => !declared.Contains(f.Name));
 
-        foreach (var group in fields.Where(f => !declared.Contains(f.Name)).GroupBy(f => f.Name, StringComparer.Ordinal))
+        foreach (var group in undeclared.GroupBy(f => f.Name, StringComparer.Ordinal))
         {
             var caseMatch = CmtFindings.CaseMatch(schemaEntity.Fields.Select(f => f.Name), group.Key);
             results.Add(caseMatch == null
                 ? CmtFindings.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
-                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is not declared in data_schema.xml. CMT migrates only the fields the schema declares.")
+                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) is not declared in data_schema.xml. CMT drops the values and the TALXIS importer fails.")
                 : CmtFindings.Warning(group.First(), ValidationDiagnostics.CmtNameCaseMismatch,
-                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and will drop the field."));
+                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and drops the values."));
         }
+    }
 
-        var unknownLookups = fields
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) == null && !SystemLookupTargets.Contains(f.LookupEntity!))
-            .GroupBy(f => (Field: f.Name, Target: f.LookupEntity!));
-        foreach (var group in unknownLookups)
+    // Lookups may point outside the package, so an unknown target is a warning; a case-only match fails the record.
+    private static void ValidateLookupTargets(CmtDataSchema schema, CmtDataEntity dataEntity, List<ValidationResult> results)
+    {
+        var unknown = dataEntity.Records.SelectMany(r => r.Fields)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) == null && !SystemLookupTargets.Contains(f.LookupEntity!));
+
+        foreach (var group in unknown.GroupBy(f => (f.Name, f.LookupEntity)))
         {
             var first = group.First();
             var caseMatch = CmtFindings.CaseMatch(schema.Entities.Select(e => e.Name), first.LookupEntity!);
             results.Add(caseMatch == null
                 ? CmtFindings.Warning(first, ValidationDiagnostics.CmtDataLookupEntityUndeclared,
-                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package does not declare. The records must already exist in the target environment.")
+                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' ({Records(group.Count())}) points to entity '{first.LookupEntity}', which the package does not declare. The records must already exist in the target environment.")
                 : CmtFindings.Error(first, ValidationDiagnostics.CmtNameCaseMismatch,
-                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' points to entity '{first.LookupEntity}' ({group.Count()} records), which the package declares as '{caseMatch}'. CMT compares names case-sensitively and fails to insert those records."));
+                    $"CMT data.xml field '{dataEntity.Name}.{first.Name}' ({Records(group.Count())}) points to entity '{first.LookupEntity}', which the package declares as '{caseMatch}'. CMT compares names case-sensitively and fails to insert those records."));
         }
     }
 
     // CMT resolves a lookup through lookupentity and lookupentityname from data.xml and silently skips it when either is
     // missing or names the wrong table. One finding per entity, field and problem.
-    private static void CheckLookups(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateLookups(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var problems = new List<(CmtDataField Field, string Problem)>();
         foreach (var field in dataEntity.Records.SelectMany(r => r.Fields).Where(f => !string.IsNullOrEmpty(f.Value)))
@@ -150,7 +155,7 @@ public sealed class CmtPackageValidator
         foreach (var group in problems.GroupBy(p => (p.Field.Name, p.Problem)))
         {
             results.Add(CmtFindings.Warning(group.First().Field, ValidationDiagnostics.CmtDataLookupIncomplete,
-                $"CMT data.xml lookup '{dataEntity.Name}.{group.Key.Name}' ({group.Count()} records) {group.Key.Problem}; CMT skips the lookup without failing the import."));
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key.Name}' ({Records(group.Count())}) {group.Key.Problem}. CMT skips the lookup without failing the import."));
         }
     }
 
@@ -167,7 +172,7 @@ public sealed class CmtPackageValidator
 
     // CMT parses values per schema type and silently drops, zeroes or misreads what it cannot parse. One finding per
     // entity and field. Templates are only values once the TALXIS importer has rendered them; the primary id is TXM017's.
-    private static void CheckValues(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateValues(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         if (schemaEntity.RenderLiquid == true) return;
 
@@ -185,7 +190,7 @@ public sealed class CmtPackageValidator
         {
             var (first, type) = group.First();
             results.Add(CmtFindings.Warning(first, ValidationDiagnostics.CmtDataValueInvalid,
-                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({group.Count()} records) has a value CMT cannot reliably read as {type} (first: '{first.Value}'). "
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) has a value CMT cannot reliably read as {type}, starting with '{first.Value}'. "
                 + ValueConsequence(type, first.Value!)));
         }
     }
@@ -199,7 +204,7 @@ public sealed class CmtPackageValidator
 
     // CMT matches existing records on the updateCompare fields, or on the primary name when there are none. Records that
     // share those values all match the same existing record on re-import, so it is updated repeatedly and the others never land.
-    private static void CheckMatchKeys(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateMatchKeys(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         if (schemaEntity.RenderLiquid == true) return;
 
@@ -223,7 +228,7 @@ public sealed class CmtPackageValidator
         }
     }
 
-    private static void CheckManyToMany(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    private static void ValidateManyToMany(CmtDataSchema schema, CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var declared = schemaEntity.Relationships.Where(r => r.IsManyToMany).Select(r => r.Name).ToList();
         var declaredSet = new HashSet<string>(declared, StringComparer.Ordinal);
@@ -236,9 +241,9 @@ public sealed class CmtPackageValidator
                 var caseMatch = CmtFindings.CaseMatch(declared, group.Key);
                 results.Add(caseMatch == null
                     ? CmtFindings.Error(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
-                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml does not declare on that entity. CMT fails the import after the records are created.")
+                        $"CMT data.xml many-to-many relationship '{dataEntity.Name}/{group.Key}' is not declared on that entity in data_schema.xml. CMT fails the import after the records are created.")
                     : CmtFindings.Error(first, ValidationDiagnostics.CmtNameCaseMismatch,
-                        $"CMT data.xml entity '{dataEntity.Name}' uses many-to-many relationship '{group.Key}', which data_schema.xml declares as '{caseMatch}'. CMT compares names case-sensitively and fails the import after the records are created."));
+                        $"CMT data.xml many-to-many relationship '{dataEntity.Name}/{group.Key}' is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and fails the import after the records are created."));
             }
 
             // Packages are often split per area, so the target may come from another package already imported.
@@ -248,9 +253,9 @@ public sealed class CmtPackageValidator
                 var caseMatch = CmtFindings.CaseMatch(schema.Entities.Select(e => e.Name), first.TargetEntityName);
                 results.Add(caseMatch == null
                     ? CmtFindings.Warning(first, ValidationDiagnostics.CmtDataManyToManyUndeclared,
-                        $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment.")
+                        $"CMT data.xml many-to-many relationship '{dataEntity.Name}/{group.Key}' targets entity '{first.TargetEntityName}', which the package does not declare. The records must already exist in the target environment.")
                     : CmtFindings.Warning(first, ValidationDiagnostics.CmtNameCaseMismatch,
-                        $"CMT data.xml many-to-many relationship '{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch}'. CMT compares names case-sensitively."));
+                        $"CMT data.xml many-to-many relationship '{dataEntity.Name}/{group.Key}' targets entity '{first.TargetEntityName}', which the package declares as '{caseMatch}'. CMT compares names case-sensitively and will not find the targets."));
                 continue;
             }
 
@@ -259,9 +264,11 @@ public sealed class CmtPackageValidator
                 : group.FirstOrDefault(m => m.TargetEntityNameIdField != null && !string.Equals(m.TargetEntityNameIdField, target.PrimaryIdField, StringComparison.Ordinal));
             if (wrongIdField == null) continue;
             results.Add(CmtFindings.Error(wrongIdField, ValidationDiagnostics.CmtDataManyToManyTargetIdFieldInvalid,
-                $"CMT data.xml many-to-many relationship '{group.Key}' has targetentitynameidfield '{wrongIdField.TargetEntityNameIdField}', but target entity '{target.Name}' has primaryidfield '{target.PrimaryIdField}'. CMT fails the association."));
+                $"CMT data.xml many-to-many relationship '{dataEntity.Name}/{group.Key}' has targetentitynameidfield '{wrongIdField.TargetEntityNameIdField}', but target entity '{target.Name}' has primaryidfield '{target.PrimaryIdField}'. CMT fails the association."));
         }
     }
+
+    private static string Records(int count) => count == 1 ? "1 record" : $"{count} records";
 
     // TALXIS Liquid templates ({{ }} and {% %}) are values only once the TALXIS importer has rendered them.
     private static bool IsTemplate(string? value) => value != null && (value.Contains("{{") || value.Contains("{%"));

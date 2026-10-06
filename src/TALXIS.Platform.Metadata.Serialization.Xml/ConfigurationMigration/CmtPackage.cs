@@ -11,11 +11,12 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 public sealed class CmtPackage
 {
     /// <summary>Creates a package from in-memory models; saving it writes new files.</summary>
-    public CmtPackage(CmtDataSchema schema, CmtData? data = null, IReadOnlyList<WorkspaceLoadError>? loadErrors = null)
+    /// <param name="schema">The schema (data_schema.xml).</param>
+    /// <param name="data">The records (data.xml), or <c>null</c> for a schema-only package.</param>
+    public CmtPackage(CmtDataSchema schema, CmtData? data = null)
     {
         Schema = schema;
         Data = data;
-        LoadErrors = loadErrors ?? Array.Empty<WorkspaceLoadError>();
     }
 
     /// <summary>The schema (data_schema.xml). Empty when the file could not be loaded; see <see cref="LoadErrors"/>.</summary>
@@ -28,7 +29,7 @@ public sealed class CmtPackage
     /// Files that could not be read or parsed, and records or associations skipped because their id is not a
     /// GUID. A package with load errors is not roundtrip-safe to save: skipped content would be dropped.
     /// </summary>
-    public IReadOnlyList<WorkspaceLoadError> LoadErrors { get; }
+    public IReadOnlyList<WorkspaceLoadError> LoadErrors { get; internal set; } = Array.Empty<WorkspaceLoadError>();
 
     internal XDocument? SchemaDocument { get; set; }
     internal XDocument? DataDocument { get; set; }

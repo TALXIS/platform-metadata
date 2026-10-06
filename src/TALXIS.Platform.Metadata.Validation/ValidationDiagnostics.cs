@@ -37,6 +37,8 @@ public static class ValidationDiagnostics
     /// <summary>A CMT schema entity's primarynamefield is not declared as a field.</summary>
     public const string CmtPrimaryNameFieldUndeclared = "TXM009";
 
+    // TXM010 (lookupType missing) was withdrawn before release and is not reused.
+
     /// <summary>A CMT schema declares the same entity twice, or an entity declares the same field twice.</summary>
     public const string CmtDuplicateName = "TXM011";
 

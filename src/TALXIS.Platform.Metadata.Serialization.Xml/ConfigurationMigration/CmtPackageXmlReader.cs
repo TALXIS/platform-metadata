@@ -31,8 +31,9 @@ public sealed class CmtPackageXmlReader
         var dataFile = dataPath == null || !File.Exists(dataPath) ? null : TryLoad(dataPath, errors);
         if (dataFile != null) data = ReadData(dataFile.Value.Document, dataPath, errors);
 
-        return new CmtPackage(schema, data, errors)
+        return new CmtPackage(schema, data)
         {
+            LoadErrors = errors,
             SchemaDocument = schemaFile?.Document,
             SchemaBytes = schemaFile?.Bytes,
             DataDocument = dataFile?.Document,
@@ -60,7 +61,7 @@ public sealed class CmtPackageXmlReader
     {
         var errors = new List<WorkspaceLoadError>();
         var model = data == null ? null : ReadData(data, null, errors);
-        return new CmtPackage(ReadSchema(schema), model, errors) { SchemaDocument = schema, DataDocument = data };
+        return new CmtPackage(ReadSchema(schema), model) { LoadErrors = errors, SchemaDocument = schema, DataDocument = data };
     }
 
     /// <summary>Reads a data_schema.xml document.</summary>
@@ -77,17 +78,6 @@ public sealed class CmtPackageXmlReader
         foreach (var entity in root.Elements("entity")) schema.Entities.Add(ReadSchemaEntity(entity, sourcePath));
         foreach (var name in root.Elements("entityImportOrder").Elements("entityName")) schema.EntityImportOrder.Add(name.Value);
         return schema;
-    }
-
-    /// <summary>
-    /// Reads a data.xml document. Records or associations whose ids do not parse are skipped; use
-    /// <see cref="Read"/> or <see cref="Load"/> to receive them as load errors.
-    /// </summary>
-    /// <param name="document">The document to read.</param>
-    /// <param name="sourcePath">File path recorded in each element's <see cref="MetadataBase.Source"/>.</param>
-    public CmtData ReadData(XDocument document, string? sourcePath = null)
-    {
-        return ReadData(document, sourcePath, new List<WorkspaceLoadError>());
     }
 
     // XmlSerializer boolean forms both importers accept: true|false|1|0. Anything else reads as false.

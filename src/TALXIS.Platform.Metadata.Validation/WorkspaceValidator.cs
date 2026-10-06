@@ -155,15 +155,14 @@ public sealed class WorkspaceValidator
             var package = new CmtPackageXmlReader().LoadDirectory(packageDirectory);
             if (package.Data == null || package.LoadErrors.Count > 0) continue;
             results.AddRange(SolutionValidator.WithStage(packageValidator.Validate(package), ValidationStage.CmtData));
-            results.AddRange(SolutionValidator.WithStage(CmtFilePayloadFindings(package, packageDirectory), ValidationStage.CmtData));
+            CollectCmtFilePayloadFindings(package, packageDirectory, results);
         }
     }
 
     // Needs the package folder, so it lives here rather than in the I/O-free CmtPackageValidator. CMT reads a filedata
     // value's payload from files/<value>.bin; without it the record fails to import while the import still succeeds.
-    private static List<ValidationResult> CmtFilePayloadFindings(CmtPackage package, string packageDirectory)
+    private static void CollectCmtFilePayloadFindings(CmtPackage package, string packageDirectory, List<ValidationResult> results)
     {
-        var results = new List<ValidationResult>();
         foreach (var dataEntity in package.Data!.Entities)
         {
             var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
@@ -175,10 +174,9 @@ public sealed class WorkspaceValidator
                 if (File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, field.Value + ".bin"))) continue;
 
                 results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtDataFilePayloadMissing,
-                    $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package."));
+                    $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package.") with { Stage = ValidationStage.CmtData });
             }
         }
-        return results;
     }
 
     private static void CollectRelationshipFindings(List<(string Root, Workspace? Workspace)> loaded, List<ValidationResult> results)
