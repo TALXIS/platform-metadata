@@ -80,6 +80,13 @@ public static class ValidationDiagnostics
     /// </summary>
     public const string CmtFieldTypeNotImportable = "TXM016";
 
+    /// <summary>
+    /// A CMT data.xml record's identity is not what CMT will use: CMT creates the record under its primary-id field value, not under
+    /// record@id. Errors: the field value is empty, not a GUID or differs from record@id, or record@id repeats within an entity.
+    /// Warning: the record has no primary-id field (CMT generates a new id).
+    /// </summary>
+    public const string CmtRecordIdentityInvalid = "TXM017";
+
     /// <summary>A CMT dateMode value is not absolute, relative or relativeDaily; CMT cannot deserialise the schema.</summary>
     public const string CmtDateModeInvalid = "TXM018";
 

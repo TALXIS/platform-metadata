@@ -5,7 +5,8 @@ using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
-/// Cross-file rules for a CMT package: everything data.xml references must be declared in data_schema.xml.
+/// Cross-file rules for a CMT package: everything data.xml references must be declared in data_schema.xml,
+/// and each record's primary-id field must carry its id (TXM017).
 /// Names are compared ordinally, as CMT's importer does; a match that only succeeds when letter case is
 /// ignored is reported as <see cref="ValidationDiagnostics.CmtNameCaseMismatch"/> instead of "undeclared".
 /// </summary>
@@ -40,11 +41,49 @@ public sealed class CmtPackageValidator
                 continue;
             }
 
+            CheckRecordIdentity(schemaEntity, dataEntity, results);
             CheckFields(package.Schema, schemaEntity, dataEntity, results);
             CheckManyToMany(package.Schema, schemaEntity, dataEntity, results);
         }
 
         return results;
+    }
+
+    // CMT creates a record under its primary-id field value; record@id only serves lookups and the second pass. A
+    // stable configuration id therefore needs both to agree. One finding per entity and problem.
+    private static void CheckRecordIdentity(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
+    {
+        foreach (var duplicate in dataEntity.Records.GroupBy(r => r.Id).Where(g => g.Count() > 1))
+        {
+            results.Add(CmtFindings.Error(duplicate.ElementAt(1), ValidationDiagnostics.CmtRecordIdentityInvalid,
+                $"CMT data.xml entity '{dataEntity.Name}' contains record id '{duplicate.Key}' {duplicate.Count()} times. CMT imports each copy, but lookups to that id are skipped."));
+        }
+
+        var idField = schemaEntity.PrimaryIdField;
+        if (string.IsNullOrEmpty(idField)) return;
+
+        var problems = dataEntity.Records
+            .Select(r => (Record: r, Problem: IdentityProblem(r, idField!)))
+            .Where(p => p.Problem is not null)
+            .GroupBy(p => p.Problem!.Value);
+        foreach (var group in problems)
+        {
+            var (severity, text) = group.Key;
+            var first = group.First().Record;
+            results.Add(CmtFindings.Finding(severity, first, ValidationDiagnostics.CmtRecordIdentityInvalid,
+                $"CMT data.xml entity '{dataEntity.Name}': {group.Count()} record(s) {text} (first: '{first.Id}')."));
+        }
+    }
+
+    private static (ValidationSeverity Severity, string Text)? IdentityProblem(CmtDataRecord record, string idField)
+    {
+        var field = record.Fields.FirstOrDefault(f => string.Equals(f.Name, idField, StringComparison.Ordinal));
+        if (field is null) return (ValidationSeverity.Warning, $"have no '{idField}' field, so CMT creates them under a new id");
+        // TALXIS Liquid templates are rendered before import.
+        if (field.Value is { } value && (value.Contains("{{") || value.Contains("{%"))) return null;
+        if (string.IsNullOrEmpty(field.Value)) return (ValidationSeverity.Error, $"have an empty '{idField}' value, so CMT creates them under a new id");
+        if (!Guid.TryParse(field.Value, out var id)) return (ValidationSeverity.Error, $"have a '{idField}' value that is not a GUID, so CMT creates them under a new id");
+        return id == record.Id ? null : (ValidationSeverity.Error, $"have a '{idField}' value that differs from the record id; CMT creates them under the field value");
     }
 
     // One finding per entity and field, not per record, so a large package stays readable.

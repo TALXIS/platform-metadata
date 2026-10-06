@@ -40,6 +40,7 @@ public class CmtPackageValidatorTests
               <entity name="account">
                 <records>
                   <record id="11111111-1111-1111-1111-111111111111">
+                    <field name="accountid" value="11111111-1111-1111-1111-111111111111" />
                     <field name="name" value="Contoso" />
                   </record>
                 </records>
@@ -76,8 +77,8 @@ public class CmtPackageValidatorTests
             <entities>
               <entity name="account">
                 <records>
-                  <record id="11111111-1111-1111-1111-111111111111"><field name="telephone1" value="1" /></record>
-                  <record id="22222222-2222-2222-2222-222222222222"><field name="telephone1" value="2" /></record>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="accountid" value="11111111-1111-1111-1111-111111111111" /><field name="telephone1" value="1" /></record>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="accountid" value="22222222-2222-2222-2222-222222222222" /><field name="telephone1" value="2" /></record>
                 </records>
               </entity>
             </entities>
@@ -97,6 +98,7 @@ public class CmtPackageValidatorTests
               <entity name="account">
                 <records>
                   <record id="11111111-1111-1111-1111-111111111111">
+                    <field name="accountid" value="11111111-1111-1111-1111-111111111111" />
                     <field name="name" value="Contoso" lookupentity="contact" lookupentityname="Jane" />
                   </record>
                 </records>
@@ -116,8 +118,8 @@ public class CmtPackageValidatorTests
             <entities>
               <entity name="account">
                 <records>
-                  <record id="11111111-1111-1111-1111-111111111111"><field name="name" value="Contoso" lookupentity="systemuser" lookupentityname="Admin" /></record>
-                  <record id="22222222-2222-2222-2222-222222222222"><field name="name" value="Fabrikam" lookupentity="transactioncurrency" lookupentityname="Euro" /></record>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="accountid" value="11111111-1111-1111-1111-111111111111" /><field name="name" value="Contoso" lookupentity="systemuser" lookupentityname="Admin" /></record>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="accountid" value="22222222-2222-2222-2222-222222222222" /><field name="name" value="Fabrikam" lookupentity="transactioncurrency" lookupentityname="Euro" /></record>
                 </records>
               </entity>
             </entities>
@@ -179,6 +181,80 @@ public class CmtPackageValidatorTests
         Assert.Contains(results, r => r.Message.Contains("'new_tag.New_Name'") && r.Message.Contains("'new_name'"));
         Assert.Contains(results, r => r.Message.Contains("'ACCOUNT'") && r.Message.Contains("'account'"));
         Assert.Contains(results, r => r.Message.Contains("'New_Tag_Account'") && r.Message.Contains("'new_tag_account'"));
+    }
+
+    [Theory]
+    [InlineData("""<field name="accountid" value="" />""", "empty 'accountid' value")]
+    [InlineData("""<field name="accountid" value="not-a-guid" />""", "not a GUID")]
+    [InlineData("""<field name="accountid" value="99999999-9999-9999-9999-999999999999" />""", "differs from the record id")]
+    public void PrimaryIdFieldValueThatIsNotTheRecordId_ReportsError(string idField, string expectedText)
+    {
+        var finding = Assert.Single(Validate($"""
+            <entities>
+              <entity name="account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111">{idField}<field name="name" value="Contoso" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtRecordIdentityInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains(expectedText, finding.Message);
+        Assert.Contains("1 record(s)", finding.Message);
+    }
+
+    [Fact]
+    public void RecordsWithoutPrimaryIdField_ReportOneWarning()
+    {
+        var finding = Assert.Single(Validate("""
+            <entities>
+              <entity name="account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="name" value="Contoso" /></record>
+                  <record id="22222222-2222-2222-2222-222222222222"><field name="name" value="Fabrikam" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtRecordIdentityInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("2 record(s) have no 'accountid' field", finding.Message);
+    }
+
+    [Fact]
+    public void DuplicateRecordId_ReportsError()
+    {
+        var finding = Assert.Single(Validate("""
+            <entities>
+              <entity name="account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="accountid" value="11111111-1111-1111-1111-111111111111" /></record>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="accountid" value="11111111-1111-1111-1111-111111111111" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
+
+        Assert.Equal(ValidationDiagnostics.CmtRecordIdentityInvalid, finding.Code);
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("2 times", finding.Message);
+    }
+
+    [Fact]
+    public void LiquidTemplateInPrimaryIdField_HasNoFinding()
+    {
+        Assert.Empty(Validate("""
+            <entities>
+              <entity name="account">
+                <records>
+                  <record id="11111111-1111-1111-1111-111111111111"><field name="accountid" value="{% randomguid %}" /></record>
+                </records>
+              </entity>
+            </entities>
+            """));
     }
 
     [Fact]
