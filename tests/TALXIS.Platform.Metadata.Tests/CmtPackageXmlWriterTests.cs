@@ -14,6 +14,7 @@ public class CmtPackageXmlWriterTests
     [InlineData("many-to-many")]
     [InlineData("real-export")]
     [InlineData("talxis-dialect")]
+    [InlineData("live-export")]
     public void LoadThenSaveIsByteIdentical(string fixture)
     {
         var schemaPath = Path.Combine(FixtureRoot, fixture, "data_schema.xml");
@@ -136,6 +137,34 @@ public class CmtPackageXmlWriterTests
         var expected = original.Replace("<targetid>bbbbbbbb-0000-0000-0000-000000000002</targetid>", "<targetid>bbbbbbbb-0000-0000-0000-000000000003</targetid>");
         Assert.NotEqual(original, expected);
         Assert.Equal(expected, SaveDataToText(package));
+    }
+
+    [Fact]
+    public void PartiesAreAddedAndRemovedAsActivityPointerRecordsElements()
+    {
+        var dataPath = Path.Combine(FixtureRoot, "live-export", "data.xml");
+        var package = new CmtPackageXmlReader().Load(Path.Combine(FixtureRoot, "live-export", "data_schema.xml"), dataPath);
+        var appointment = package.Data!.FindEntity("appointment")!.Records.Single();
+        var required = appointment.Fields.Single(f => f.Name == "requiredattendees").ActivityPointerRecords;
+        required.RemoveAt(1);
+        var optional = appointment.Fields.Single(f => f.Name == "optionalattendees").ActivityPointerRecords;
+        optional.Add(new CmtDataRecord().Set("partyid", "ccdd83c3-e1c0-f111-a05a-6045bd091279", "contact", "CMTLAB CMTLAB Contact").Set("participationtypemask", "6"));
+
+        var text = System.Text.Encoding.UTF8.GetString(SaveOverCopy(dataPath, path => new CmtPackageXmlWriter().SaveData(package, path)));
+
+        Assert.Contains("<activitypointerrecords id=\"643b17ee-e3c0-f111-a05a-6045bd091279\">", text);
+        Assert.DoesNotContain("653b17ee-e3c0-f111-a05a-6045bd091279", text);
+        Assert.Contains(
+            "<field name=\"optionalattendees\" value=\"\">\n" +
+            "          <activitypointerrecords>\n" +
+            "            <field name=\"partyid\" value=\"ccdd83c3-e1c0-f111-a05a-6045bd091279\" lookupentity=\"contact\" lookupentityname=\"CMTLAB CMTLAB Contact\" />\n" +
+            "            <field name=\"participationtypemask\" value=\"6\" />\n" +
+            "          </activitypointerrecords>\n" +
+            "        </field>", text);
+
+        var reread = new CmtPackageXmlReader().ReadData(System.Xml.Linq.XDocument.Parse(text));
+        var parties = reread.FindEntity("appointment")!.Records.Single().Fields.Single(f => f.Name == "optionalattendees").ActivityPointerRecords;
+        Assert.Equal(Guid.Empty, Assert.Single(parties).Id);
     }
 
     private static readonly string ManyToManyDataPath = Path.Combine(FixtureRoot, "many-to-many", "data.xml");

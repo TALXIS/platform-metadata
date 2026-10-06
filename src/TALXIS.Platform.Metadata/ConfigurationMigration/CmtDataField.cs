@@ -14,7 +14,7 @@ public sealed class CmtDataField : MetadataBase
     /// (money may carry a currency symbol), invariant round-trip datetimes, the GUID for lookups and guid
     /// columns, the integer for optionsetvalue, comma-separated integers for optionsetvaluecollection,
     /// base64 for imagedata, the file id for filedata, and HTML-encoded text for string. <c>null</c> when
-    /// the attribute is absent (partylist fields carry <see cref="ActivityPointerRecords"/> instead).
+    /// the attribute is absent (partylist fields carry an empty value and <see cref="ActivityPointerRecords"/>).
     /// </summary>
     public string? Value { get; set; }
 
@@ -28,8 +28,10 @@ public sealed class CmtDataField : MetadataBase
     public string? LookupEntityName { get; set; }
 
     /// <summary>
-    /// For partylist columns: the activity party records nested under <c>&lt;activitypointerrecords&gt;</c>,
-    /// each with its own id and fields (typically <c>partyid</c> as a lookup). Empty for every other type.
+    /// For partylist columns: the activity parties, each written by CMT as an <c>&lt;activitypointerrecords id="…"&gt;</c>
+    /// element directly under the field, with the activitypartyid as id and the party columns as fields (<c>partyid</c>
+    /// as a lookup, <c>participationtypemask</c>, ...). CMT also imports parties without an id; those read as
+    /// <see cref="Guid.Empty"/> and are written back without one. Empty for every other type.
     /// </summary>
     public IList<CmtDataRecord> ActivityPointerRecords { get; } = new List<CmtDataRecord>();
 }

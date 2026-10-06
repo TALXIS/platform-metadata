@@ -1,0 +1,94 @@
+<entities>
+  <entity name="cmtl_parent" displayname="CMTL Parent" primaryidfield="cmtl_parentid" primarynamefield="cmtl_name" disableplugins="false">
+    <fields>
+      <field displayname="CMTL Parent" name="cmtl_parentid" type="guid" primaryKey="true" />
+      <field displayname="Name" name="cmtl_name" type="string" updateCompare="true" customfield="true" />
+      <field displayname="Status" name="statecode" type="state" />
+      <field displayname="Status Reason" name="statuscode" type="status" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+    </fields>
+    <relationships>
+      <relationship name="cmtl_cmtl_parent_cmtl_child" manyToMany="true" isreflexive="false" relatedEntityName="cmtl_cmtl_parent_cmtl_child" m2mTargetEntity="cmtl_child" m2mTargetEntityPrimaryKey="cmtl_childid" />
+    </relationships>
+    <filter>&lt;fetch&gt;&lt;entity name="cmtl_parent"&gt;&lt;filter&gt;&lt;condition attribute="cmtl_name" operator="like" value="CMTLAB%" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entity name="cmtl_child" displayname="CMTL Child" primaryidfield="cmtl_childid" primarynamefield="cmtl_name" disableplugins="false">
+    <fields>
+      <field displayname="CMTL Child" name="cmtl_childid" type="guid" primaryKey="true" />
+      <field displayname="Name" name="cmtl_name" type="string" updateCompare="true" customfield="true" />
+      <field displayname="String" name="cmtl_string" type="string" customfield="true" />
+      <field displayname="Memo" name="cmtl_memo" type="string" customfield="true" />
+      <field displayname="Number" name="cmtl_number" type="number" customfield="true" />
+      <field displayname="Decimal" name="cmtl_decimal" type="decimal" customfield="true" />
+      <field displayname="Float" name="cmtl_float" type="float" customfield="true" />
+      <field displayname="Money" name="cmtl_money" type="money" customfield="true" />
+      <field displayname="Money (Base)" name="cmtl_money_base" type="money" customfield="true" />
+      <field displayname="Bool" name="cmtl_bool" type="bool" customfield="true" />
+      <field displayname="DateTime UserLocal" name="cmtl_datetime" type="datetime" dateMode="relative" customfield="true" />
+      <field displayname="DateOnly" name="cmtl_dateonly" type="datetime" dateMode="absolute" customfield="true" />
+      <field displayname="TZ independent" name="cmtl_tzindependent" type="datetime" dateMode="absolute" customfield="true" />
+      <field displayname="Choice" name="cmtl_choice" type="optionsetvalue" customfield="true" />
+      <field displayname="Multichoice" name="cmtl_multichoice" type="optionsetvaluecollection" customfield="true" />
+      <field displayname="Parent" name="cmtl_parentid" type="entityreference" lookupType="cmtl_parent" customfield="true" />
+      <field displayname="Parent child" name="cmtl_parentchildid" type="entityreference" lookupType="cmtl_child" customfield="true" />
+      <field displayname="Customer" name="cmtl_customerid" type="entityreference" lookupType="account|contact" customfield="true" />
+      <field displayname="Regarding" name="cmtl_regardingid" type="entityreference" lookupType="account|contact|cmtl_parent" customfield="true" />
+      <field displayname="Image" name="cmtl_image" type="imagedata" customfield="true" />
+      <field displayname="Image Id" name="cmtl_imageid" type="guid" customfield="true" />
+      <field displayname="Status" name="statecode" type="state" />
+      <field displayname="Status Reason" name="statuscode" type="status" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+      <field displayname="Created On" name="createdon" type="datetime" />
+      <field displayname="Modified On" name="modifiedon" type="datetime" />
+      <field displayname="Created By" name="createdby" type="entityreference" lookupType="systemuser" />
+      <field displayname="Import Sequence Number" name="importsequencenumber" type="number" />
+      <field displayname="Record Created On" name="overriddencreatedon" type="datetime" />
+      <field displayname="Exchange Rate" name="exchangerate" type="decimal" />
+      <field displayname="Currency" name="transactioncurrencyid" type="entityreference" lookupType="transactioncurrency" />
+      <field displayname="UTC Conversion Time Zone Code" name="utcconversiontimezonecode" type="number" />
+      <field displayname="Time Zone Rule Version Number" name="timezoneruleversionnumber" type="number" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="cmtl_child"&gt;&lt;filter&gt;&lt;condition attribute="cmtl_name" operator="like" value="CMTLAB%" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entity name="account" displayname="Account" primaryidfield="accountid" primarynamefield="name" disableplugins="false">
+    <fields>
+      <field displayname="Account" name="accountid" type="guid" primaryKey="true" />
+      <field displayname="Account Name" name="name" type="string" updateCompare="true" />
+      <field displayname="Main Phone" name="telephone1" type="string" />
+      <field displayname="Primary Contact" name="primarycontactid" type="entityreference" lookupType="contact" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="account"&gt;&lt;filter&gt;&lt;condition attribute="name" operator="like" value="CMTLAB%" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entity name="contact" displayname="Contact" primaryidfield="contactid" primarynamefield="fullname" disableplugins="false">
+    <fields>
+      <field displayname="Contact" name="contactid" type="guid" primaryKey="true" />
+      <field displayname="First Name" name="firstname" type="string" />
+      <field displayname="Last Name" name="lastname" type="string" updateCompare="true" />
+      <field displayname="Company Name" name="parentcustomerid" type="entityreference" lookupType="account|contact" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="contact"&gt;&lt;filter&gt;&lt;condition attribute="lastname" operator="like" value="CMTLAB%" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entity name="appointment" displayname="Appointment" primaryidfield="activityid" primarynamefield="subject" disableplugins="false">
+    <fields>
+      <field displayname="Appointment" name="activityid" type="guid" primaryKey="true" />
+      <field displayname="Subject" name="subject" type="string" updateCompare="true" />
+      <field displayname="Regarding" name="regardingobjectid" type="entityreference" lookupType="account|contact|cmtl_parent|cmtl_child" />
+      <field displayname="Required" name="requiredattendees" type="partylist" />
+      <field displayname="Optional" name="optionalattendees" type="partylist" />
+      <field displayname="Organizer" name="organizer" type="partylist" />
+      <field displayname="Start Time" name="scheduledstart" type="datetime" />
+      <field displayname="End Time" name="scheduledend" type="datetime" />
+      <field displayname="Owner" name="ownerid" type="owner" />
+    </fields>
+    <filter>&lt;fetch&gt;&lt;entity name="appointment"&gt;&lt;filter&gt;&lt;condition attribute="subject" operator="like" value="CMTLAB%" /&gt;&lt;/filter&gt;&lt;/entity&gt;&lt;/fetch&gt;</filter>
+  </entity>
+  <entityImportOrder>
+    <entityName>account</entityName>
+    <entityName>contact</entityName>
+    <entityName>cmtl_parent</entityName>
+    <entityName>cmtl_child</entityName>
+    <entityName>appointment</entityName>
+  </entityImportOrder>
+</entities>

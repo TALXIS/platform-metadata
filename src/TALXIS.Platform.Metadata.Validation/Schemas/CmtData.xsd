@@ -88,8 +88,8 @@
 
     <xs:complexType name="CmtDataFieldType">
         <xs:sequence>
-            <!-- partylist fields carry their activity parties as nested records instead of a value. -->
-            <xs:element name="activitypointerrecords" type="CmtActivityPointerRecordsType" minOccurs="0" />
+            <!-- partylist fields carry one activitypointerrecords element per activity party (value=""). -->
+            <xs:element name="activitypointerrecords" type="CmtActivityPartyType" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="value" type="xs:string" use="optional" />
@@ -100,12 +100,15 @@
         <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
-    <!-- Each child is an activity party record (id + field elements). Kept open so CMT's exact element name
-         does not have to be pinned here; CmtPackageXmlReader reads every child as a record. -->
-    <xs:complexType name="CmtActivityPointerRecordsType">
+    <!-- An activity party: CMT exports its activitypartyid as id and the party columns (partyid lookup,
+         participationtypemask, ...) as fields. CMT also imports parties without an id. -->
+    <xs:complexType name="CmtActivityPartyType">
         <xs:sequence>
-            <xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="field" type="CmtDataFieldType" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
+        <xs:attribute name="id" type="GuidType" use="optional" />
+        <xs:attribute name="newId" type="GuidType" use="optional" />
+        <xs:anyAttribute processContents="skip" />
     </xs:complexType>
 
     <xs:complexType name="CmtM2mRelationshipsType">

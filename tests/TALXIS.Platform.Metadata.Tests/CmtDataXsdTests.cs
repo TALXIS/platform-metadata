@@ -19,6 +19,8 @@ public class CmtDataXsdTests
     [InlineData("real-export", "data.xml")]
     [InlineData("talxis-dialect", "data_schema.xml")]
     [InlineData("talxis-dialect", "data.xml")]
+    [InlineData("live-export", "data_schema.xml")]
+    [InlineData("live-export", "data.xml")]
     public void FixturesPassXsd(string fixture, string file)
     {
         Assert.Empty(_validator.ValidateFile(Path.Combine(FixtureRoot, fixture, file)));
@@ -89,7 +91,7 @@ public class CmtDataXsdTests
     }
 
     [Theory]
-    [InlineData("""<entities><entity name="email"><records><record id="11111111-1111-1111-1111-111111111111" newId="22222222-2222-2222-2222-222222222222"><field name="to"><activitypointerrecords><activitypointerrecord id="33333333-3333-3333-3333-333333333333"><field name="partyid" value="44444444-4444-4444-4444-444444444444" lookupentity="contact" /></activitypointerrecord></activitypointerrecords></field></record></records></entity></entities>""")]
+    [InlineData("""<entities><entity name="email"><records><record id="11111111-1111-1111-1111-111111111111" newId="22222222-2222-2222-2222-222222222222"><field name="to" value=""><activitypointerrecords id="33333333-3333-3333-3333-333333333333"><field name="partyid" value="44444444-4444-4444-4444-444444444444" lookupentity="contact" /></activitypointerrecords><activitypointerrecords><field name="partyid" value="55555555-5555-5555-5555-555555555555" lookupentity="contact" /></activitypointerrecords></field></record></records></entity></entities>""")]
     [InlineData("""<entities><entity name="a"><records><record id="11111111-1111-1111-1111-111111111111"><field name="doc" value="f1" filename="contract.pdf" /></record></records><relationships><relationship name="a_b" manyToMany="true" /></relationships></entity></entities>""")]
     [InlineData("""<entities><entity name="a"><records /><m2mrelationships><m2mrelationship sourceid="11111111-1111-1111-1111-111111111111" targetentityname="b" m2mrelationshipname="a_b" m2mrelationshipschemaname="a_b"><targetids /></m2mrelationship></m2mrelationships></entity></entities>""")]
     [InlineData("""<entities dateMode="relativeDaily"><entity name="a"><fields><field name="aid" type="guid" /><field name="d" type="datetime" dateMode="relative" /></fields><relationships /><filter>x</filter></entity></entities>""")]

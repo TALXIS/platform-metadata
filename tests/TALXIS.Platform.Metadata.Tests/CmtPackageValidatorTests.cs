@@ -183,6 +183,7 @@ public class CmtPackageValidatorTests
     [Theory]
     [InlineData("real-export")]
     [InlineData("talxis-dialect")]
+    [InlineData("live-export")]
     public void Fixtures_ProduceNoErrors(string fixture)
     {
         var root = Path.Combine(AppContext.BaseDirectory, "TestData", "CmtPackage", fixture);

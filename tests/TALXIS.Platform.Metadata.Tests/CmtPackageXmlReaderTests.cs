@@ -104,11 +104,9 @@ public class CmtPackageXmlReaderTests
                     <records>
                       <record id="11111111-1111-1111-1111-111111111111" newId="22222222-2222-2222-2222-222222222222">
                         <field name="attachment" value="f1" filename="contract.pdf" />
-                        <field name="to">
-                          <activitypointerrecords>
-                            <activitypointerrecord id="33333333-3333-3333-3333-333333333333">
-                              <field name="partyid" value="44444444-4444-4444-4444-444444444444" lookupentity="contact" lookupentityname="Jane" />
-                            </activitypointerrecord>
+                        <field name="to" value="" lookupentity="" lookupentityname="">
+                          <activitypointerrecords id="33333333-3333-3333-3333-333333333333">
+                            <field name="partyid" value="44444444-4444-4444-4444-444444444444" lookupentity="contact" lookupentityname="Jane" />
                           </activitypointerrecords>
                         </field>
                       </record>
@@ -133,6 +131,48 @@ public class CmtPackageXmlReaderTests
         Assert.Equal(new Guid("33333333-3333-3333-3333-333333333333"), party.Id);
         Assert.Equal("contact", party.Fields.Single().LookupEntity);
         Assert.Equal("Email_Contact", package.Data.Entities.Single().ManyToManyRelationships.Single().RelationshipSchemaName);
+    }
+
+    [Fact]
+    public void ReadsLiveExportPartyListAsOneRecordPerParty()
+    {
+        var package = LoadFixture("live-export");
+
+        Assert.Empty(package.LoadErrors);
+        var appointment = package.Data!.FindEntity("appointment")!.Records.Single();
+        var attendees = appointment.Fields.Single(f => f.Name == "requiredattendees");
+        Assert.Equal(string.Empty, attendees.Value);
+        Assert.Equal(new[] { new Guid("643b17ee-e3c0-f111-a05a-6045bd091279"), new Guid("653b17ee-e3c0-f111-a05a-6045bd091279") },
+            attendees.ActivityPointerRecords.Select(p => p.Id));
+        var contact = attendees.ActivityPointerRecords[0].Fields.Single(f => f.Name == "partyid");
+        Assert.Equal("contact", contact.LookupEntity);
+        Assert.Equal("5", attendees.ActivityPointerRecords[0].Fields.Single(f => f.Name == "participationtypemask").Value);
+        Assert.Empty(appointment.Fields.Single(f => f.Name == "optionalattendees").ActivityPointerRecords);
+    }
+
+    [Fact]
+    public void PartyWithoutIdIsReadAsEmptyGuid()
+    {
+        var package = new CmtPackageXmlReader().Read(
+            XDocument.Parse("<entities><entity name=\"appointment\"><fields /></entity></entities>"),
+            XDocument.Parse("""
+                <entities>
+                  <entity name="appointment">
+                    <records>
+                      <record id="11111111-1111-1111-1111-111111111111">
+                        <field name="requiredattendees" value="">
+                          <activitypointerrecords><field name="partyid" value="22222222-2222-2222-2222-222222222222" lookupentity="contact" lookupentityname="Jane" /></activitypointerrecords>
+                          <activitypointerrecords id="not-a-guid"><field name="partyid" value="33333333-3333-3333-3333-333333333333" lookupentity="contact" lookupentityname="John" /></activitypointerrecords>
+                        </field>
+                      </record>
+                    </records>
+                  </entity>
+                </entities>
+                """));
+
+        var party = Assert.Single(package.Data!.Entities.Single().Records.Single().Fields.Single().ActivityPointerRecords);
+        Assert.Equal(Guid.Empty, party.Id);
+        Assert.Contains("'not-a-guid'", Assert.Single(package.LoadErrors).Message);
     }
 
     [Fact]

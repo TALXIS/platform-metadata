@@ -170,12 +170,14 @@ public sealed class CmtPackageXmlReader
     }
 
     // A record whose id does not parse is skipped and reported: silently mapping it to Guid.Empty would
-    // make the writer rewrite the attribute and the validators match the wrong record.
-    private static CmtDataRecord? ReadRecord(XElement element, string? sourcePath, List<WorkspaceLoadError> errors)
+    // make the writer rewrite the attribute and the validators match the wrong record. Activity parties are the
+    // exception: CMT imports them without an id, so an absent one reads as Guid.Empty and is never written.
+    private static CmtDataRecord? ReadRecord(XElement element, string? sourcePath, List<WorkspaceLoadError> errors, bool isParty = false)
     {
-        if (CmtXml.ParseGuid(Attr(element, "id")) is not { } id)
+        var idText = Attr(element, "id");
+        if ((isParty && idText is null ? Guid.Empty : CmtXml.ParseGuid(idText)) is not { } id)
         {
-            errors.Add(LoadError(element, sourcePath, $"<{element.Name.LocalName}> has no valid GUID in its id attribute ('{Attr(element, "id")}'); the record is skipped."));
+            errors.Add(LoadError(element, sourcePath, $"<{element.Name.LocalName}> has no valid GUID in its id attribute ('{idText}'); the record is skipped."));
             return null;
         }
 
@@ -193,10 +195,10 @@ public sealed class CmtPackageXmlReader
                 LookupEntityName = Attr(fieldElement, "lookupentityname")
             };
             SetSource(field, fieldElement, sourcePath);
-            // Partylist: every child of <activitypointerrecords> is an activity party record, whatever CMT names it.
-            foreach (var party in fieldElement.Elements("activitypointerrecords").Elements())
+            // Partylist: CMT writes one <activitypointerrecords id="…"> element per activity party, directly under the field.
+            foreach (var party in fieldElement.Elements("activitypointerrecords"))
             {
-                if (ReadRecord(party, sourcePath, errors) is { } model) field.ActivityPointerRecords.Add(model);
+                if (ReadRecord(party, sourcePath, errors, isParty: true) is { } model) field.ActivityPointerRecords.Add(model);
             }
             record.Fields.Add(field);
         }

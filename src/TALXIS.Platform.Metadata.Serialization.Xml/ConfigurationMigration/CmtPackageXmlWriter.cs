@@ -162,7 +162,8 @@ public sealed class CmtPackageXmlWriter
 
     private static void ApplyRecord(CmtDataRecord record, XElement element, bool isNew)
     {
-        SetGuid(element, "id", record.Id);
+        // Activity parties may have no id (read as Guid.Empty); records always carry one.
+        if (record.Id != Guid.Empty || element.Name.LocalName == "record") SetGuid(element, "id", record.Id);
         SetNullableGuid(element, "newId", record.NewId);
         SyncChildren(element, "field", record.Fields, f => f.Name, ApplyDataField);
     }
@@ -174,12 +175,8 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "filename", field.FileName);
         SetString(element, "lookupentity", field.LookupEntity);
         SetString(element, "lookupentityname", field.LookupEntityName);
-
-        var parties = Container(element, "activitypointerrecords", field.ActivityPointerRecords.Count > 0);
-        if (parties is null) return;
-        // Keep whatever element name the file already uses for party records; new files get the CMT name.
-        var partyName = parties.Elements().FirstOrDefault()?.Name.LocalName ?? "activitypointerrecord";
-        SyncChildren(parties, partyName, field.ActivityPointerRecords, r => GuidKey(r.Id), ApplyRecord);
+        // Partylist: one <activitypointerrecords> element per activity party, directly under the field.
+        SyncChildren(element, "activitypointerrecords", field.ActivityPointerRecords, r => GuidKey(r.Id), ApplyRecord);
     }
 
     private static void ApplyManyToMany(CmtDataManyToManyRelationship m2m, XElement element, bool isNew)
@@ -245,7 +242,7 @@ public sealed class CmtPackageXmlWriter
     private static string ElementKey(XElement element) => element.Name.LocalName switch
     {
         "m2mrelationship" => ManyToManyKey(element.Attribute("m2mrelationshipname")?.Value, CmtXml.ParseGuid(element.Attribute("sourceid")?.Value) ?? Guid.Empty),
-        _ when element.Attribute("id") is { } id => GuidKey(CmtXml.ParseGuid(id.Value) ?? Guid.Empty), // record and activity party records
+        "record" or "activitypointerrecords" => GuidKey(CmtXml.ParseGuid(element.Attribute("id")?.Value) ?? Guid.Empty),
         _ => element.Attribute("name")?.Value ?? string.Empty
     };
 
