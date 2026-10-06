@@ -49,6 +49,53 @@ public class CmtPackageXmlWriterTests
     }
 
     [Fact]
+    public void EditSavedToTwoFiles_BothContainEdit()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"cmt-stale-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var package = new CmtPackageXmlReader().Load(BasicSchemaPath, null);
+            package.Schema.FindEntity("account")!.FindField("name")!.IsUpdateCompare = true;
+            var writer = new CmtPackageXmlWriter();
+
+            writer.SaveSchema(package, Path.Combine(directory, "first.xml"));
+            writer.SaveSchema(package, Path.Combine(directory, "second.xml"));
+
+            Assert.Contains("name=\"name\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(Path.Combine(directory, "first.xml")));
+            Assert.Contains("name=\"name\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(Path.Combine(directory, "second.xml")));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void EditSavedElsewhereThenToLoadedFile_LoadedFileContainsEdit()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"cmt-stale-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var loadedPath = Path.Combine(directory, "data_schema.xml");
+        File.Copy(BasicSchemaPath, loadedPath);
+        try
+        {
+            var package = new CmtPackageXmlReader().Load(loadedPath, null);
+            package.Schema.FindEntity("account")!.FindField("name")!.IsUpdateCompare = true;
+            var writer = new CmtPackageXmlWriter();
+
+            writer.SaveSchema(package, Path.Combine(directory, "copy.xml"));
+            writer.SaveSchema(package, loadedPath);
+
+            Assert.Contains("name=\"name\" type=\"string\" updateCompare=\"true\"", File.ReadAllText(loadedPath));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public void RealExportMutationKeepsBomCrlfDeclarationAndEntitisedNewlines()
     {
         var schemaPath = Path.Combine(FixtureRoot, "real-export", "data_schema.xml");

@@ -22,18 +22,20 @@ public sealed class CmtPackageXmlReader
     public CmtPackage Load(string schemaPath, string? dataPath)
     {
         var errors = new List<WorkspaceLoadError>();
-        var schemaDocument = TryLoad(schemaPath, errors);
-        var schema = schemaDocument is null ? new CmtDataSchema() : ReadSchema(schemaDocument, schemaPath);
+        var schemaFile = TryLoad(schemaPath, errors);
+        var schema = schemaFile == null ? new CmtDataSchema() : ReadSchema(schemaFile.Value.Document, schemaPath);
 
         CmtData? data = null;
-        XDocument? dataDocument = null;
-        if (dataPath is not null)
-        {
-            dataDocument = TryLoad(dataPath, errors);
-            if (dataDocument is not null) data = ReadData(dataDocument, dataPath, errors);
-        }
+        var dataFile = dataPath == null ? null : TryLoad(dataPath, errors);
+        if (dataFile != null) data = ReadData(dataFile.Value.Document, dataPath, errors);
 
-        return new CmtPackage(schema, data, errors) { SchemaDocument = schemaDocument, DataDocument = dataDocument };
+        return new CmtPackage(schema, data, errors)
+        {
+            SchemaDocument = schemaFile?.Document,
+            SchemaBytes = schemaFile?.Bytes,
+            DataDocument = dataFile?.Document,
+            DataBytes = dataFile?.Bytes
+        };
     }
 
     /// <summary>
@@ -230,12 +232,19 @@ public sealed class CmtPackageXmlReader
         return m2m;
     }
 
-    private static XDocument? TryLoad(string path, List<WorkspaceLoadError> errors)
+    /// <summary>Parses document bytes the way the reader loads files: whitespace and line information preserved.</summary>
+    internal static XDocument Parse(byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        return XDocument.Load(stream, XmlLoadOptions);
+    }
+
+    private static (XDocument Document, byte[] Bytes)? TryLoad(string path, List<WorkspaceLoadError> errors)
     {
         try
         {
-            using var stream = OpenRead(path);
-            return XDocument.Load(stream, XmlLoadOptions);
+            var bytes = ReadAllBytes(path);
+            return (Parse(bytes), bytes);
         }
         catch (XmlException ex)
         {
@@ -249,7 +258,7 @@ public sealed class CmtPackageXmlReader
     }
 
     // TODO(layering): route through IWorkspaceContext once the metamodel-layering branch lands; these are the reader's only file accesses.
-    private static Stream OpenRead(string path) => File.OpenRead(path);
+    private static byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
 
     private static bool FileExists(string path) => File.Exists(path);
 

@@ -59,29 +59,27 @@ public sealed class CmtPackageXmlWriter
     }
 
     private static bool SaveSchemaCore(CmtPackage package, string path) =>
-        SaveIfChanged(package.SchemaDocument, () => BuildSchema(package), path, package.Schema.Source?.FilePath);
+        SaveIfChanged(BuildSchema(package), package.SchemaBytes, path, indent: package.SchemaDocument == null);
 
     private static bool SaveDataCore(CmtPackage package, string path) =>
-        SaveIfChanged(package.DataDocument, () => BuildData(package), path, package.Data?.Source?.FilePath);
+        SaveIfChanged(BuildData(package), package.DataBytes, path, indent: package.DataDocument == null);
 
     // Hand-edited files can contain formatting XDocument cannot reproduce (attributes split over lines, for
-    // example), so an unchanged document is never re-serialised: the same file is left alone and a different
-    // target gets a byte-for-byte copy of the source file.
-    private static bool SaveIfChanged(XDocument? original, Func<XDocument> build, string path, string? loadedFrom)
+    // example), so a document that still matches the file it was loaded from is saved as that file's bytes.
+    private static bool SaveIfChanged(XDocument document, byte[]? loadedBytes, string path, bool indent)
     {
-        var before = original?.ToString(SaveOptions.DisableFormatting);
-        var document = build();
-        var isUnchanged = loadedFrom is not null && FileExists(loadedFrom) && before == document.ToString(SaveOptions.DisableFormatting);
-        if (isUnchanged)
-        {
-            if (FilePaths.Equal(path, loadedFrom!)) return false;
-            WriteAllBytes(path, ReadAllBytes(loadedFrom!));
-            return true;
-        }
+        var existing = FileExists(path) ? ReadAllBytes(path) : null;
+        var bytes = loadedBytes != null && IsUnchanged(document, loadedBytes)
+            ? loadedBytes
+            : Serialize(document, existing, indent);
+        if (existing != null && existing.SequenceEqual(bytes)) return false;
 
-        Save(document, path, original is null);
+        WriteAllBytes(path, bytes);
         return true;
     }
+
+    private static bool IsUnchanged(XDocument document, byte[] loadedBytes) =>
+        CmtPackageXmlReader.Parse(loadedBytes).ToString(SaveOptions.DisableFormatting) == document.ToString(SaveOptions.DisableFormatting);
 
     private static XDocument BuildSchema(CmtPackage package)
     {
@@ -297,9 +295,8 @@ public sealed class CmtPackageXmlWriter
         else SetGuid(element, name, value.Value);
     }
 
-    private static void Save(XDocument document, string path, bool isNew)
+    private static byte[] Serialize(XDocument document, byte[]? existing, bool indent)
     {
-        var existing = FileExists(path) ? ReadAllBytes(path) : null;
         var newLine = existing is null ? "\r\n" : DetectNewLine(existing);
         var encodingName = document.Declaration?.Encoding;
         var settings = new XmlWriterSettings
@@ -310,7 +307,7 @@ public sealed class CmtPackageXmlWriter
             OmitXmlDeclaration = document.Declaration is null,
             NewLineChars = newLine,
             NewLineHandling = NewLineHandling.Replace,
-            Indent = isNew,
+            Indent = indent,
             IndentChars = "  "
         };
 
@@ -322,7 +319,7 @@ public sealed class CmtPackageXmlWriter
         // TALXIS packages declare <?xml version="1.0"?> without encoding; XmlWriter always adds one.
         if (document.Declaration is { } declaration && string.IsNullOrEmpty(declaration.Encoding))
             text = ReplaceFirst(text, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", "<?xml version=\"1.0\"?>");
-        WriteAllBytes(path, settings.Encoding.GetBytes(text));
+        return settings.Encoding.GetBytes(text);
     }
 
     // TODO(layering): route the four helpers below through IWorkspaceContext once the metamodel-layering branch lands.

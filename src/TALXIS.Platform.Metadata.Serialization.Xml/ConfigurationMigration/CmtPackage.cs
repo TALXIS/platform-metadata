@@ -33,4 +33,8 @@ public sealed class CmtPackage
     // TODO(layering): move the originals to IWorkspaceDocumentStore once the metamodel-layering branch lands.
     internal XDocument? SchemaDocument { get; set; }
     internal XDocument? DataDocument { get; set; }
+
+    // The bytes each document was loaded from: the writer saves an unchanged document as these bytes.
+    internal byte[]? SchemaBytes { get; set; }
+    internal byte[]? DataBytes { get; set; }
 }
