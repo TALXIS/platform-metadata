@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" timestamp="2026-10-06T11:42:10.9113036Z">
+  <entity name="cmtl_parent" displayname="CMTL Parent">
+    <records>
+      <record id="11e18694-1be8-5947-8382-580bc409f87b">
+        <field name="cmtl_parentid" value="11e18694-1be8-5947-8382-580bc409f87b" />
+        <field name="cmtl_name" value="CMTLAB EX Parent 1" />
+        <field name="statecode" value="0" />
+        <field name="statuscode" value="1" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+      <record id="3e05ec78-a3ac-514a-97d0-3a8db43dce8a">
+        <field name="cmtl_parentid" value="3e05ec78-a3ac-514a-97d0-3a8db43dce8a" />
+        <field name="cmtl_name" value="CMTLAB EX Parent 2" />
+        <field name="statecode" value="0" />
+        <field name="statuscode" value="1" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+    </records>
+    <m2mrelationships>
+      <m2mrelationship sourceid="11e18694-1be8-5947-8382-580bc409f87b" targetentityname="cmtl_child" targetentitynameidfield="cmtl_childid" m2mrelationshipname="cmtl_cmtl_parent_cmtl_child">
+        <targetids>
+          <targetid>e874c01e-7325-549b-aa65-e64722e3e165</targetid>
+          <targetid>ad3c90ed-fb18-5c67-a628-25e89dd1c81a</targetid>
+        </targetids>
+      </m2mrelationship>
+    </m2mrelationships>
+  </entity>
+  <entity name="cmtl_child" displayname="CMTL Child">
+    <records>
+      <record id="e874c01e-7325-549b-aa65-e64722e3e165">
+        <field name="cmtl_childid" value="e874c01e-7325-549b-aa65-e64722e3e165" />
+        <field name="cmtl_name" value="CMTLAB EX Child 1" />
+        <field name="cmtl_string" value="string 1" />
+        <field name="cmtl_memo" value="line one&#xA;line two 1" />
+        <field name="cmtl_number" value="11" />
+        <field name="cmtl_decimal" value="1.2500000000" />
+        <field name="cmtl_float" value="1.125" />
+        <field name="cmtl_money" value="11.5000000000" />
+        <field name="cmtl_bool" value="True" />
+        <field name="cmtl_datetime" value="2026-03-11T10:30:00.0000000Z" />
+        <field name="cmtl_dateonly" value="2026-04-01T00:00:00.0000000" />
+        <field name="cmtl_tzindependent" value="2026-05-01T08:15:00.0000000" />
+        <field name="cmtl_choice" value="71000000" />
+        <field name="cmtl_multichoice" value="[-1,71000010,71000012,-1]" />
+        <field name="cmtl_parentid" value="11e18694-1be8-5947-8382-580bc409f87b" lookupentity="cmtl_parent" lookupentityname="CMTLAB EX Parent 1" />
+        <field name="cmtl_customerid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+        <field name="cmtl_regardingid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+        <field name="cmtl_file" value="40ae271b-220c-57bf-915c-f426c58fee4f" filename="sample.txt" />
+        <field name="cmtl_image" value="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAANSURBVBhXY/jPwPAfAAUAAf+mXJtdAAAAAElFTkSuQmCC" />
+        <field name="statecode" value="0" />
+        <field name="statuscode" value="1" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+      <record id="ad3c90ed-fb18-5c67-a628-25e89dd1c81a">
+        <field name="cmtl_childid" value="ad3c90ed-fb18-5c67-a628-25e89dd1c81a" />
+        <field name="cmtl_name" value="CMTLAB EX Child 2" />
+        <field name="cmtl_string" value="string 2" />
+        <field name="cmtl_memo" value="line one&#xA;line two 2" />
+        <field name="cmtl_number" value="22" />
+        <field name="cmtl_decimal" value="2.2500000000" />
+        <field name="cmtl_float" value="2.125" />
+        <field name="cmtl_money" value="22.5000000000" />
+        <field name="cmtl_bool" value="True" />
+        <field name="cmtl_datetime" value="2026-03-12T10:30:00.0000000Z" />
+        <field name="cmtl_dateonly" value="2026-04-02T00:00:00.0000000" />
+        <field name="cmtl_tzindependent" value="2026-05-02T08:15:00.0000000" />
+        <field name="cmtl_choice" value="71000001" />
+        <field name="cmtl_multichoice" value="[-1,71000010,71000012,-1]" />
+        <field name="cmtl_parentid" value="11e18694-1be8-5947-8382-580bc409f87b" lookupentity="cmtl_parent" lookupentityname="CMTLAB EX Parent 1" />
+        <field name="cmtl_parentchildid" value="e874c01e-7325-549b-aa65-e64722e3e165" lookupentity="cmtl_child" lookupentityname="CMTLAB EX Child 1" />
+        <field name="cmtl_customerid" value="658200f2-233b-57b2-82b0-381277912bce" lookupentity="contact" lookupentityname="CMTLAB CMTLAB EX Contact" />
+        <field name="cmtl_regardingid" value="658200f2-233b-57b2-82b0-381277912bce" lookupentity="contact" lookupentityname="CMTLAB CMTLAB EX Contact" />
+        <field name="statecode" value="0" />
+        <field name="statuscode" value="1" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+      <record id="02802d42-f7a7-5294-877f-b39b8ea1b543">
+        <field name="cmtl_childid" value="02802d42-f7a7-5294-877f-b39b8ea1b543" />
+        <field name="cmtl_name" value="CMTLAB EX Child 3" />
+        <field name="cmtl_string" value="string 3" />
+        <field name="cmtl_memo" value="line one&#xA;line two 3" />
+        <field name="cmtl_number" value="33" />
+        <field name="cmtl_decimal" value="3.2500000000" />
+        <field name="cmtl_float" value="3.125" />
+        <field name="cmtl_money" value="33.5000000000" />
+        <field name="cmtl_bool" value="True" />
+        <field name="cmtl_datetime" value="2026-03-13T10:30:00.0000000Z" />
+        <field name="cmtl_dateonly" value="2026-04-03T00:00:00.0000000" />
+        <field name="cmtl_tzindependent" value="2026-05-03T08:15:00.0000000" />
+        <field name="cmtl_choice" value="71000002" />
+        <field name="cmtl_multichoice" value="[-1,71000010,71000012,-1]" />
+        <field name="cmtl_parentid" value="11e18694-1be8-5947-8382-580bc409f87b" lookupentity="cmtl_parent" lookupentityname="CMTLAB EX Parent 1" />
+        <field name="cmtl_customerid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+        <field name="cmtl_regardingid" value="3e05ec78-a3ac-514a-97d0-3a8db43dce8a" lookupentity="cmtl_parent" lookupentityname="CMTLAB EX Parent 2" />
+        <field name="statecode" value="1" />
+        <field name="statuscode" value="2" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+  <entity name="account" displayname="Account">
+    <records>
+      <record id="d71b1bd3-0604-567a-b506-f4ba97aedb59">
+        <field name="accountid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" />
+        <field name="name" value="CMTLAB EX Account" />
+        <field name="telephone1" value="555-0100" />
+        <field name="primarycontactid" value="658200f2-233b-57b2-82b0-381277912bce" lookupentity="contact" lookupentityname="CMTLAB CMTLAB EX Contact" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+  <entity name="contact" displayname="Contact">
+    <records>
+      <record id="658200f2-233b-57b2-82b0-381277912bce">
+        <field name="contactid" value="658200f2-233b-57b2-82b0-381277912bce" />
+        <field name="firstname" value="CMTLAB" />
+        <field name="lastname" value="CMTLAB EX Contact" />
+        <field name="emailaddress1" value="user@example.com" />
+        <field name="parentcustomerid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+  <entity name="appointment" displayname="Appointment">
+    <records>
+      <record id="c2e40317-19ed-5e0e-9fa9-0d30ae9468fc">
+        <field name="activityid" value="c2e40317-19ed-5e0e-9fa9-0d30ae9468fc" />
+        <field name="subject" value="CMTLAB EX appointment" />
+        <field name="regardingobjectid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+        <field name="requiredattendees" value="" lookupentity="" lookupentityname="">
+          <activitypointerrecords id="3241a5d8-4d77-55d4-9d12-7bd62ede1782">
+            <field name="partyid" value="658200f2-233b-57b2-82b0-381277912bce" lookupentity="contact" lookupentityname="CMTLAB CMTLAB EX Contact" />
+            <field name="activityid" value="c2e40317-19ed-5e0e-9fa9-0d30ae9468fc" lookupentity="activitypointer" />
+            <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" />
+            <field name="participationtypemask" value="5" />
+            <field name="instancetypecode" value="0" />
+            <field name="donotemail" value="False" />
+            <field name="donotfax" value="False" />
+            <field name="donotpostalmail" value="False" />
+            <field name="donotphone" value="False" />
+            <field name="ispartydeleted" value="False" />
+            <field name="addressused" value="user@example.com" />
+            <field name="activitypartyid" value="3241a5d8-4d77-55d4-9d12-7bd62ede1782" />
+          </activitypointerrecords>
+          <activitypointerrecords id="099a6847-d467-5185-8440-35933b1e9e75">
+            <field name="partyid" value="d71b1bd3-0604-567a-b506-f4ba97aedb59" lookupentity="account" lookupentityname="CMTLAB EX Account" />
+            <field name="activityid" value="c2e40317-19ed-5e0e-9fa9-0d30ae9468fc" lookupentity="activitypointer" />
+            <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" />
+            <field name="participationtypemask" value="5" />
+            <field name="instancetypecode" value="0" />
+            <field name="donotemail" value="False" />
+            <field name="donotfax" value="False" />
+            <field name="donotpostalmail" value="False" />
+            <field name="donotphone" value="False" />
+            <field name="ispartydeleted" value="False" />
+            <field name="activitypartyid" value="099a6847-d467-5185-8440-35933b1e9e75" />
+          </activitypointerrecords>
+        </field>
+        <field name="scheduledstart" value="2026-10-10T09:00:00.0000000Z" />
+        <field name="scheduledend" value="2026-10-10T10:00:00.0000000Z" />
+        <field name="ownerid" value="0ff0de1d-a6ad-f111-aaad-000d3a5c8169" lookupentity="systemuser" lookupentityname="Lab User" />
+      </record>
+    </records>
+    <m2mrelationships />
+  </entity>
+</entities>
