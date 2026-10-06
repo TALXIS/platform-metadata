@@ -33,7 +33,7 @@ public static class CmtFieldTypes
     /// <summary>Emitted by CMT's generator for attribute types it cannot map; not importable.</summary>
     public const string Unknown = "unknown";
 
-    /// <summary>TALXIS dialect synonym for <see cref="FileData"/> (INT0014-DataMovement resolves the value against zip entries by substring). Not accepted by Microsoft CMT.</summary>
+    /// <summary>TALXIS dialect synonym for <see cref="FileData"/>; not accepted by Microsoft CMT.</summary>
     public const string File = "file";
 
     /// <summary>Every type Microsoft CMT can import, in the spelling it requires. Excludes <see cref="BigInt"/>, <see cref="Customer"/>, <see cref="Unknown"/> and the TALXIS synonym <see cref="File"/>.</summary>

@@ -39,19 +39,14 @@ public sealed class CmtSchemaEntity : MetadataBase
     public bool? ForceCreate { get; set; }
 
     /// <summary>
-    /// TALXIS extension (not part of Microsoft CMT, which ignores unknown attributes). Source: TALXIS INT0014-DataMovement.
-    /// When <c>true</c>, the TALXIS importer renders the whole &lt;records&gt; element of the matching data.xml entity through
-    /// DotLiquid (empty variable context; custom tags/filters <c>{% json %}</c>, <c>{% randomguid %}</c>, <c>| json</c>) and re-parses
-    /// the result as XML before import. Values may therefore be templates rather than literals until rendered.
-    /// Do not flag Liquid syntax in values when this is false: those are runtime templates (e.g. authorization filters), not import-time Liquid.
+    /// TALXIS extension, ignored by Microsoft CMT. When <c>true</c>, the TALXIS importer renders the entity's data.xml
+    /// records through Liquid before import, so values may be templates rather than literals.
     /// </summary>
     public bool? RenderLiquid { get; set; }
 
     /// <summary>
-    /// TALXIS extension (not part of Microsoft CMT). When <c>true</c>, the TALXIS importer remaps on import the record id, every
-    /// non-lookup field of type <c>guid</c>, M2M source ids, and lookup/M2M target ids that point to entities in the same package
-    /// that are also <c>guidswap="true"</c>, using a consistent map (fresh GUIDs, or fixed mappings from an optional guids.json /
-    /// request body). References to entities not in the package, or not guidswap, are left unchanged.
+    /// TALXIS extension, ignored by Microsoft CMT. When <c>true</c>, the TALXIS importer replaces the entity's record ids,
+    /// and references to them from other <c>guidswap</c> entities in the package, with a consistent set of new ids.
     /// </summary>
     public bool? GuidSwap { get; set; }
 

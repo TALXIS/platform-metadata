@@ -6,23 +6,7 @@ Nothing here touches Dataverse, discovers files or bakes in folder names. `CmtPa
 
 ## Model
 
-`TALXIS.Platform.Metadata.ConfigurationMigration` (core package, no dependencies, every type derives from `MetadataBase` and carries a `Source` location):
-
-| Type | What it is |
-|---|---|
-| `CmtDataSchema` | root of data_schema.xml: `DateMode`, `EntityImportOrder`, `Entities`, `FindEntity` (ordinal) |
-| `CmtSchemaEntity` | a table: `Name`, `DisplayName`, `ObjectTypeCode` (`etc`), `PrimaryIdField`, `PrimaryNameField`, `DisablePlugins`/`SkipUpdate`/`ForceCreate` (`bool?`, absent = null), `RenderLiquid`/`GuidSwap` (TALXIS), `FetchXmlFilter`, `Fields`, `Relationships`, `FindField` (ordinal) |
-| `CmtSchemaField` | a column: `Name`, `DisplayName`, `Type` (lowercase CMT vocabulary), `IsPrimaryKey`/`IsUpdateCompare`/`IsCustomField` (absent = false, false is never written), `LookupType` (`account\|contact` or `*`), `DateMode` |
-| `CmtSchemaRelationship` | N:1 (`Referenc*`) or M2M (`M2m*`, nested intersect `Fields`) entry |
-| `CmtData` | root of data.xml: `Timestamp` (raw text), `Entities`, `FindEntity` |
-| `CmtDataEntity` | records and `ManyToManyRelationships` of one table |
-| `CmtDataRecord` | `Id`, `NewId`, `Fields` |
-| `CmtDataField` | `Name`, `Value` (CMT-encoded text), `FileName`, `LookupEntity`, `LookupEntityName`, `ActivityPointerRecords` (partylist) |
-| `CmtDataManyToManyRelationship` | `SourceId`, `TargetEntityName`, `TargetEntityNameIdField`, `RelationshipName`, `RelationshipSchemaName`, `TargetIds` |
-| `CmtFieldTypes`, `CmtDateModes`, `CmtPackageLayout` | constants; `CmtFieldTypes.Importable` is the set CMT can import |
-| `CmtFieldTypeMapper` | `AttributeType` → CMT type, as CMT's generator maps it (Customer → `entityreference`); `null` where CMT has no type |
-
-Names are compared **ordinally** everywhere, because that is what CMT's importer does. A name that matches only when case is ignored is reported (TXM015), not a match.
+`TALXIS.Platform.Metadata.ConfigurationMigration` (core package, no dependencies) mirrors the two files element by element: `CmtDataSchema` with its entities, fields and relationships, and `CmtData` with its records, fields and many-to-many associations. Every type derives from `MetadataBase` and carries a `Source` location. `FindEntity` and `FindField` compare names ordinally, as CMT's importer does; a name that matches only when letter case is ignored is reported as TXM015.
 
 ## Create, load, change, save
 
@@ -91,20 +75,9 @@ Two validators in `TALXIS.Platform.Metadata.Validation`, both run by `WorkspaceV
 | TXM023 | `filedata` value without `files/<value>.bin` in the package folder | warning | fails that record, exits 0 |
 | TXM024 | M2M `targetentitynameidfield` is not the target entity's `primaryidfield` | error | crashes after the records are committed |
 
-TXM010 (`lookupType` missing) was dropped before release and stays unassigned: CMT ignores `lookupType` on import and exports the same data without it. Rules are derived from the importers' observed behaviour; no decompiled code is used.
-
 ### Value encodings (`CmtDataField.Value`)
 
 bool `true|false` in any case (CMT writes `True|False`; it reads `1`, `0`, `yes`, `t` and `f` as false); numbers invariant, without currency symbols or thousands separators (`number` and `optionsetvalue` integers only: `42.0` is dropped); datetime invariant round-trip (`2026-01-01T00:00:00.0000000`, unspecified kind = UTC; CMT writes `Z` for user-local columns); guid; `optionsetvalue` the integer; `optionsetvaluecollection` comma-separated integers or the form CMT exports, `[-1,71000010,71000012,-1]` (both import); `string` HTML-encoded (CMT decodes once on import, TALXIS does not); `imagedata` base64; `filedata` the file id with `FileName` as display name and the payload at `files/<id>.bin`; lookups the GUID plus `LookupEntity`/`LookupEntityName` (CMT needs both); `partylist` an empty value plus one `<activitypointerrecords id="…">` element per party directly under the field (`ActivityPointerRecords`: the activitypartyid as id, `partyid` lookup, `participationtypemask` and the other party columns as fields; CMT also imports parties without an id). Multi-line text is entitised (`&#xD;&#xA;`) and preserved as such.
-
-### Verified against Dataverse (CMT 9.x via txc, 2026-10)
-
-The severities above come from running Microsoft's CMT engine (9.1, in-process through txc) against a scratch environment: one import per single change to a known-good package, repeat imports, and exports.
-
-- Ignored on import: `etc`, `displayname` (schema and data), `disableplugins`, `primaryKey` on the id field, `lookupType` (absent, wrong or `*`), unknown `entityImportOrder` names, `<filter>`, an absent `timestamp`, unknown attributes and the TALXIS attributes (`renderliquid`, `guidswap`, `skipupdate`; Liquid in a value is stored as text). Import order did not matter: lookups to later records are set in a second pass.
-- Rejected, nothing written: schema names in the wrong case, `customer`, `file`, `unknown`, capitalised or missing types, an invalid `dateMode`, an unparseable `timestamp`, and (metadata needed, #124) a type that differs from the column or an unknown column or table.
-- Silently dropped or changed, exit 0: data.xml entities and fields the schema does not declare, data.xml field names in the wrong case, `bigint` values (also never exported), lookups without `lookupentity`/`lookupentityname` or to the wrong table, values CMT cannot parse, records without a usable primary-id field value (created under a new id), `filedata` without its payload, and (metadata needed) option values outside the set, which fail the record.
-- Exported shapes: party lists as repeated `<activitypointerrecords>`, multichoice as `[-1,…,-1]`, bool as `True|False`; a package with both re-imports with the values applied.
 
 ### TALXIS dialect
 

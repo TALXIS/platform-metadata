@@ -3,18 +3,13 @@ using TALXIS.Platform.Metadata.Components;
 namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
-/// Maps Dataverse attribute types to the CMT field type vocabulary, following what CMT's own schema generator
-/// emits (validated against 454 fields of real exports; Customer columns come out as <c>entityreference</c>
-/// with a pipe-joined lookupType, not as <c>customer</c>).
+/// Maps Dataverse attribute types to the CMT field type vocabulary the way CMT's own schema generator does.
 /// </summary>
 public static class CmtFieldTypeMapper
 {
     /// <summary>
-    /// Returns the CMT field type for an attribute type, or <c>null</c> when CMT has no type for it
-    /// (Virtual, ManagedProperty, CalendarRules). CMT's generator writes <see cref="CmtFieldTypes.Unknown"/>
-    /// in that case; this mapper returns <c>null</c> so callers can leave the column out instead of emitting a
-    /// type the importer rejects. <see cref="CmtFieldTypes.BigInt"/> is returned for BigInt although CMT
-    /// drops its values (TXM016 warns).
+    /// Returns the CMT field type for an attribute type, or <c>null</c> where CMT's generator would write the
+    /// unimportable <see cref="CmtFieldTypes.Unknown"/>, so callers can leave the column out.
     /// </summary>
     public static string? ToCmtType(AttributeType attributeType) => attributeType switch
     {

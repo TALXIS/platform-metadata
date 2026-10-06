@@ -7,12 +7,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
 /// Structural rules for Configuration Migration Tool data schema files (data_schema.xml): does the schema
-/// hang together and will both Microsoft CMT and the TALXIS importer accept it. Rules are derived from the
-/// importers' observed behaviour and need no metadata: record matching (TXM006), entityImportOrder
-/// consistency (TXM007), primary id/name fields (TXM008, TXM009), duplicate names (TXM011), names that are
-/// not lowercase (TXM015), importable field types (TXM016), dateMode values (TXM018) and FetchXML filters
-/// (TXM020). Rules that need data.xml live in <see cref="CmtPackageValidator"/>; rules that need Dataverse
-/// metadata are a separate validator.
+/// hang together, and will both Microsoft CMT and the TALXIS importer accept it. The rules need no Dataverse
+/// metadata; rules that need data.xml live in <see cref="CmtPackageValidator"/>.
 /// </summary>
 public sealed class CmtDataSchemaValidator
 {

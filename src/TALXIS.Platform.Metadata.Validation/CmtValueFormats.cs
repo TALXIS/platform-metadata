@@ -4,8 +4,8 @@ using TALXIS.Platform.Metadata.ConfigurationMigration;
 namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
-/// The value encodings Microsoft CMT reads per schema field type (observed against its import: anything else is
-/// dropped, read as false or misread). Types without a fixed text form (string, lookups, files, images) always pass.
+/// The value encodings Microsoft CMT reads per schema field type; it drops, zeroes or misreads anything else.
+/// Types without a fixed text form (string, lookups, files, images) always pass.
 /// </summary>
 internal static class CmtValueFormats
 {
@@ -18,7 +18,7 @@ internal static class CmtValueFormats
         // XmlSerializer would also take 1/0, but CMT's data import reads them (and yes, t, f) as false.
         CmtFieldTypes.Bool => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "false", StringComparison.OrdinalIgnoreCase),
         CmtFieldTypes.Number or CmtFieldTypes.OptionSetValue => IsInteger(value),
-        // No currency symbols and no comma decimals: CMT strips or misreads both ($12.50 became 2.5, 12,50 became 1250).
+        // No currency symbols and no comma decimals: CMT strips or misreads both.
         CmtFieldTypes.Decimal or CmtFieldTypes.Money => decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _),
         CmtFieldTypes.Float => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _),
         CmtFieldTypes.DateTime => DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _),
