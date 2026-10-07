@@ -32,7 +32,8 @@ public static class CmtSchemaBuilder
     /// know are left out with a warning. File columns are declared as <c>filedata</c>; exporting them needs CMT's file export
     /// (<c>txc data package export --export-files</c>). N:1 entries are emitted only when <paramref name="target"/> declares the referenced table;
     /// M2M entries only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/> and only on the relationship's Entity1 table,
-    /// also when the other table is outside the package. Skipped relationships are reported in <paramref name="warnings"/>.
+    /// also when the other table is outside the package. Skipped relationships are reported in <paramref name="warnings"/>. The result
+    /// therefore depends on what <paramref name="target"/> declares at the time: add every table first, then build each again.
     /// The result is detached: add it with <see cref="AddOrReplaceEntity"/>.
     /// </summary>
     public static CmtSchemaEntity BuildEntity(

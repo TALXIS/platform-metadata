@@ -45,15 +45,22 @@ Use fixed record ids, not `Guid.NewGuid()`, and set the id both on the record an
 ## Build schema entries from metadata
 
 ```csharp
-var warnings = new List<string>();
+var tables = new[] { "account", "contact" };
 var options = new CmtSchemaBuildOptions { FieldSelection = CmtFieldSelection.Standard, IncludeManyToMany = true };
 
-var account = CmtWorkspaceSchemaBuilder.BuildEntity(workspace, "account", options, warnings, target: package.Schema);
-CmtSchemaBuilder.AddOrReplaceEntity(package.Schema, account);
+// First pass: declare every table, so relationship entries can point at any of them.
+foreach (var table in tables)
+    CmtSchemaBuilder.AddOrReplaceEntity(package.Schema, CmtWorkspaceSchemaBuilder.BuildEntity(workspace, table, options, new List<string>(), target: package.Schema));
+
+// Second pass: the refresh takes the relationships of the rebuilt entity, now built against every table.
+var warnings = new List<string>();
+foreach (var table in tables)
+    CmtSchemaBuilder.AddOrReplaceEntity(package.Schema, CmtWorkspaceSchemaBuilder.BuildEntity(workspace, table, options, warnings, target: package.Schema));
 CmtSchemaBuilder.ResolveImportOrder(package.Schema, warnings);
 ```
 
 - `BuildEntity` maps the table's columns to CMT field types and marks the primary name as `updateCompare`. `CmtSchemaBuilder.BuildEntity` takes the `EntityMetadata` directly.
+- Relationship entries depend on what `target` declares when `BuildEntity` runs: an N:1 entry is written only when the referenced table is already in the schema, and a many-to-many to a table it does not declare is reported. Build every table once, then build each again as above; tables the package already declares need only the second pass.
 - Columns CMT cannot migrate, such as bigint, are left out, and `warnings` says why. File columns are declared as `filedata`; exporting them needs file export to be on (`txc data package export --export-files`).
 - `AddOrReplaceEntity` keeps fields that are already declared, so hand edits survive a refresh.
 - `MergeEntity` (schema) and `CmtDataBuilder.MergeEntity` (data) combine several packages. The first package wins, and `warnings` lists every difference the import would notice: entity attributes, field and relationship declarations, field values (including lookup names, file names and attendees), `newId`, and associations that name another target table.
