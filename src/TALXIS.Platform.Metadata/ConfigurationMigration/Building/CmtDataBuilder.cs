@@ -11,7 +11,8 @@ public static class CmtDataBuilder
     /// Merges the records of <paramref name="entity"/> from another package into <paramref name="target"/>. A record that is already there
     /// (same id) gains the fields it lacks instead of being dropped, so the result does not depend on which package carries the fuller copy;
     /// when two packages give one field different values the first value is kept and the conflict is reported once per field in
-    /// <paramref name="warnings"/>. Many-to-many associations are joined by source record and relationship, their target ids united.
+    /// <paramref name="warnings"/>. Many-to-many associations are joined by source record and relationship, their target ids united;
+    /// an association that names a different target table keeps the first package's targets and is reported.
     /// Records repeated inside one package are merged the same way.
     /// </summary>
     /// <returns>
@@ -54,6 +55,13 @@ public static class CmtDataBuilder
             if (current == null)
             {
                 existing.ManyToManyRelationships.Add(association);
+                continue;
+            }
+
+            // Same record and relationship but another target table: the ids belong to different tables and must not be mixed.
+            if (!string.Equals(current.TargetEntityName, association.TargetEntityName, StringComparison.Ordinal))
+            {
+                warnings?.Add($"Entity '{entity.Name}': record {association.SourceId} links relationship '{association.RelationshipName}' to '{current.TargetEntityName}' in one package and to '{association.TargetEntityName}' in another; only the first package's targets are kept.");
                 continue;
             }
 

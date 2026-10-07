@@ -76,4 +76,23 @@ public class CmtDataBuilderTests
         var bin = Assert.Single(data.FindEntity("talxis_wastecollectionbintype")!.Records);
         Assert.Equal(new[] { "talxis_name", "ntg_sell" }, bin.Fields.Select(f => f.Name));
     }
+
+    [Fact]
+    public void MergeEntity_KeepsFirstTargetsWhenAnotherPackageLinksToADifferentTable()
+    {
+        var data = new CmtData();
+        var warnings = new List<string>();
+        var wrongTable = TeamsFromSecurityRules();
+        wrongTable.ManyToManyRelationships[0].TargetEntityName = "account";
+        wrongTable.ManyToManyRelationships[0].TargetIds.Clear();
+        wrongTable.ManyToManyRelationships[0].TargetIds.Add(new Guid("aaaaaaaa-0000-0000-0000-000000000003"));
+
+        CmtDataBuilder.MergeEntity(data, TeamsFromSecurityRules(), warnings);
+        CmtDataBuilder.MergeEntity(data, wrongTable, warnings);
+
+        var association = Assert.Single(data.FindEntity("talxis_securityteam")!.ManyToManyRelationships);
+        Assert.Equal("talxis_product", association.TargetEntityName);
+        Assert.Equal(new[] { new Guid("d5d28c4c-3d94-ee11-be37-000d3a44810c") }, association.TargetIds);
+        Assert.Contains("to 'talxis_product' in one package and to 'account' in another", Assert.Single(warnings));
+    }
 }
