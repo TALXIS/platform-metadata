@@ -21,8 +21,8 @@ public static class CmtSchemaBuilder
     /// Builds the data_schema.xml entry for one table from its metadata: the columns chosen by <see cref="CmtSchemaBuildOptions.FieldSelection"/>,
     /// each mapped with <see cref="CmtFieldTypeMapper"/>, the primary name (or id) as the updateCompare field, and relationship entries.
     /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, derived, virtual, <c>_base</c> money, and the columns
-    /// in <see cref="DataverseSystemColumns.NotWritable"/>) are never included; bigint columns and types the mapper does not know
-    /// are left out with a warning. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table;
+    /// in <see cref="DataverseSystemColumns.NotWritable"/>) are never included; bigint and file columns and types the mapper does not
+    /// know are left out with a warning. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table;
     /// M2M entries only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/> and only on the relationship's Entity1 table,
     /// also when the other table is outside the package. Skipped relationships are reported in <paramref name="warnings"/>.
     /// The result is detached: add it with <see cref="AddOrReplaceEntity"/>.
@@ -231,14 +231,21 @@ public static class CmtSchemaBuilder
         return attribute.AttributeType != AttributeType.Virtual;
     }
 
-    // CMT accepts bigint in a schema but drops the values on import, and has no import conversion for the types the mapper
-    // does not know, so both are left out and reported instead of producing a column that silently migrates nothing.
+    // CMT accepts bigint in a schema but drops the values on import, has no import conversion for the types the mapper does
+    // not know, and refuses to export a schema with a file column (import reads files/<id>.bin, which export never writes).
+    // All three are left out and reported instead of producing a column that silently migrates nothing or breaks the export.
     private static string? MigratableType(AttributeMetadata attribute, EntityMetadata entity, ICollection<string> warnings)
     {
         var type = CmtFieldTypeMapper.ToCmtType(attribute);
         if (type == CmtFieldTypes.BigInt)
         {
             warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' is a bigint column. CMT accepts the type but drops its values on import, so the column is left out of the schema.");
+            return null;
+        }
+
+        if (type == CmtFieldTypes.FileData)
+        {
+            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' is a file column. CMT export fails on a schema that declares it, so the column is left out; add it by hand to import file payloads from files/.");
             return null;
         }
 

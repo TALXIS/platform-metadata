@@ -94,12 +94,15 @@ public class CmtSchemaBuildEntityTests
         var metadata = Contact();
         metadata.AddAttribute(new BigIntAttributeMetadata { LogicalName = "new_bignumber", IsCustomAttribute = true });
         metadata.AddAttribute(new CalendarRulesColumn { LogicalName = "new_rules", IsCustomAttribute = true });
+        metadata.AddAttribute(new FileAttributeMetadata { LogicalName = "new_document", IsCustomAttribute = true });
         var warnings = new List<string>();
 
         var entity = CmtSchemaBuilder.BuildEntity(metadata, Relationships, new CmtSchemaBuildOptions(), warnings);
 
         Assert.Null(entity.FindField("new_bignumber"));
         Assert.Null(entity.FindField("new_rules"));
+        Assert.Null(entity.FindField("new_document"));
+        Assert.Contains(warnings, w => w.Contains("'contact.new_document'") && w.Contains("file column"));
         Assert.Contains(warnings, w => w.Contains("'contact.new_bignumber'") && w.Contains("bigint"));
         Assert.Contains(warnings, w => w.Contains("'contact.new_rules'") && w.Contains("'CalendarRules'"));
     }
