@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
@@ -111,7 +110,6 @@ public sealed class CmtPackageXmlReader
         {
             Name = Attr(element, "name") ?? string.Empty,
             DisplayName = Attr(element, "displayname"),
-            ObjectTypeCode = int.TryParse(Attr(element, "etc"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var etc) ? etc : null,
             PrimaryIdField = Attr(element, "primaryidfield"),
             PrimaryNameField = Attr(element, "primarynamefield"),
             DisablePlugins = BoolOrNull(element, "disableplugins"),

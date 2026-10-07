@@ -13,12 +13,6 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Display name. Written by CMT's generator but ignored on import.</summary>
     public string? DisplayName { get; set; }
 
-    /// <summary>
-    /// Entity type code (<c>etc</c>). CMT imports and exports without it (its importer only uses it for a batch-mode
-    /// capability probe), hence nullable.
-    /// </summary>
-    public int? ObjectTypeCode { get; set; }
-
     /// <summary>Primary id column (<c>primaryidfield</c>); must be a declared <c>guid</c> field, which CMT's generator marks primaryKey.</summary>
     public string? PrimaryIdField { get; set; }
 

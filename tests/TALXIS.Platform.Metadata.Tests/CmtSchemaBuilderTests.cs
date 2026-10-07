@@ -28,26 +28,20 @@ public class CmtSchemaBuilderTests : IDisposable
         { CmtFieldSelection.Full, new[] { "contactid", "fullname", "new_nickname", "lastname", "jobtitle", "parentcustomerid", "new_projectid", "ownerid", "createdby", "preferredcontactmethodcode", "statecode", "overriddencreatedon", "creditlimit" } },
     };
 
-    [Theory]
-    [InlineData(2, 2, false)]
-    [InlineData(null, 0, true)]
-    public void BuildEntity_WritesZeroForAnUnknownObjectTypeCode(int? objectTypeCode, int expectedEtc, bool expectWarning)
+    // CMT reads etc only for a batch-mode probe and type codes differ per environment, so the builder never writes one.
+    [Fact]
+    public void BuildEntity_WritesNoEtc()
     {
-        var table = new EntityMetadata { LogicalName = "new_pricelist", PrimaryIdAttribute = "new_pricelistid", ObjectTypeCode = objectTypeCode };
+        var table = new EntityMetadata { LogicalName = "new_pricelist", PrimaryIdAttribute = "new_pricelistid" };
         table.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "new_pricelistid" });
         var warnings = new List<string>();
 
         var entity = CmtSchemaBuilder.BuildEntity(table, Array.Empty<RelationshipMetadata>(), new CmtSchemaBuildOptions(), warnings);
-        var schema = new CmtDataSchema();
-        schema.Entities.Add(entity);
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".xml");
-        new CmtPackageXmlWriter().SaveSchema(new CmtPackage(schema), path);
-        var written = File.ReadAllText(path);
-        File.Delete(path);
+        var path = Path.Combine(Directory.CreateDirectory(_root).FullName, CmtPackageLayout.SchemaFileName);
+        new CmtPackageXmlWriter().SaveSchema(new CmtPackage(Schema(entity)), path);
 
-        Assert.Equal(expectedEtc, entity.ObjectTypeCode);
-        Assert.Contains($"etc=\"{expectedEtc}\"", written);
-        Assert.Equal(expectWarning, warnings.Any(w => w.Contains("etc is written as 0")));
+        Assert.DoesNotContain("etc=", File.ReadAllText(path));
+        Assert.DoesNotContain(warnings, w => w.Contains("etc"));
     }
 
     [Theory]
@@ -89,7 +83,6 @@ public class CmtSchemaBuilderTests : IDisposable
         var byId = CmtSchemaBuilder.BuildEntity(withoutName, ContactRelationships, new CmtSchemaBuildOptions(), new List<string>());
 
         Assert.Equal("Contact", entity.DisplayName);
-        Assert.Equal(2, entity.ObjectTypeCode);
         Assert.False(entity.DisablePlugins);
         Assert.True(entity.FindField("contactid")!.IsPrimaryKey);
         Assert.False(entity.FindField("contactid")!.IsUpdateCompare);
@@ -409,7 +402,6 @@ public class CmtSchemaBuilderTests : IDisposable
             DisplayName = new Label("Contact"),
             PrimaryIdAttribute = "contactid",
             PrimaryNameAttribute = "fullname",
-            ObjectTypeCode = 2,
         };
         entity.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "contactid", DisplayName = new Label("Contact") });
         entity.AddAttribute(new StringAttributeMetadata { LogicalName = "fullname", DisplayName = new Label("Full Name") });

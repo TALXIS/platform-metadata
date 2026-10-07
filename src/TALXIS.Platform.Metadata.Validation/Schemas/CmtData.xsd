@@ -2,9 +2,11 @@
 <!--
   Configuration Migration Tool (CMT) package files: data_schema.xml and data.xml share the <entities> root.
   The schema covers what Microsoft CMT / Package Deployer / pac data write and read. Attributes CMT's own
-  schema marks as required (entity displayname, etc, disableplugins; field displayname) are optional here
-  because CMT imports without them. anyAttribute="skip" keeps forward compatibility with attributes CMT
-  does not document.
+  schema marks as required (entity displayname, disableplugins; field displayname) are optional here
+  because CMT imports without them. The entity's etc (entity type code) is legacy and not needed by CMT:
+  its importer reads it only for a batch-mode probe, and type codes differ per environment, so it is never
+  generated and an existing one is kept as it is. anyAttribute="skip" keeps forward compatibility with
+  attributes CMT does not document.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 

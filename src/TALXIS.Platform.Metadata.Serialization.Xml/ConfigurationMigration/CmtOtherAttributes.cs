@@ -8,7 +8,7 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 /// </summary>
 internal static class CmtOtherAttributes
 {
-    public static readonly string[] SchemaEntity = { "name", "displayname", "etc", "primaryidfield", "primarynamefield", "disableplugins", "skipupdate", "forcecreate", "renderliquid" };
+    public static readonly string[] SchemaEntity = { "name", "displayname", "primaryidfield", "primarynamefield", "disableplugins", "skipupdate", "forcecreate", "renderliquid" };
 
     public static readonly string[] SchemaField = { "name", "displayname", "type", "primaryKey", "updateCompare", "customfield", "lookupType", "dateMode" };
 

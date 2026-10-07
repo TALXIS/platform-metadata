@@ -10,7 +10,7 @@ public class CmtOtherAttributesTests : IDisposable
 
     private const string FilesPackageSchema = """
         <entities >
-          <entity name="talxis_file" displayname="File" primaryidfield="talxis_fileid" primarynamefield="talxis_name" renderliquid="false" guidswap="true">
+          <entity name="talxis_file" displayname="File" primaryidfield="talxis_fileid" primarynamefield="talxis_name" renderliquid="false" guidswap="true" etc="10234">
             <fields>
               <field displayname="File" name="talxis_fileid" type="guid" primaryKey="true" updateCompare="true" />
               <field displayname="Name" name="talxis_name" type="string" x-origin="lab" />
@@ -69,6 +69,7 @@ public class CmtOtherAttributesTests : IDisposable
         var writtenSchema = XDocument.Load(Path.Combine(_root, CmtPackageLayout.SchemaFileName)).Root!;
         var file = writtenSchema.Element("entity")!;
         Assert.Equal("true", (string?)file.Attribute("guidswap"));
+        Assert.Equal("10234", (string?)file.Attribute("etc"));
         Assert.Equal("lab", (string?)file.Element("fields")!.Elements("field").Single(f => (string?)f.Attribute("name") == "talxis_name").Attribute("x-origin"));
         var record = XDocument.Load(Path.Combine(_root, CmtPackageLayout.DataFileName)).Root!.Element("entity")!.Element("records")!.Element("record")!;
         Assert.Equal("7", (string?)record.Attribute("x-batch"));

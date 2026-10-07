@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -80,7 +79,6 @@ public sealed class CmtPackageXmlWriter
         var isNew = element.IsEmpty && !element.HasAttributes;
         SetString(element, "name", entity.Name);
         SetString(element, "displayname", entity.DisplayName);
-        SetString(element, "etc", entity.ObjectTypeCode?.ToString(CultureInfo.InvariantCulture));
         SetString(element, "primaryidfield", entity.PrimaryIdField);
         SetString(element, "primarynamefield", entity.PrimaryNameField);
         SetNullableBool(element, "disableplugins", entity.DisablePlugins);
