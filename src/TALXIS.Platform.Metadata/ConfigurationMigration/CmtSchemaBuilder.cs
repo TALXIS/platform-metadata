@@ -112,8 +112,8 @@ public static class CmtSchemaBuilder
     /// <summary>
     /// Merges <paramref name="entity"/> from another package into the schema, the way package merging has always worked: the first package
     /// that declares the entity wins its attributes (later packages only fill attributes that are still absent), fields and relationships are
-    /// joined by name with the first declaration winning, so the result does not depend on which package carries the relationships. An
-    /// attribute two packages set to different values is reported in <paramref name="warnings"/>. What is added is copied, so the
+    /// joined by name with the first declaration winning, so the result does not depend on which package carries the relationships. Any
+    /// attribute but the display name that two packages set differently is reported in <paramref name="warnings"/>. What is added is copied, so the
     /// packages being merged stay unchanged.
     /// </summary>
     /// <returns>
@@ -124,7 +124,8 @@ public static class CmtSchemaBuilder
         var existing = target.FindEntity(entity.Name);
         if (existing == null) return AddOrReplaceEntity(target, entity);
 
-        existing.DisplayName = KeepFirst(existing.Name, "displayname", existing.DisplayName, entity.DisplayName, warnings);
+        // CMT ignores display names on import, so like the data merge the first one is kept without a warning.
+        existing.DisplayName ??= entity.DisplayName;
         existing.PrimaryIdField = KeepFirst(existing.Name, "primaryidfield", existing.PrimaryIdField, entity.PrimaryIdField, warnings);
         existing.PrimaryNameField = KeepFirst(existing.Name, "primarynamefield", existing.PrimaryNameField, entity.PrimaryNameField, warnings);
         existing.DisablePlugins = KeepFirst(existing.Name, "disableplugins", existing.DisablePlugins, entity.DisablePlugins, warnings);

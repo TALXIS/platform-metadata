@@ -366,6 +366,23 @@ public class CmtSchemaBuilderTests : IDisposable
     }
 
     [Fact]
+    public void MergeEntity_KeepsTheFirstDisplayNameWithoutWarning()
+    {
+        var first = Entity("account");
+        first.DisplayName = "Account";
+        var later = Entity("account");
+        later.DisplayName = "Customer";
+        var schema = new CmtDataSchema();
+        var warnings = new List<string>();
+
+        CmtSchemaBuilder.MergeEntity(schema, first, warnings);
+        CmtSchemaBuilder.MergeEntity(schema, later, warnings);
+
+        Assert.Equal("Account", schema.FindEntity("account")!.DisplayName);
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
     public void RemoveEntity_DropsEntityOrderEntryAndRelationshipsPointingAtIt()
     {
         var contact = Entity("contact", "account");
