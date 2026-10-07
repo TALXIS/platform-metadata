@@ -158,7 +158,11 @@ public static class CmtSchemaBuilder
             if (first == null) continue;
 
             var differences = FieldDifferences(first, field);
-            if (differences.Any) warnings.Add($"Entity '{existing.Name}': packages declare field '{field.Name}' differently ({differences}); the first package's declaration is kept.");
+            if (differences.Any)
+            {
+                warnings.Add($"Field '{existing.Name}.{field.Name}' is declared differently by two packages ({differences}); "
+                    + "the first package's declaration is kept.");
+            }
         }
 
         foreach (var relationship in entity.Relationships)
@@ -167,7 +171,11 @@ public static class CmtSchemaBuilder
             if (first == null) continue;
 
             var differences = RelationshipDifferences(first, relationship);
-            if (differences.Any) warnings.Add($"Entity '{existing.Name}': packages declare relationship '{relationship.Name}' differently ({differences}); the first package's declaration is kept.");
+            if (differences.Any)
+            {
+                warnings.Add($"Relationship '{existing.Name}/{relationship.Name}' is declared differently by two packages ({differences}); "
+                    + "the first package's declaration is kept.");
+            }
         }
     }
 
@@ -323,12 +331,16 @@ public static class CmtSchemaBuilder
         var type = CmtFieldTypeMapper.ToCmtType(attribute);
         if (type == CmtFieldTypes.BigInt)
         {
-            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' is a bigint column. CMT accepts the type but drops its values on import, so the column is left out of the schema.");
+            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' is a bigint column. CMT accepts the type but drops its values on import, "
+                + "so the column is left out of the schema.");
             return null;
         }
 
         if (type == null)
-            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' has type '{attribute.AttributeType}', which CMT cannot import, so the column is left out of the schema.");
+        {
+            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' has type '{attribute.AttributeType}', which CMT cannot import, "
+                + "so the column is left out of the schema.");
+        }
 
         return type;
     }
@@ -366,7 +378,8 @@ public static class CmtSchemaBuilder
             var referenced = Logical(relationship.ReferencedEntity);
             if (referenced != entity.LogicalName && target.FindEntity(referenced) == null)
             {
-                warnings.Add($"'{entity.LogicalName}.{Logical(relationship.ReferencingAttribute)}' points to '{referenced}', which the package does not declare; the field stays, without a relationship entry.");
+                warnings.Add($"Column '{entity.LogicalName}.{Logical(relationship.ReferencingAttribute)}' points to '{referenced}', which the package does not declare; "
+                    + "the field stays, without a relationship entry.");
                 continue;
             }
 
@@ -394,7 +407,10 @@ public static class CmtSchemaBuilder
             var reflexive = other == entity.LogicalName;
             var otherEntity = reflexive ? result : target?.FindEntity(other);
             if (otherEntity == null)
-                warnings.Add($"Many-to-many relationship '{relationship.SchemaName}' of '{entity.LogicalName}' targets '{other}', which the package does not declare; its records must already exist in the target environment.");
+            {
+                warnings.Add($"Many-to-many relationship '{entity.LogicalName}/{relationship.SchemaName}' targets '{other}', which the package does not declare; "
+                    + "its records must already exist in the target environment.");
+            }
 
             var otherPrimaryKey = otherEntity?.PrimaryIdField ?? findEntity?.Invoke(other)?.PrimaryIdAttribute ?? other + "id";
             result.Relationships.Add(new CmtSchemaRelationship
@@ -425,7 +441,7 @@ public static class CmtSchemaBuilder
         if (first == null) return next;
 
         if (next != null && !EqualityComparer<T>.Default.Equals(first, next))
-            warnings?.Add($"Entity '{entity}': packages disagree on {attribute} ('{first}' and '{next}'); the first package's value is kept.");
+            warnings?.Add($"Entity '{entity}' gets {attribute} '{first}' and '{next}' from two packages; the first package's value is kept.");
 
         return first;
     }
@@ -436,7 +452,7 @@ public static class CmtSchemaBuilder
         foreach (var name in (manualOrder ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal))
         {
             if (target.FindEntity(name) == null)
-                warnings.Add($"The manual import order names '{name}', which the data schema does not declare; it is ignored.");
+                warnings.Add($"Entity '{name}' is in the manual import order but the data schema does not declare it; it is ignored.");
             else
                 manual.Add(name);
         }
@@ -472,7 +488,7 @@ public static class CmtSchemaBuilder
             foreach (var parent in parents[child].Where(p => manual.IndexOf(p) > i).ToList())
             {
                 parents[child].Remove(parent);
-                warnings.Add($"'{child}' is imported before '{parent}', which it looks up, because the manual import order says so.");
+                warnings.Add($"Entity '{child}' is imported before '{parent}', which it looks up, because the manual import order says so.");
             }
 
             if (i > 0)
@@ -514,7 +530,10 @@ public static class CmtSchemaBuilder
 
         var next = cycle.First(name => FollowsManualOrder(name, manual, emitted));
         foreach (var parent in parents[next].Where(p => !emitted.Contains(p)))
-            warnings.Add($"Entities '{next}' and '{parent}' look each other up (directly or through other entities); '{next}' is imported first and CMT's second pass fills in the lookup.");
+        {
+            warnings.Add($"Entities '{next}' and '{parent}' look each other up (directly or through other entities); "
+                + $"'{next}' is imported first and CMT's second pass fills in the lookup.");
+        }
 
         return next;
     }

@@ -267,7 +267,7 @@ public class CmtSchemaBuilderTests : IDisposable
         Assert.Equal(!mainFirst, merged.SkipUpdate);
         Assert.Equal(2, warnings.Count);
         Assert.Contains(warnings, w => w.Contains("skipupdate"));
-        Assert.Contains(warnings, w => w.Contains("field 'talxis_securityteamid'") && w.Contains("updateCompare"));
+        Assert.Contains(warnings, w => w.Contains("Field 'talxis_securityteam.talxis_securityteamid'") && w.Contains("updateCompare"));
     }
 
     // Merging must copy what it adds: the target is edited afterwards (and by later merges), and the input packages are the caller's.
@@ -359,9 +359,9 @@ public class CmtSchemaBuilderTests : IDisposable
         CmtSchemaBuilder.MergeEntity(schema, next, warnings);
 
         Assert.Equal(3, warnings.Count);
-        Assert.Contains(warnings, w => w.Contains("field 'new_amount'") && w.Contains("type 'decimal' and 'money'"));
-        Assert.Contains(warnings, w => w.Contains("field 'new_validfrom'") && w.Contains("updateCompare 'true' and 'false', dateMode 'absent' and 'absolute'"));
-        Assert.Contains(warnings, w => w.Contains("relationship 'new_price_tag'") && w.Contains("m2mTargetEntity 'new_tag' and 'new_label'"));
+        Assert.Contains(warnings, w => w.Contains("Field 'new_price.new_amount'") && w.Contains("type 'decimal' and 'money'"));
+        Assert.Contains(warnings, w => w.Contains("Field 'new_price.new_validfrom'") && w.Contains("updateCompare 'true' and 'false', dateMode 'absent' and 'absolute'"));
+        Assert.Contains(warnings, w => w.Contains("Relationship 'new_price/new_price_tag'") && w.Contains("m2mTargetEntity 'new_tag' and 'new_label'"));
         Assert.Equal(CmtFieldTypes.Decimal, schema.FindEntity("new_price")!.FindField("new_amount")!.Type);
     }
 

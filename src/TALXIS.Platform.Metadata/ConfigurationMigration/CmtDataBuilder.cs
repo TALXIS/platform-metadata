@@ -48,10 +48,17 @@ public static class CmtDataBuilder
             }
         }
 
-        if (newIdConflicts > 0) warnings?.Add($"Entity '{entity.Name}': copies of the same record give different newId values in {newIdConflicts} record(s); the first copy's newId is kept.");
+        if (newIdConflicts > 0)
+        {
+            warnings?.Add($"Entity '{entity.Name}' has {newIdConflicts} record(s) whose copies give different newId values; "
+                + "the first copy's newId is kept.");
+        }
 
         foreach (var conflict in conflicts)
-            warnings?.Add($"Entity '{entity.Name}': copies of the same record give field '{conflict.Key}' different values in {conflict.Value} record(s); the first copy's value is kept.");
+        {
+            warnings?.Add($"Field '{entity.Name}.{conflict.Key}' has different values in copies of the same record ({conflict.Value} record(s)); "
+                + "the first copy's value is kept.");
+        }
 
         foreach (var association in entity.ManyToManyRelationships)
         {
@@ -65,7 +72,8 @@ public static class CmtDataBuilder
             // Same record and relationship but another target table: the ids belong to different tables and must not be mixed.
             if (!string.Equals(current.TargetEntityName, association.TargetEntityName, StringComparison.Ordinal))
             {
-                warnings?.Add($"Entity '{entity.Name}': record {association.SourceId} links relationship '{association.RelationshipName}' to '{current.TargetEntityName}' in one package and to '{association.TargetEntityName}' in another; only the first package's targets are kept.");
+                warnings?.Add($"Many-to-many relationship '{entity.Name}/{association.RelationshipName}' of record '{association.SourceId}' links "
+                    + $"to '{current.TargetEntityName}' in one package and to '{association.TargetEntityName}' in another; only the first package's targets are kept.");
                 continue;
             }
 

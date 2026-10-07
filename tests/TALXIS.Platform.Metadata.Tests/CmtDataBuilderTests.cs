@@ -66,7 +66,7 @@ public class CmtDataBuilderTests
         var team = data.FindEntity("talxis_securityteam")!;
         Assert.Equal("Sales", team.Records[0].Fields.Single(f => f.Name == "talxis_name").Value);
         var warning = Assert.Single(warnings);
-        Assert.Contains("'talxis_name'", warning);
+        Assert.Contains("Field 'talxis_securityteam.talxis_name'", warning);
         Assert.Contains("1 record(s)", warning);
         var association = Assert.Single(team.ManyToManyRelationships);
         Assert.Equal(2, association.TargetIds.Count);
@@ -182,6 +182,6 @@ public class CmtDataBuilderTests
         CmtDataBuilder.MergeEntity(data, Teams(laterNewId), warnings);
 
         Assert.Equal(new Guid(expectedNewId), data.FindEntity("talxis_securityteam")!.Records[0].NewId);
-        Assert.Equal(expectWarning, warnings.Any(w => w.Contains("different newId values in 1 record(s)")));
+        Assert.Equal(expectWarning, warnings.Any(w => w.Contains("has 1 record(s) whose copies give different newId values")));
     }
 }

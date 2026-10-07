@@ -103,6 +103,6 @@ public class CmtOtherAttributesTests : IDisposable
 
         Assert.Equal("true", schema.FindEntity("talxis_file")!.OtherAttributes["guidswap"]);
         Assert.Contains(warnings, w => w.Contains("guidswap"));
-        Assert.Contains(warnings, w => w.Contains("field 'talxis_name'") && w.Contains("x-origin 'lab' and 'prod'"));
+        Assert.Contains(warnings, w => w.Contains("Field 'talxis_file.talxis_name'") && w.Contains("x-origin 'lab' and 'prod'"));
     }
 }
