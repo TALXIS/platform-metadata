@@ -24,7 +24,7 @@ public static class CmtDataBuilder
         foreach (var record in entity.Records)
         {
             var current = existing.Records.FirstOrDefault(r => r.Id == record.Id);
-            if (current is null)
+            if (current == null)
             {
                 existing.Records.Add(record);
                 continue;
@@ -34,8 +34,10 @@ public static class CmtDataBuilder
             foreach (var field in record.Fields)
             {
                 var currentField = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
-                if (currentField is null) current.Fields.Add(field);
-                else if (currentField.Value != field.Value || currentField.LookupEntity != field.LookupEntity) conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
+                if (currentField == null)
+                    current.Fields.Add(field);
+                else if (currentField.Value != field.Value || currentField.LookupEntity != field.LookupEntity)
+                    conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
             }
         }
 
@@ -47,13 +49,14 @@ public static class CmtDataBuilder
         foreach (var association in entity.ManyToManyRelationships)
         {
             var current = existing.ManyToManyRelationships.FirstOrDefault(m => m.SourceId == association.SourceId && string.Equals(m.RelationshipName, association.RelationshipName, StringComparison.Ordinal));
-            if (current is null)
+            if (current == null)
             {
                 existing.ManyToManyRelationships.Add(association);
                 continue;
             }
 
-            foreach (var id in association.TargetIds.Where(id => !current.TargetIds.Contains(id)).ToList()) current.TargetIds.Add(id);
+            foreach (var id in association.TargetIds.Where(id => !current.TargetIds.Contains(id)).ToList())
+                current.TargetIds.Add(id);
         }
 
         return existing;

@@ -39,6 +39,10 @@ public static class CmtFieldTypeMapper
     /// <summary>
     /// Returns the CMT field type for a column, telling owner lookups apart from plain and customer ones (<see cref="LookupKind"/>).
     /// </summary>
-    public static string? ToCmtType(AttributeMetadata attribute) =>
-        attribute is LookupAttributeMetadata { LookupKind: LookupKind.Owner } ? CmtFieldTypes.Owner : ToCmtType(attribute.AttributeType);
+    public static string? ToCmtType(AttributeMetadata attribute)
+    {
+        if (attribute is LookupAttributeMetadata { LookupKind: LookupKind.Owner }) return CmtFieldTypes.Owner;
+
+        return ToCmtType(attribute.AttributeType);
+    }
 }

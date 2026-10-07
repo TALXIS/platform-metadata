@@ -321,7 +321,7 @@ public class CmtSchemaBuilderTests
         entity.AddRelationship(new CmtSchemaRelationship { Name = "new_note_project", ReferencedEntity = "new_project" });
         entity.AddRelationship(new CmtSchemaRelationship { Name = "new_note_tag", IsManyToMany = true, M2mTargetEntity = "new_tag" });
 
-        Assert.Equal(new[] { "new_project", "account", "contact" }, CmtSchemaBuilder.ReferencedEntities(entity));
+        Assert.Equal(new[] { "new_project", "account", "contact" }, entity.ReferencedEntities());
     }
 
     [Fact]

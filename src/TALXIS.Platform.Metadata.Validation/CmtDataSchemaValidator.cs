@@ -254,15 +254,16 @@ public sealed class CmtDataSchemaValidator
         var position = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var i = 0; i < schema.EntityImportOrder.Count; i++)
         {
-            if (!position.ContainsKey(schema.EntityImportOrder[i])) position[schema.EntityImportOrder[i]] = i;
+            if (!position.ContainsKey(schema.EntityImportOrder[i]))
+                position[schema.EntityImportOrder[i]] = i;
         }
 
         foreach (var child in schema.Entities.Where(e => position.ContainsKey(e.Name)))
         {
-            foreach (var parent in CmtSchemaBuilder.ReferencedEntities(child).Where(p => position.ContainsKey(p) && position[p] > position[child.Name]))
+            foreach (var parent in child.ReferencedEntities().Where(p => position.ContainsKey(p) && position[p] > position[child.Name]))
             {
                 var parentEntity = schema.FindEntity(parent);
-                if (parentEntity is not null && CmtSchemaBuilder.ReferencedEntities(parentEntity).Contains(child.Name)) continue;
+                if (parentEntity != null && parentEntity.ReferencedEntities().Contains(child.Name)) continue;
 
                 results.Add(CmtFindings.Warning(child, ValidationDiagnostics.CmtImportOrderChildBeforeParent,
                     $"CMT entityImportOrder imports '{child.Name}' before '{parent}', which it looks up. CMT fills those lookups in its second pass; keep the order only if it is intentional."));

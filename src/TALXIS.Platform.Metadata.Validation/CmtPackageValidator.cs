@@ -294,7 +294,7 @@ public sealed class CmtPackageValidator
         string Content(CmtDataRecord record, string name)
         {
             var field = record.Fields.FirstOrDefault(f => f.Name == name);
-            return field is null ? "\0absent" : $"{field.Value}\0{field.LookupEntity}\0{field.FileName}";
+            return field == null ? "\0absent" : $"{field.Value}\0{field.LookupEntity}\0{field.FileName}";
         }
 
         var names = records.SelectMany(r => r.Fields.Select(f => f.Name)).Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal);

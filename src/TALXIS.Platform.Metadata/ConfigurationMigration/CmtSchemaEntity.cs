@@ -68,6 +68,26 @@ public sealed class CmtSchemaEntity : MetadataBase
         return field;
     }
 
+    /// <summary>
+    /// Names of the other entities this one looks up, which must be imported first: N:1 relationship targets and the
+    /// <c>lookupType</c> tables of its entityreference fields (<c>account|contact</c> counts both). Self-references are left out.
+    /// </summary>
+    public IReadOnlyList<string> ReferencedEntities()
+    {
+        var fromRelationships = Relationships
+            .Where(r => !r.IsManyToMany && !string.IsNullOrEmpty(r.ReferencedEntity))
+            .Select(r => r.ReferencedEntity!);
+        var fromLookups = Fields
+            .Where(f => (f.Type == CmtFieldTypes.EntityReference || f.Type == CmtFieldTypes.Customer) && !string.IsNullOrEmpty(f.LookupType))
+            .SelectMany(f => f.LookupType!.Split('|'));
+
+        return fromRelationships.Concat(fromLookups)
+            .Select(name => name.Trim())
+            .Where(name => name.Length > 0 && name != Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
     /// <summary>Adds a relationship entry. Throws when one of that name exists.</summary>
     public CmtSchemaRelationship AddRelationship(CmtSchemaRelationship relationship)
     {

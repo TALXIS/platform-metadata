@@ -57,7 +57,7 @@ internal static class XmlPatch
     /// </summary>
     public static void MoveAfter(XElement container, string name, XElement? previous, XElement element)
     {
-        var expected = previous is null ? container.Elements(name).FirstOrDefault() : previous.ElementsAfterSelf(name).FirstOrDefault();
+        var expected = previous == null ? container.Elements(name).FirstOrDefault() : previous.ElementsAfterSelf(name).FirstOrDefault();
         if (expected == element) return;
 
         Remove(element);

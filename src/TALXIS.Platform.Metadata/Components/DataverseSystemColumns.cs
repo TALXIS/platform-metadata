@@ -16,17 +16,29 @@ public static class DataverseSystemColumns
     };
 
     /// <summary>
-    /// Audit, state and housekeeping columns the platform maintains itself.
+    /// Maintained columns the platform never accepts on create or update: the write timestamps, the row version and the owner name helpers.
     /// </summary>
-    public static readonly IReadOnlyCollection<string> Maintained = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    public static readonly IReadOnlyCollection<string> NotWritable = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "createdon", "modifiedon", "overriddencreatedon", "versionnumber", "statecode", "statuscode",
-        "importsequencenumber", "timezoneruleversionnumber", "utcconversiontimezonecode", "exchangerate",
-        "owneridname", "owneridtype", "owneridyominame"
+        "createdon", "modifiedon", "versionnumber", "owneridname", "owneridtype", "owneridyominame"
     };
+
+    /// <summary>
+    /// Audit, state and housekeeping columns the platform maintains itself, including <see cref="NotWritable"/>.
+    /// </summary>
+    public static readonly IReadOnlyCollection<string> Maintained = new HashSet<string>(
+        NotWritable.Concat(new[]
+        {
+            "overriddencreatedon", "statecode", "statuscode", "importsequencenumber", "timezoneruleversionnumber",
+            "utcconversiontimezonecode", "exchangerate"
+        }),
+        StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether <paramref name="logicalName"/> is a system column from either list.
     /// </summary>
-    public static bool Contains(string logicalName) => Referencing.Contains(logicalName) || Maintained.Contains(logicalName);
+    public static bool Contains(string logicalName)
+    {
+        return Referencing.Contains(logicalName) || Maintained.Contains(logicalName);
+    }
 }
