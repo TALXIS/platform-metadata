@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// One <c>&lt;relationship&gt;</c> of a data_schema.xml entity. Attribute names are mirrored verbatim: the

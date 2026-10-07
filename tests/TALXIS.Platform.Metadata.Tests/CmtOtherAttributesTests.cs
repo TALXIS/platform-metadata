@@ -1,8 +1,5 @@
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Building;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Data;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 namespace TALXIS.Platform.Metadata.Tests;

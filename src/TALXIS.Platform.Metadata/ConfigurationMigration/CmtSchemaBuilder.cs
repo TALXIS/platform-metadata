@@ -1,8 +1,7 @@
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// Package-level edits on a <see cref="CmtDataSchema"/>: build an entity from table metadata, add or refresh it, remove one

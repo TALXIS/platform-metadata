@@ -1,6 +1,4 @@
-using TALXIS.Platform.Metadata.ConfigurationMigration.Data;
-
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// Package-level edits on <see cref="CmtData"/> (data.xml), the record-side counterpart of <see cref="CmtSchemaBuilder"/>.

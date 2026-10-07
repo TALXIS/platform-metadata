@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// One <c>&lt;field&gt;</c> of a data_schema.xml entity (or of a many-to-many relationship's nested fields).

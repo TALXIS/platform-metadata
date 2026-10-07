@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// Collects the attributes in which two packages declare the same field or relationship differently, written the way they

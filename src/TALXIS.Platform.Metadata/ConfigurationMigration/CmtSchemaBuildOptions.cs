@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// Options for <see cref="CmtSchemaBuilder.BuildEntity"/>.

@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Data;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// One <c>&lt;entity&gt;</c> of data.xml: the exported records of a table and its many-to-many associations.

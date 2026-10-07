@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// How many columns <see cref="CmtSchemaBuilder.BuildEntity"/> puts into a generated schema entity.

@@ -1,6 +1,4 @@
 using TALXIS.Platform.Metadata.ConfigurationMigration;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Building;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 

@@ -3,8 +3,6 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Data;
-using TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 
 namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
