@@ -28,9 +28,11 @@ public class CmtValidationTests
         { "lookupentity not in the package", (s, d) => Value(d, "cmtl_child", "cmtl_parentid").SetAttributeValue("lookupentity", "cmtl_ghost"), ValidationDiagnostics.CmtDataLookupEntityUndeclared, ValidationSeverity.Warning },
         { "m2mrelationshipname not declared", (s, d) => ManyToMany(d).SetAttributeValue("m2mrelationshipname", "cmtl_xx"), ValidationDiagnostics.CmtDataManyToManyUndeclared, ValidationSeverity.Error },
         { "N:N target entity not in the package", (s, d) => ManyToMany(d).SetAttributeValue("targetentityname", "cmtl_ghost"), ValidationDiagnostics.CmtDataManyToManyUndeclared, ValidationSeverity.Warning },
+        { "second association targets an undeclared entity", (s, d) => { var second = new XElement(ManyToMany(d)); second.SetAttributeValue("targetentityname", "cmtl_ghost"); ManyToMany(d).AddAfterSelf(second); }, ValidationDiagnostics.CmtDataManyToManyUndeclared, ValidationSeverity.Warning },
         { "targetentitynameidfield not the target's primary id", (s, d) => ManyToMany(d).SetAttributeValue("targetentitynameidfield", "cmtl_childidx"), ValidationDiagnostics.CmtDataManyToManyTargetIdFieldInvalid, ValidationSeverity.Error },
         { "schema entity name not lowercase", (s, d) => Entity(s, "cmtl_child").SetAttributeValue("name", "CMTL_child"), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error },
         { "schema field name not lowercase", (s, d) => Field(s, "cmtl_child", "cmtl_string").SetAttributeValue("name", "cmtl_String"), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error },
+        { "N:N intersect field name not lowercase", (s, d) => Entity(s, "cmtl_parent").Element("relationships")!.Element("relationship")!.Add(new XElement("fields", new XElement("field", new XAttribute("name", "CMTL_childid"), new XAttribute("type", "guid")))), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error },
         { "data entity differs only by case", (s, d) => Entity(d, "cmtl_child").SetAttributeValue("name", "CMTL_child"), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error },
         { "data field differs only by case", (s, d) => Value(d, "cmtl_child", "cmtl_string").SetAttributeValue("name", "cmtl_String"), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Warning },
         { "lookupentity differs only by case", (s, d) => Value(d, "cmtl_child", "cmtl_parentid").SetAttributeValue("lookupentity", "CMTL_parent"), ValidationDiagnostics.CmtNameCaseMismatch, ValidationSeverity.Error },
@@ -164,6 +166,7 @@ public class CmtValidationTests
     [InlineData("""<entities dateMode="Absolute"><entity name="a"><fields /></entity></entities>""")]
     [InlineData("""<entities><entity name="a"><fields><field name="d" type="datetime" dateMode="daily" /></fields></entity></entities>""")]
     [InlineData("""<entities><entity name="a"><fields /><bogus /></entity></entities>""")]
+    [InlineData("""<entities><entity name="a"><fields><field name="aid" type="guid" updateCompare="True" /></fields></entity></entities>""")]
     public void Xsd_RejectsShapeCmtCannotRead(string xml)
     {
         Assert.Contains(new SchemaValidator().ValidateXml(XDocument.Parse(xml), "data_schema.xml"), r => r.Severity == ValidationSeverity.Error);

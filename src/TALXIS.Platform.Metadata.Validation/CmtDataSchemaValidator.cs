@@ -104,7 +104,8 @@ public sealed class CmtDataSchemaValidator
                 $"CMT data_schema.xml entity '{entity.Name}' is not lowercase. Dataverse logical names are lowercase and CMT compares them case-sensitively, so the import fails."));
         }
 
-        foreach (var field in entity.Fields.Where(f => !IsLowercase(f.Name)))
+        // Many-to-many entries nest their intersect fields, which CMT looks up the same way.
+        foreach (var field in entity.Fields.Concat(entity.Relationships.SelectMany(r => r.Fields)).Where(f => !IsLowercase(f.Name)))
         {
             results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtNameCaseMismatch,
                 $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not lowercase. Dataverse logical names are lowercase and CMT rejects the package with 'Missing Fields'."));

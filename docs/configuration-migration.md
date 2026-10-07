@@ -25,15 +25,17 @@ var schema = new CmtDataSchema();
 schema.AddEntity("account", "accountid", "name", "Account")
       .AddField("name", CmtFieldTypes.String, "Account Name", updateCompare: true);
 
+var id = new Guid("5f1c2a40-7b3e-4c6d-9e8f-0a1b2c3d4e5f");
 var data = new CmtData();
 data.AddEntity("account")
-    .AddRecord(new Guid("5f1c2a40-7b3e-4c6d-9e8f-0a1b2c3d4e5f"))
+    .AddRecord(id)
+    .Set("accountid", id.ToString())
     .Set("name", "Contoso");
 
 new CmtPackageXmlWriter().Save(new CmtPackage(schema, data), @"C:\MyPackage");
 ```
 
-Use fixed record ids, not `Guid.NewGuid()`, so that re-importing a package updates the same records instead of creating new ones.
+Use fixed record ids, not `Guid.NewGuid()`, and set the id both on the record and in its primary-key field: CMT takes the record id from that field and creates a new id without it. Re-importing the package then updates the same records instead of creating new ones.
 
 ## Validate
 

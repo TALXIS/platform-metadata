@@ -59,9 +59,10 @@
         <xs:attribute name="displayname" type="xs:string" use="optional" />
         <xs:attribute name="primaryidfield" type="xs:string" use="optional" />
         <xs:attribute name="primarynamefield" type="xs:string" use="optional" />
-        <xs:attribute name="disableplugins" type="xs:string" use="optional" />
-        <xs:attribute name="skipupdate" type="xs:string" use="optional" />
-        <xs:attribute name="forcecreate" type="xs:string" use="optional" />
+        <!-- CMT reads the boolean attributes with XmlSerializer: only true|false|1|0, case-sensitive; any other token fails the load. -->
+        <xs:attribute name="disableplugins" type="xs:boolean" use="optional" />
+        <xs:attribute name="skipupdate" type="xs:boolean" use="optional" />
+        <xs:attribute name="forcecreate" type="xs:boolean" use="optional" />
         <!-- renderliquid and guidswap are TALXIS extensions (INT0014-DataMovement), not Microsoft CMT attributes.
              CMT ignores them; the TALXIS importer renders <records> through Liquid / remaps GUIDs when true. -->
         <xs:attribute name="renderliquid" type="xs:string" use="optional" />
@@ -145,9 +146,9 @@
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="displayname" type="xs:string" use="optional" />
         <xs:attribute name="type" type="xs:string" use="optional" />
-        <xs:attribute name="primaryKey" type="xs:string" use="optional" />
-        <xs:attribute name="updateCompare" type="xs:string" use="optional" />
-        <xs:attribute name="customfield" type="xs:string" use="optional" />
+        <xs:attribute name="primaryKey" type="xs:boolean" use="optional" />
+        <xs:attribute name="updateCompare" type="xs:boolean" use="optional" />
+        <xs:attribute name="customfield" type="xs:boolean" use="optional" />
         <xs:attribute name="lookupType" type="xs:string" use="optional" />
         <xs:attribute name="dateMode" type="CmtDateModeType" use="optional" />
         <xs:anyAttribute processContents="skip" />
@@ -165,8 +166,8 @@
             <xs:element name="fields" type="CmtFieldsType" minOccurs="0" />
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
-        <xs:attribute name="manyToMany" type="xs:string" use="optional" />
-        <xs:attribute name="isreflexive" type="xs:string" use="optional" />
+        <xs:attribute name="manyToMany" type="xs:boolean" use="optional" />
+        <xs:attribute name="isreflexive" type="xs:boolean" use="optional" />
         <xs:attribute name="relatedEntityName" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntity" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntityPrimaryKey" type="xs:string" use="optional" />
