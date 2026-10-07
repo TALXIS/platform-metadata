@@ -499,6 +499,61 @@ public class ExpandedReaderTests
     }
 
     [Fact]
+    public void LoadFlowDefinitions_ReportsLongNodeDescriptions()
+    {
+        var dir = CreateTempDir();
+        try
+        {
+            WriteSolution(dir);
+            var workflowsDir = Path.Combine(dir, "Workflows");
+            Directory.CreateDirectory(workflowsDir);
+
+            var longDescription = new string('x', 300);
+            var okDescription = new string('y', 256);
+            var flowFile = Path.Combine(workflowsDir, "long_description.json");
+            File.WriteAllText(flowFile, $$"""
+                {
+                  "properties": {
+                    "connectionReferences": {},
+                    "definition": {
+                      "triggers": {
+                        "Request": {
+                          "type": "Request",
+                          "description": "{{okDescription}}"
+                        }
+                      },
+                      "actions": {
+                        "Scope": {
+                          "type": "Scope",
+                          "actions": {
+                            "Compose": {
+                              "type": "Compose",
+                              "description": "{{longDescription}}"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(dir);
+
+            var flow = Assert.Single(workspace.FlowDefinitions);
+            var diagnostic = Assert.Single(flow.Diagnostics, d => d.Code == "FLOW011");
+            Assert.Equal(FlowDiagnosticSeverity.Error, diagnostic.Severity);
+            Assert.Equal("Compose", diagnostic.RelatedName);
+            Assert.True(diagnostic.Line > 0);
+
+            var compose = Assert.Single(Assert.Single(flow.Actions, a => a.Name == "Scope").Children);
+            Assert.Equal(longDescription, compose.Description);
+            Assert.Equal(okDescription, Assert.Single(flow.Triggers).Description);
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void LoadFlowDefinitions_ReportsFlowDiagnosticsForBrokenReferences()
     {
         var dir = CreateTempDir();

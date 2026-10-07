@@ -199,6 +199,51 @@ public class WorkspaceValidatorTests
     }
 
     [Fact]
+    public void ValidateDirectory_CmtDataSchemaOutsideSolutionRoots_ReportsUpdateCompareError()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-cmt-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolution(tempDir, "SolA");
+            var cmtDir = Path.Combine(tempDir, "Packages.Main", "Data", "Default");
+            Directory.CreateDirectory(cmtDir);
+            File.WriteAllText(Path.Combine(cmtDir, "data_schema.xml"), """
+                <entities>
+                  <entity name="talxis_configuration">
+                    <fields>
+                      <field name="talxis_configurationid" type="guid" primaryKey="true" />
+                    </fields>
+                  </entity>
+                </entities>
+                """);
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+
+            Assert.Contains(report.Results, r =>
+                r.Severity == ValidationSeverity.Error &&
+                r.Code == ValidationDiagnostics.CmtEntityMissingUpdateCompare &&
+                r.Message.Contains("talxis_configuration"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void ValidateRelationships_ExplicitRoots_ReportsMissingRootAndRelationshipFindings()
+    {
+        var missingRoot = Path.Combine(Path.GetTempPath(), $"ws-test-missing-{Guid.NewGuid():N}");
+
+        var report = new WorkspaceValidator().ValidateRelationships(new[] { SamplePath, missingRoot });
+
+        Assert.Contains(report.Results, r =>
+            r.Severity == ValidationSeverity.Error && r.Message.Contains("Directory not found") && r.Message.Contains(missingRoot));
+        Assert.Contains(report.Results, r => r.Message.Contains("[Relationship]"));
+        Assert.DoesNotContain(report.Results, r => r.Message.Contains("[Schema]"));
+    }
+
+    [Fact]
     public void MultiSolution_DuplicateGuidAcrossRoots_DifferentComponents_ReportsError()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-xroot-guid-{Guid.NewGuid():N}");

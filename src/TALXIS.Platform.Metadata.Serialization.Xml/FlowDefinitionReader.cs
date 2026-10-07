@@ -8,6 +8,10 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml;
 
 internal static class FlowDefinitionReader
 {
+    // Power Automate rejects a flow at save/turn-on time when any trigger or action
+    // description exceeds this length, while solution import accepts it silently.
+    private const int MaxNodeDescriptionLength = 256;
+
     public static void Load(Workspace workspace, string rootPath)
     {
         var workflowsDir = Path.Combine(rootPath, "Workflows");
@@ -162,6 +166,7 @@ internal static class FlowDefinitionReader
                 Name = property.Name,
                 Kind = kind,
                 Type = nodeObject["type"]?.Value<string>(),
+                Description = nodeObject["description"]?.Value<string>(),
                 OperationId = nodeObject.SelectToken("inputs.host.operationId")?.Value<string>() ?? nodeObject["operationId"]?.Value<string>(),
                 JsonPath = property.Path,
                 ParentPath = parent?.JsonPath,
@@ -169,6 +174,13 @@ internal static class FlowDefinitionReader
                 BranchName = branchName,
                 Source = CreateSourceLocation(filePath, property)
             };
+
+            if (node.Description is { Length: > MaxNodeDescriptionLength })
+            {
+                AddDiagnostic(flow, filePath, "FLOW011", FlowDiagnosticSeverity.Error,
+                    $"{kind} '{node.Name}' has a description of {node.Description.Length} characters; the maximum allowed length is {MaxNodeDescriptionLength}.",
+                    nodeObject["description"], node.Name);
+            }
 
             AddRunAfterDependencies(flow, filePath, node, nodeObject["runAfter"], siblingNames);
             AddConnectionReferenceUsage(flow, filePath, node, nodeObject);

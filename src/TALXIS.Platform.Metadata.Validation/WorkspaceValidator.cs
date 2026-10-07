@@ -60,6 +60,8 @@ public sealed class WorkspaceValidator
         results.AddRange(SolutionValidator.WithStage(
             new GuidValidator().ValidateDirectory(workspacePath), ValidationStage.DuplicateGuid));
 
+        CollectCmtDataSchemaFindings(workspacePath, results);
+
         var loaded = new List<(string Root, Workspace? Workspace)>();
         foreach (var root in solutionRoots)
             loaded.Add((root, SolutionValidator.TryLoad(root, results)));
@@ -99,13 +101,50 @@ public sealed class WorkspaceValidator
         if (solutionRoots.Count == 0)
             solutionRoots = new[] { workspacePath };
 
+        return ValidateRelationships(solutionRoots);
+    }
+
+    /// <summary>
+    /// Runs the workspace-scoped relationship rules over an explicit set of unpacked solution
+    /// roots. Used when the caller already knows which solutions form the deployment unit
+    /// (e.g. a PD package validating its referenced solutions) instead of discovering them
+    /// from a directory tree.
+    /// </summary>
+    /// <param name="solutionRoots">Unpacked solution root directories (each containing Other/Solution.xml).</param>
+    public WorkspaceValidationReport ValidateRelationships(IReadOnlyList<string> solutionRoots)
+    {
+        if (solutionRoots == null) throw new ArgumentNullException(nameof(solutionRoots));
+
+        var results = new List<ValidationResult>();
+
+        foreach (var root in solutionRoots.Where(r => !Directory.Exists(r)))
+        {
+            results.Add(new ValidationResult(ValidationSeverity.Error,
+                $"Directory not found: {root}", null, null, null) { Stage = ValidationStage.Workspace });
+        }
+
         var loaded = new List<(string Root, Workspace? Workspace)>();
-        foreach (var root in solutionRoots)
+        foreach (var root in solutionRoots.Where(Directory.Exists))
             loaded.Add((root, SolutionValidator.TryLoad(root, results)));
 
         CollectRelationshipFindings(loaded, results);
 
         return BuildReport(results, null);
+    }
+
+    /// <summary>
+    /// CMT data schema rules over every XML file in the workspace. CMT packages live next to
+    /// solutions (in PD package projects), so this runs workspace-wide rather than per solution
+    /// root; the validator itself skips files that are not CMT data schemas.
+    /// </summary>
+    private static void CollectCmtDataSchemaFindings(string workspacePath, List<ValidationResult> results)
+    {
+        var cmtValidator = new CmtDataSchemaValidator();
+        foreach (var file in WorkspaceFiles.Enumerate(workspacePath, "*.xml"))
+        {
+            if (WorkspaceFiles.IsWebResourcePayload(file)) continue;
+            results.AddRange(SolutionValidator.WithStage(cmtValidator.ValidateFile(file), ValidationStage.CmtData));
+        }
     }
 
     private static void CollectRelationshipFindings(List<(string Root, Workspace? Workspace)> loaded, List<ValidationResult> results)
