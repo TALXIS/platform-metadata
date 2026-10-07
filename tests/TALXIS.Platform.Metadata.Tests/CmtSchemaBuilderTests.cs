@@ -31,6 +31,28 @@ public class CmtSchemaBuilderTests : IDisposable
     };
 
     [Theory]
+    [InlineData(2, 2, false)]
+    [InlineData(null, 0, true)]
+    public void BuildEntity_WritesZeroForAnUnknownObjectTypeCode(int? objectTypeCode, int expectedEtc, bool expectWarning)
+    {
+        var table = new EntityMetadata { LogicalName = "new_pricelist", PrimaryIdAttribute = "new_pricelistid", ObjectTypeCode = objectTypeCode };
+        table.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "new_pricelistid" });
+        var warnings = new List<string>();
+
+        var entity = CmtSchemaBuilder.BuildEntity(table, Array.Empty<RelationshipMetadata>(), new CmtSchemaBuildOptions(), warnings);
+        var schema = new CmtDataSchema();
+        schema.Entities.Add(entity);
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".xml");
+        new CmtPackageXmlWriter().SaveSchema(new CmtPackage(schema), path);
+        var written = File.ReadAllText(path);
+        File.Delete(path);
+
+        Assert.Equal(expectedEtc, entity.ObjectTypeCode);
+        Assert.Contains($"etc=\"{expectedEtc}\"", written);
+        Assert.Equal(expectWarning, warnings.Any(w => w.Contains("etc is written as 0")));
+    }
+
+    [Theory]
     [InlineData(CmtFieldSelection.Minimal, true, true)]
     [InlineData(CmtFieldSelection.Minimal, false, false)]
     [InlineData(CmtFieldSelection.Standard, true, true)]

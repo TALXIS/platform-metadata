@@ -27,6 +27,7 @@ public static class CmtSchemaBuilder
     /// know are left out with a warning. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table;
     /// M2M entries only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/> and only on the relationship's Entity1 table,
     /// also when the other table is outside the package. Skipped relationships are reported in <paramref name="warnings"/>.
+    /// A table whose metadata carries no ObjectTypeCode (unpacked solutions never do) gets <c>etc="0"</c> and a warning.
     /// The result is detached: add it with <see cref="AddOrReplaceEntity"/>.
     /// </summary>
     public static CmtSchemaEntity BuildEntity(
@@ -41,7 +42,7 @@ public static class CmtSchemaBuilder
         {
             Name = entity.LogicalName,
             DisplayName = entity.DisplayName.Default ?? entity.LogicalName,
-            ObjectTypeCode = entity.ObjectTypeCode,
+            ObjectTypeCode = entity.ObjectTypeCode ?? UnknownObjectTypeCode(entity, warnings),
             PrimaryIdField = entity.PrimaryIdAttribute,
             PrimaryNameField = entity.PrimaryNameAttribute,
             DisablePlugins = false,
@@ -252,6 +253,13 @@ public static class CmtSchemaBuilder
                 LookupType = type == CmtFieldTypes.EntityReference ? LookupTargets(attribute, entity, relationships) : null,
             });
         }
+    }
+
+    // CMT's schema requires etc but its importer does not match on it, so 0 is a safe stand-in; the warning says it is not the real code.
+    private static int UnknownObjectTypeCode(EntityMetadata entity, ICollection<string> warnings)
+    {
+        warnings.Add($"Table '{entity.LogicalName}' has no ObjectTypeCode in its metadata (unpacked solutions do not carry it), so etc is written as 0. CMT requires the attribute but does not use it to match records.");
+        return 0;
     }
 
     private static bool IsSelected(AttributeMetadata attribute, EntityMetadata entity, CmtFieldSelection selection)
