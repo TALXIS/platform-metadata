@@ -135,8 +135,15 @@ public static class CmtSchemaBuilder
         existing.FetchXmlFilter = KeepFirst(existing.Name, "filter", existing.FetchXmlFilter, entity.FetchXmlFilter, warnings);
         foreach (var other in entity.OtherAttributes)
         {
-            var kept = KeepFirst(existing.Name, other.Key, existing.OtherAttributes.TryGetValue(other.Key, out var first) ? first : null, other.Value, warnings);
-            existing.OtherAttributes[other.Key] = kept!;
+            var hasFirst = existing.OtherAttributes.TryGetValue(other.Key, out var first);
+            // Legacy etc differs per environment and CMT does not need it, so a differing value is kept without a warning.
+            if (other.Key == "etc")
+            {
+                if (!hasFirst) existing.OtherAttributes[other.Key] = other.Value;
+                continue;
+            }
+
+            existing.OtherAttributes[other.Key] = KeepFirst(existing.Name, other.Key, hasFirst ? first : null, other.Value, warnings)!;
         }
 
         ReportDifferingDeclarations(existing, entity, warnings);
