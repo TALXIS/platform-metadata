@@ -46,6 +46,7 @@ public class CmtSchemaBuildEntityTests
         new OneToManyRelationshipMetadata { SchemaName = "contact_customer_accounts", ReferencedEntity = "Account", ReferencedAttribute = "AccountId", ReferencingEntity = "Contact", ReferencingAttribute = "ParentCustomerId" },
         new ManyToManyRelationshipMetadata { SchemaName = "new_contact_tag", Entity1LogicalName = "contact", Entity2LogicalName = "new_tag", IntersectEntityName = "new_contact_tag" },
         new ManyToManyRelationshipMetadata { SchemaName = "new_contact_contact", Entity1LogicalName = "contact", Entity2LogicalName = "contact", IntersectEntityName = "new_contact_contact" },
+        new ManyToManyRelationshipMetadata { SchemaName = "new_list_contact_association", Entity1LogicalName = "new_list", Entity2LogicalName = "contact", IntersectEntityName = "new_list_contact" },
     };
 
     private static CmtSchemaEntity Build(CmtFieldSelection selection, ICollection<string>? warnings = null, CmtDataSchema? target = null, bool manyToMany = false) =>
@@ -186,9 +187,32 @@ public class CmtSchemaBuildEntityTests
         Assert.Equal("new_tag", tag.M2mTargetEntity);
         Assert.Equal("new_tagid", tag.M2mTargetEntityPrimaryKey);
         Assert.Equal("new_contact_tag", tag.RelatedEntityName);
+        Assert.DoesNotContain(entity.Relationships, r => r.Name == "new_list_contact");
         var self = Assert.Single(entity.Relationships, r => r.Name == "new_contact_contact");
         Assert.True(self.IsReflexive);
         Assert.Equal("contactid", self.M2mTargetEntityPrimaryKey);
+    }
+
+    [Fact]
+    public void ManyToMany_IsWrittenInTheShapeCmtGenerates()
+    {
+        var schema = new CmtDataSchema();
+        schema.AddEntity("new_tag", "new_tagid", "new_name", "Tag");
+        CmtSchemaBuilder.AddOrReplaceEntity(schema, Build(CmtFieldSelection.Minimal, target: schema, manyToMany: true));
+        var path = Path.Combine(Path.GetTempPath(), $"cmt-m2m-{Guid.NewGuid():N}.xml");
+
+        try
+        {
+            new CmtPackageXmlWriter().SaveSchema(new CmtPackage(schema), path);
+
+            // The line CMT's generator writes for a many-to-many, e.g. teamroles or systemuserroles in GUI exports.
+            Assert.Contains("<relationship name=\"new_contact_tag\" manyToMany=\"true\" isreflexive=\"false\" relatedEntityName=\"new_contact_tag\" m2mTargetEntity=\"new_tag\" m2mTargetEntityPrimaryKey=\"new_tagid\" />",
+                File.ReadAllText(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

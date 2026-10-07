@@ -29,7 +29,7 @@ public static class CmtSchemaBuilder
     /// each mapped with <see cref="CmtFieldTypeMapper"/>, the primary name (or id) as the updateCompare field, and relationship entries.
     /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, derived, virtual, <c>_base</c> money, versionnumber, created/modified on)
     /// are never included; bigint columns and types the mapper does not know are left out with a warning. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table, M2M entries
-    /// only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/>, also when the other table is outside the package; skipped relationships are reported in <paramref name="warnings"/>.
+    /// only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/> and only on the relationship's Entity1 table, also when the other table is outside the package; skipped relationships are reported in <paramref name="warnings"/>.
     /// The result is detached: add it with <see cref="AddOrReplaceEntity"/>.
     /// </summary>
     public static CmtSchemaEntity BuildEntity(
@@ -168,14 +168,16 @@ public static class CmtSchemaBuilder
         }
     }
 
-    // Like CMT, a many-to-many entry is kept even when the other table lives in another package: its records must already exist.
+    // CMT's generator writes each many-to-many once, on the Entity1 table, named by the intersect entity, with Entity2 as the
+    // target and Entity2's id (its intersect attribute) as the key, and no nested <fields>. Like CMT, the entry is kept even
+    // when the other table lives in another package: its records must already exist.
     private static void AddManyToMany(CmtSchemaEntity result, EntityMetadata entity, IReadOnlyList<RelationshipMetadata> relationships, ICollection<string> warnings, CmtDataSchema? target, Func<string, EntityMetadata?>? findEntity)
     {
         var manyToMany = relationships.OfType<ManyToManyRelationshipMetadata>()
-            .Where(r => SameName(r.Entity1LogicalName, entity.LogicalName) || SameName(r.Entity2LogicalName, entity.LogicalName));
+            .Where(r => SameName(r.Entity1LogicalName, entity.LogicalName));
         foreach (var relationship in manyToMany)
         {
-            var other = Logical(SameName(relationship.Entity1LogicalName, entity.LogicalName) ? relationship.Entity2LogicalName : relationship.Entity1LogicalName);
+            var other = Logical(relationship.Entity2LogicalName);
             var isReflexive = other == entity.LogicalName;
             var otherEntity = isReflexive ? result : target?.FindEntity(other);
             if (otherEntity is null)
