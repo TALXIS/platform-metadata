@@ -27,7 +27,7 @@ public static class CmtSchemaBuilder
     /// <summary>
     /// Builds the data_schema.xml entry for one table from its metadata: the columns chosen by <see cref="CmtSchemaBuildOptions.FieldSelection"/>,
     /// each mapped with <see cref="CmtFieldTypeMapper"/>, the primary name (or id) as the updateCompare field, and relationship entries.
-    /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, derived, virtual, <c>_base</c> money, and the columns
+    /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, virtual, <c>_base</c> money, and the columns
     /// in <see cref="DataverseSystemColumns.NotWritable"/>) are never included; bigint columns and types the mapper does not
     /// know are left out with a warning. File columns are declared as <c>filedata</c>; exporting them needs CMT's file export
     /// (<c>txc data package export --export-files</c>). N:1 entries are emitted only when <paramref name="target"/> declares the referenced table;
@@ -295,14 +295,13 @@ public static class CmtSchemaBuilder
         return nonOwnerLookup || attribute.AttributeType is AttributeType.Picklist or AttributeType.MultiSelectPicklist;
     }
 
-    // Columns whose values CMT cannot carry whatever the selection: computed by the platform, derived from another column,
-    // or never accepted on create or update. A flag the metadata source does not carry (null) counts as allowed.
+    // Columns whose values CMT cannot carry whatever the selection: computed by the platform, or never accepted on create or
+    // update. A flag the metadata source does not carry (null) counts as allowed.
     private static bool CanMigrate(AttributeMetadata attribute)
     {
         var name = attribute.LogicalName;
         if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name)) return false;
         if (attribute.SourceType is AttributeSourceType.Calculated or AttributeSourceType.Rollup or AttributeSourceType.Formula) return false;
-        if (attribute.AttributeOf != null && attribute.AttributeType is not (AttributeType.Image or AttributeType.MultiSelectPicklist)) return false;
         if (attribute.AttributeType == AttributeType.Money && name.EndsWith("_base", StringComparison.OrdinalIgnoreCase)) return false;
 
         return attribute.AttributeType != AttributeType.Virtual;

@@ -64,7 +64,7 @@ public class CmtSchemaBuilderTests : IDisposable
         if (expectCurrency) Assert.Equal("transactioncurrency", entity.FindField("transactioncurrencyid")!.LookupType);
     }
 
-    // Never selected: createdon, versionnumber, the _base money column, the rollup, the unreadable and the derived column.
+    // Never selected: createdon, versionnumber, the _base money column, the rollup and the unreadable column.
     [Theory]
     [MemberData(nameof(Selections))]
     public void BuildEntity_SelectsColumns(CmtFieldSelection selection, string[] expected)
@@ -495,7 +495,6 @@ public class CmtSchemaBuilderTests : IDisposable
         entity.AddAttribute(new MoneyAttributeMetadata { LogicalName = "creditlimit_base", IsValidForCreate = false, IsValidForUpdate = false });
         entity.AddAttribute(new IntegerAttributeMetadata { LogicalName = "new_total", IsCustomAttribute = true, SourceType = AttributeSourceType.Rollup });
         entity.AddAttribute(new StringAttributeMetadata { LogicalName = "new_readonly", IsCustomAttribute = true, IsValidForRead = false });
-        entity.AddAttribute(new StringAttributeMetadata { LogicalName = "parentcustomeridname", AttributeOf = "parentcustomerid" });
         return entity;
     }
 
@@ -530,9 +529,7 @@ public class CmtSchemaBuilderTests : IDisposable
         child.AddAttribute(new LookupAttributeMetadata { LogicalName = "cmtl_parentchildid", IsCustomAttribute = true, Targets = new[] { "cmtl_child" } });
         child.AddAttribute(new LookupAttributeMetadata { LogicalName = "cmtl_customerid", IsCustomAttribute = true, LookupKind = LookupKind.Customer, Targets = new[] { "account", "contact" } });
         child.AddAttribute(new LookupAttributeMetadata { LogicalName = "cmtl_regardingid", IsCustomAttribute = true, Targets = new[] { "account", "cmtl_parent", "contact" } });
-        child.AddAttribute(new StringAttributeMetadata { LogicalName = "cmtl_customeridname", IsCustomAttribute = true, AttributeOf = "cmtl_customerid" });
-        child.AddAttribute(new ImageAttributeMetadata { LogicalName = "cmtl_image", IsCustomAttribute = true, AttributeOf = "cmtl_imageid" });
-        child.AddAttribute(new StringAttributeMetadata { LogicalName = "cmtl_image_url", IsCustomAttribute = true, AttributeOf = "cmtl_imageid" });
+        child.AddAttribute(new ImageAttributeMetadata { LogicalName = "cmtl_image", IsCustomAttribute = true });
         child.AddAttribute(new FileAttributeMetadata { LogicalName = "cmtl_file", IsCustomAttribute = true, IsValidForCreate = false, IsValidForUpdate = false });
         child.AddAttribute(new BigIntAttributeMetadata { LogicalName = "cmtl_bigint", IsCustomAttribute = true });
 
