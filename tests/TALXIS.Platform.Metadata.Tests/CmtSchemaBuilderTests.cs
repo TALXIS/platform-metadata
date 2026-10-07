@@ -406,6 +406,8 @@ public class CmtSchemaBuilderTests : IDisposable
         // a child waiting on a cycle is not mistaken for part of it: the cycle is broken, the child follows its parent
         { "child:a a:b b:a", null, null, "a child b", "'a' and 'b' look each other up" },
         { "task:project project:customer customer:project", null, null, "project task customer", "'project' and 'customer' look each other up" },
+        // three-table cycle: broken once, and TXM026 does not flag the resolver's own order
+        { "a:c b:a c:b", null, null, "a b c", "'a' and 'c' look each other up" },
         // a hand-written order is kept unless a lookup disagrees
         { "x y z", "z y x", null, "z y x", null },
         { "account contact:account", "contact account", null, "account contact", null },
@@ -436,6 +438,8 @@ public class CmtSchemaBuilderTests : IDisposable
             Assert.Empty(warnings);
         else
             Assert.Contains(warning, Assert.Single(warnings));
+        if (manualOrder == null)
+            Assert.DoesNotContain(new CmtDataSchemaValidator().Validate(schema), r => r.Code == ValidationDiagnostics.CmtImportOrderChildBeforeParent);
     }
 
     [Fact]

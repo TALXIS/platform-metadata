@@ -231,7 +231,7 @@ public static class CmtSchemaBuilder
     {
         var manual = DeclaredManualOrder(target, manualOrder, warnings);
         var slots = PlaceManualOrder(CurrentOrder(target), manual);
-        var parents = CollectParents(target, slots);
+        var parents = CmtLookupGraph.Parents(target, slots);
         LetManualOrderWin(parents, manual, warnings);
 
         var ordered = OrderAfterParents(slots, parents, manual, warnings);
@@ -445,16 +445,6 @@ public static class CmtSchemaBuilder
         return current.Select(name => listed.Contains(name) ? nextListed.Dequeue() : name).ToList();
     }
 
-    private static Dictionary<string, HashSet<string>> CollectParents(CmtDataSchema target, List<string> slots)
-    {
-        var declared = new HashSet<string>(slots, StringComparer.Ordinal);
-        var parents = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var name in slots)
-            parents[name] = new HashSet<string>(target.FindEntity(name)!.ReferencedEntities().Where(declared.Contains), StringComparer.Ordinal);
-
-        return parents;
-    }
-
     // A lookup to an entity listed later in the manual order is dropped (the manual order wins), and each listed entity
     // gets the one listed before it as an extra parent, so the listed order holds.
     private static void LetManualOrderWin(Dictionary<string, HashSet<string>> parents, List<string> manual, ICollection<string> warnings)
@@ -497,7 +487,7 @@ public static class CmtSchemaBuilder
     // second pass fill in the lookups that point back into the cycle.
     private static string BreakCycle(List<string> remaining, Dictionary<string, HashSet<string>> parents, List<string> manual, HashSet<string> emitted, ICollection<string> warnings)
     {
-        var ancestors = remaining.ToDictionary(name => name, name => PendingAncestors(name, parents, emitted), StringComparer.Ordinal);
+        var ancestors = remaining.ToDictionary(name => name, name => CmtLookupGraph.Ancestors(name, parents, emitted), StringComparer.Ordinal);
         var cycle = remaining
             .Select(name => remaining.Where(other => other == name || (ancestors[name].Contains(other) && ancestors[other].Contains(name))).ToList())
             .First(members => members.Count > 1 && members.All(member => parents[member].All(p => emitted.Contains(p) || members.Contains(p))));
@@ -514,21 +504,6 @@ public static class CmtSchemaBuilder
         }
 
         return next;
-    }
-
-    // The not yet imported ancestors of an entity: its parents, their parents and so on, everything it waits on to be imported.
-    private static HashSet<string> PendingAncestors(string entity, Dictionary<string, HashSet<string>> parents, HashSet<string> emitted)
-    {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var stack = new Stack<string>(parents[entity].Where(p => !emitted.Contains(p)));
-        while (stack.Count > 0)
-        {
-            var name = stack.Pop();
-            if (!seen.Add(name)) continue;
-            foreach (var parent in parents[name].Where(p => !emitted.Contains(p))) stack.Push(parent);
-        }
-
-        return seen;
     }
 
     private static void WriteOrder(CmtDataSchema target, List<string> ordered)

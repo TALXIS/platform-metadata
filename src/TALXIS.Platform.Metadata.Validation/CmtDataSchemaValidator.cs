@@ -246,10 +246,13 @@ public sealed class CmtDataSchemaValidator
         }
     }
 
-    // A two-entity cycle (account and contact looking each other up) cannot be ordered at all, so it is not reported.
+    // Entities in one lookup cycle (account and contact looking each other up, directly or through other entities) cannot all
+    // follow their parents, so a lookup inside a cycle is not reported; ResolveImportOrder breaks cycles the same way.
     private static void ValidateChildBeforeParent(CmtDataSchema schema, List<ValidationResult> results)
     {
         if (schema.EntityImportOrder.Count == 0) return;
+
+        var parents = CmtLookupGraph.Parents(schema, schema.Entities.Select(e => e.Name));
 
         var position = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var i = 0; i < schema.EntityImportOrder.Count; i++)
@@ -262,8 +265,7 @@ public sealed class CmtDataSchemaValidator
         {
             foreach (var parent in child.ReferencedEntities().Where(p => position.ContainsKey(p) && position[p] > position[child.Name]))
             {
-                var parentEntity = schema.FindEntity(parent);
-                if (parentEntity != null && parentEntity.ReferencedEntities().Contains(child.Name)) continue;
+                if (CmtLookupGraph.InOneCycle(child.Name, parent, parents)) continue;
 
                 results.Add(CmtFindings.Warning(child, ValidationDiagnostics.CmtImportOrderChildBeforeParent,
                     $"CMT entityImportOrder imports '{child.Name}' before '{parent}', which it looks up. CMT fills those lookups in its second pass; keep the order only if it is intentional."));
