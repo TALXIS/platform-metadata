@@ -25,8 +25,10 @@ internal sealed class CmtDeclarationDifferences
     /// <summary>
     /// Compares a boolean attribute as data_schema.xml writes it (<c>true</c>/<c>false</c>, or absent for <c>null</c>).
     /// </summary>
-    public CmtDeclarationDifferences Compare(string attribute, bool? inFirstPackage, bool? inLaterPackage) =>
-        Compare(attribute, AsXml(inFirstPackage), AsXml(inLaterPackage));
+    public CmtDeclarationDifferences Compare(string attribute, bool? inFirstPackage, bool? inLaterPackage)
+    {
+        return Compare(attribute, AsXml(inFirstPackage), AsXml(inLaterPackage));
+    }
 
     /// <summary>
     /// Compares the attributes the model does not know, by name, so an extension attribute set differently in two packages is reported too.
@@ -34,9 +36,7 @@ internal sealed class CmtDeclarationDifferences
     public CmtDeclarationDifferences CompareOtherAttributes(IDictionary<string, string> inFirstPackage, IDictionary<string, string> inLaterPackage)
     {
         foreach (var name in inFirstPackage.Keys.Union(inLaterPackage.Keys).OrderBy(n => n, StringComparer.Ordinal))
-        {
             Compare(name, inFirstPackage.TryGetValue(name, out var first) ? first : null, inLaterPackage.TryGetValue(name, out var later) ? later : null);
-        }
 
         return this;
     }

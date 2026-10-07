@@ -51,9 +51,7 @@ public static class CmtDataBuilder
         if (newIdConflicts > 0) warnings?.Add($"Entity '{entity.Name}': copies of the same record give different newId values in {newIdConflicts} record(s); the first copy's newId is kept.");
 
         foreach (var conflict in conflicts)
-        {
             warnings?.Add($"Entity '{entity.Name}': copies of the same record give field '{conflict.Key}' different values in {conflict.Value} record(s); the first copy's value is kept.");
-        }
 
         foreach (var association in entity.ManyToManyRelationships)
         {

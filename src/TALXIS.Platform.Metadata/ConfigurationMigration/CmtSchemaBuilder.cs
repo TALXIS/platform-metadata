@@ -171,17 +171,20 @@ public static class CmtSchemaBuilder
         }
     }
 
-    private static CmtDeclarationDifferences FieldDifferences(CmtSchemaField first, CmtSchemaField later) =>
-        new CmtDeclarationDifferences()
+    private static CmtDeclarationDifferences FieldDifferences(CmtSchemaField first, CmtSchemaField later)
+    {
+        return new CmtDeclarationDifferences()
             .Compare("type", first.Type, later.Type)
             .Compare("primaryKey", first.IsPrimaryKey, later.IsPrimaryKey)
             .Compare("updateCompare", first.IsUpdateCompare, later.IsUpdateCompare)
             .Compare("lookupType", first.LookupType, later.LookupType)
             .Compare("dateMode", first.DateMode, later.DateMode)
             .CompareOtherAttributes(first.OtherAttributes, later.OtherAttributes);
+    }
 
-    private static CmtDeclarationDifferences RelationshipDifferences(CmtSchemaRelationship first, CmtSchemaRelationship later) =>
-        new CmtDeclarationDifferences()
+    private static CmtDeclarationDifferences RelationshipDifferences(CmtSchemaRelationship first, CmtSchemaRelationship later)
+    {
+        return new CmtDeclarationDifferences()
             .Compare("manyToMany", first.IsManyToMany, later.IsManyToMany)
             .Compare("isreflexive", first.IsReflexive, later.IsReflexive)
             .Compare("relatedEntityName", first.RelatedEntityName, later.RelatedEntityName)
@@ -192,10 +195,15 @@ public static class CmtSchemaBuilder
             .Compare("referencedAttribute", first.ReferencedAttribute, later.ReferencedAttribute)
             .Compare("fields", NestedFields(first), NestedFields(later))
             .CompareOtherAttributes(first.OtherAttributes, later.OtherAttributes);
+    }
 
     // M2M entries carry their two intersect columns as nested fields; compared as one list, in the order CMT writes them.
-    private static string? NestedFields(CmtSchemaRelationship relationship) =>
-        relationship.Fields.Count == 0 ? null : string.Join(" ", relationship.Fields.Select(f => f.IsPrimaryKey ? $"{f.Name}:{f.Type}:primaryKey" : $"{f.Name}:{f.Type}"));
+    private static string? NestedFields(CmtSchemaRelationship relationship)
+    {
+        if (relationship.Fields.Count == 0) return null;
+
+        return string.Join(" ", relationship.Fields.Select(f => f.IsPrimaryKey ? $"{f.Name}:{f.Type}:primaryKey" : $"{f.Name}:{f.Type}"));
+    }
 
     /// <summary>
     /// Removes an entity, its import-order entry and every relationship on other entities that points at it
@@ -211,9 +219,8 @@ public static class CmtSchemaBuilder
         if (entity == null) return false;
 
         target.Entities.Remove(entity);
-        while (target.EntityImportOrder.Remove(entityLogicalName))
-        {
-        }
+        foreach (var name in target.EntityImportOrder.Where(n => n == entityLogicalName).ToList())
+            target.EntityImportOrder.Remove(name);
 
         foreach (var other in target.Entities)
         {
@@ -498,22 +505,35 @@ public static class CmtSchemaBuilder
     private static string BreakCycle(List<string> remaining, Dictionary<string, HashSet<string>> parents, List<string> manual, HashSet<string> emitted, ICollection<string> warnings)
     {
         var ancestors = remaining.ToDictionary(name => name, name => CmtLookupGraph.Ancestors(name, parents, emitted), StringComparer.Ordinal);
-        var cycle = remaining
-            .Select(name => remaining.Where(other => other == name || (ancestors[name].Contains(other) && ancestors[other].Contains(name))).ToList())
-            .First(members => members.Count > 1 && members.All(member => parents[member].All(p => emitted.Contains(p) || members.Contains(p))));
 
-        var next = cycle.First(name =>
-        {
-            var rank = manual.IndexOf(name);
-            return rank <= 0 || emitted.Contains(manual[rank - 1]);
-        });
+        // Each entity with everything it shares a cycle with: the entities it waits on that also wait on it.
+        var cycles = remaining.Select(name => remaining.Where(other => other == name || InOneCycle(name, other, ancestors)).ToList());
 
+        // The cycle to break first is one whose members wait on nothing outside it.
+        var cycle = cycles.First(members => members.Count > 1 && WaitsOnlyOnItself(members, parents, emitted));
+
+        var next = cycle.First(name => FollowsManualOrder(name, manual, emitted));
         foreach (var parent in parents[next].Where(p => !emitted.Contains(p)))
-        {
             warnings.Add($"Entities '{next}' and '{parent}' look each other up (directly or through other entities); '{next}' is imported first and CMT's second pass fills in the lookup.");
-        }
 
         return next;
+    }
+
+    private static bool InOneCycle(string name, string other, Dictionary<string, HashSet<string>> ancestors)
+    {
+        return ancestors[name].Contains(other) && ancestors[other].Contains(name);
+    }
+
+    private static bool WaitsOnlyOnItself(List<string> members, Dictionary<string, HashSet<string>> parents, HashSet<string> emitted)
+    {
+        return members.All(member => parents[member].All(p => emitted.Contains(p) || members.Contains(p)));
+    }
+
+    // An entity in the manual order may go only once the one listed before it is imported.
+    private static bool FollowsManualOrder(string name, List<string> manual, HashSet<string> emitted)
+    {
+        var rank = manual.IndexOf(name);
+        return rank <= 0 || emitted.Contains(manual[rank - 1]);
     }
 
     private static void WriteOrder(CmtDataSchema target, List<string> ordered)
