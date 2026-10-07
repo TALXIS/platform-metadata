@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 
 /// <summary>
 /// One <c>&lt;entity&gt;</c> of data_schema.xml: a table to migrate, its columns and relationships.

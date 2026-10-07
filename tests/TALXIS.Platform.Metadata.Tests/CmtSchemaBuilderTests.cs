@@ -2,6 +2,8 @@ using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.ConfigurationMigration.Building;
+using TALXIS.Platform.Metadata.ConfigurationMigration.Schema;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 using TALXIS.Platform.Metadata.Validation;

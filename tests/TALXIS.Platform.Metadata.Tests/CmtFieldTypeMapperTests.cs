@@ -1,5 +1,6 @@
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.ConfigurationMigration.Building;
 
 namespace TALXIS.Platform.Metadata.Tests;
 

@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration.Data;
 
 /// <summary>
 /// One <c>&lt;field&gt;</c> of a data.xml record: a column value encoded the way CMT expects for the

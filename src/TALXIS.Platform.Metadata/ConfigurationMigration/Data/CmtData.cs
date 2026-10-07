@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.ConfigurationMigration.Data;
 
 /// <summary>
 /// The records side of a Configuration Migration Tool package (data.xml): per entity the exported
