@@ -75,6 +75,9 @@ public static class CmtSchemaBuilder
             return entity;
         }
 
+        // The entity taken from this schema and passed back: clearing its lists first would erase what is being copied in.
+        if (ReferenceEquals(existing, entity)) return existing;
+
         existing.DisplayName = entity.DisplayName ?? existing.DisplayName;
         existing.ObjectTypeCode = entity.ObjectTypeCode ?? existing.ObjectTypeCode;
         existing.PrimaryIdField = entity.PrimaryIdField ?? existing.PrimaryIdField;

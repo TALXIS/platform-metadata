@@ -197,6 +197,23 @@ public class CmtSchemaBuilderTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AddOrReplaceEntity_WithTheEntityAlreadyInTheSchema_KeepsItsFieldsAndRelationships(bool replaceFields)
+    {
+        var schema = Schema(Entity("account"));
+        var account = schema.FindEntity("account")!;
+        account.AddField("telephone1", CmtFieldTypes.String);
+        account.AddRelationship(new CmtSchemaRelationship { Name = "account_primary_contact", ReferencedEntity = "contact" });
+
+        var result = CmtSchemaBuilder.AddOrReplaceEntity(schema, account, replaceFields);
+
+        Assert.Same(account, result);
+        Assert.Equal(new[] { "accountid", "telephone1" }, result.Fields.Select(f => f.Name));
+        Assert.Equal(new[] { "account_primary_contact" }, result.Relationships.Select(r => r.Name));
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void MergeEntity_JoinsPackagesWhicheverComesFirst(bool mainFirst)
