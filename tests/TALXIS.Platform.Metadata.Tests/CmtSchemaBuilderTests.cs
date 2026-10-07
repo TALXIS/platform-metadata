@@ -24,8 +24,18 @@ public class CmtSchemaBuilderTests : IDisposable
     public static TheoryData<CmtFieldSelection, string[]> Selections => new()
     {
         { CmtFieldSelection.Minimal, new[] { "contactid", "fullname", "new_nickname", "lastname", "new_projectid" } },
-        { CmtFieldSelection.Standard, new[] { "contactid", "fullname", "new_nickname", "lastname", "parentcustomerid", "new_projectid", "preferredcontactmethodcode", "statecode", "overriddencreatedon" } },
-        { CmtFieldSelection.Full, new[] { "contactid", "fullname", "new_nickname", "lastname", "jobtitle", "parentcustomerid", "new_projectid", "ownerid", "createdby", "preferredcontactmethodcode", "statecode", "overriddencreatedon", "creditlimit" } },
+        {
+            CmtFieldSelection.Standard,
+            new[] { "contactid", "fullname", "new_nickname", "lastname", "parentcustomerid", "new_projectid", "preferredcontactmethodcode", "statecode", "overriddencreatedon" }
+        },
+        {
+            CmtFieldSelection.Full,
+            new[]
+            {
+                "contactid", "fullname", "new_nickname", "lastname", "jobtitle", "parentcustomerid", "new_projectid", "ownerid", "createdby",
+                "preferredcontactmethodcode", "statecode", "overriddencreatedon", "creditlimit"
+            }
+        },
     };
 
     // CMT reads etc only for a batch-mode probe and type codes differ per environment, so the builder never writes one.
@@ -178,7 +188,8 @@ public class CmtSchemaBuilderTests : IDisposable
         Assert.DoesNotContain(new CmtDataSchemaValidator().Validate(schema), r => r.Severity == ValidationSeverity.Error);
         var path = Path.Combine(Directory.CreateDirectory(_root).FullName, "data_schema.xml");
         new CmtPackageXmlWriter().SaveSchema(new CmtPackage(schema), path);
-        Assert.Contains("<relationship name=\"cmtl_cmtl_parent_cmtl_child\" manyToMany=\"true\" isreflexive=\"false\" relatedEntityName=\"cmtl_cmtl_parent_cmtl_child\" m2mTargetEntity=\"cmtl_child\" m2mTargetEntityPrimaryKey=\"cmtl_childid\" />",
+        Assert.Contains("<relationship name=\"cmtl_cmtl_parent_cmtl_child\" manyToMany=\"true\" isreflexive=\"false\" "
+            + "relatedEntityName=\"cmtl_cmtl_parent_cmtl_child\" m2mTargetEntity=\"cmtl_child\" m2mTargetEntityPrimaryKey=\"cmtl_childid\" />",
             File.ReadAllText(path));
     }
 
@@ -306,7 +317,8 @@ public class CmtSchemaBuilderTests : IDisposable
               </entity>
             </entities>
             """;
-        var schemaB = SchemaA.Replace("type=\"string\" updateCompare=\"true\"", "type=\"string\"").Replace("</fields>", "  <field displayname=\"Phone\" name=\"telephone1\" type=\"string\" />\n      </fields>");
+        var schemaB = SchemaA.Replace("type=\"string\" updateCompare=\"true\"", "type=\"string\"")
+            .Replace("</fields>", "  <field displayname=\"Phone\" name=\"telephone1\" type=\"string\" />\n      </fields>");
         var dataB = DataA.Replace("<field name=\"name\" value=\"Contoso\" />", "<field name=\"name\" value=\"Contoso\" />\n            <field name=\"telephone1\" value=\"555\" />")
             .Replace("22222222-0000-0000-0000-000000000001", "22222222-0000-0000-0000-000000000002");
         var reader = new CmtPackageXmlReader();
@@ -518,8 +530,16 @@ public class CmtSchemaBuilderTests : IDisposable
     // Relationship files carry schema names, so the casing differs from the logical names on purpose.
     private static readonly RelationshipMetadata[] ContactRelationships =
     {
-        new OneToManyRelationshipMetadata { SchemaName = "new_project_contact", ReferencedEntity = "new_Project", ReferencedAttribute = "new_ProjectId", ReferencingEntity = "Contact", ReferencingAttribute = "new_ProjectId" },
-        new OneToManyRelationshipMetadata { SchemaName = "contact_customer_accounts", ReferencedEntity = "Account", ReferencedAttribute = "AccountId", ReferencingEntity = "Contact", ReferencingAttribute = "ParentCustomerId" },
+        new OneToManyRelationshipMetadata
+        {
+            SchemaName = "new_project_contact", ReferencedEntity = "new_Project", ReferencedAttribute = "new_ProjectId",
+            ReferencingEntity = "Contact", ReferencingAttribute = "new_ProjectId"
+        },
+        new OneToManyRelationshipMetadata
+        {
+            SchemaName = "contact_customer_accounts", ReferencedEntity = "Account", ReferencedAttribute = "AccountId",
+            ReferencingEntity = "Contact", ReferencingAttribute = "ParentCustomerId"
+        },
         new ManyToManyRelationshipMetadata { SchemaName = "new_contact_tag", Entity1LogicalName = "contact", Entity2LogicalName = "new_tag", IntersectEntityName = "new_contact_tag" },
         new ManyToManyRelationshipMetadata { SchemaName = "new_contact_contact", Entity1LogicalName = "contact", Entity2LogicalName = "contact", IntersectEntityName = "new_contact_contact" },
         new ManyToManyRelationshipMetadata { SchemaName = "new_list_contact_association", Entity1LogicalName = "new_list", Entity2LogicalName = "contact", IntersectEntityName = "new_list_contact" },
@@ -552,8 +572,16 @@ public class CmtSchemaBuilderTests : IDisposable
 
         var relationships = new RelationshipMetadata[]
         {
-            new ManyToManyRelationshipMetadata { SchemaName = "cmtl_cmtl_parent_cmtl_child", Entity1LogicalName = "cmtl_parent", Entity2LogicalName = "cmtl_child", IntersectEntityName = "cmtl_cmtl_parent_cmtl_child" },
-            new OneToManyRelationshipMetadata { SchemaName = "cmtl_cmtl_child_cmtl_parent_parentid", ReferencedEntity = "cmtl_parent", ReferencedAttribute = "cmtl_parentid", ReferencingEntity = "cmtl_child", ReferencingAttribute = "cmtl_parentid" },
+            new ManyToManyRelationshipMetadata
+            {
+                SchemaName = "cmtl_cmtl_parent_cmtl_child", Entity1LogicalName = "cmtl_parent", Entity2LogicalName = "cmtl_child",
+                IntersectEntityName = "cmtl_cmtl_parent_cmtl_child"
+            },
+            new OneToManyRelationshipMetadata
+            {
+                SchemaName = "cmtl_cmtl_child_cmtl_parent_parentid", ReferencedEntity = "cmtl_parent", ReferencedAttribute = "cmtl_parentid",
+                ReferencingEntity = "cmtl_child", ReferencingAttribute = "cmtl_parentid"
+            },
         };
         return (parent, child, relationships);
     }
@@ -563,7 +591,10 @@ public class CmtSchemaBuilderTests : IDisposable
         var entity = new EntityMetadata { LogicalName = name, DisplayName = new Label(displayName), PrimaryIdAttribute = name + "id", PrimaryNameAttribute = "cmtl_name" };
         entity.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = name + "id" });
         entity.AddAttribute(new StringAttributeMetadata { LogicalName = "cmtl_name", IsCustomAttribute = true, RequiredLevel = RequiredLevel.ApplicationRequired });
-        entity.AddAttribute(new LookupAttributeMetadata { LogicalName = "ownerid", LookupKind = LookupKind.Owner, RequiredLevel = RequiredLevel.SystemRequired, Targets = new[] { "systemuser", "team" } });
+        entity.AddAttribute(new LookupAttributeMetadata
+        {
+            LogicalName = "ownerid", LookupKind = LookupKind.Owner, RequiredLevel = RequiredLevel.SystemRequired, Targets = new[] { "systemuser", "team" }
+        });
         entity.AddAttribute(new StateAttributeMetadata { LogicalName = "statecode", RequiredLevel = RequiredLevel.SystemRequired });
         entity.AddAttribute(new StatusAttributeMetadata { LogicalName = "statuscode" });
         entity.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "createdon", IsValidForCreate = false, IsValidForUpdate = false });

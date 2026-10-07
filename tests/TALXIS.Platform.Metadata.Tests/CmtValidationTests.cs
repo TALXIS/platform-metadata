@@ -46,7 +46,12 @@ public class CmtValidationTests
         { "type outside the CMT vocabulary", (s, d) => Field(s, "cmtl_child", "cmtl_string").SetAttributeValue("type", "text"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Error },
         { "type bigint", (s, d) => Field(s, "cmtl_child", "cmtl_number").SetAttributeValue("type", "bigint"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Warning },
         { "type file", (s, d) => Field(s, "cmtl_child", "cmtl_file").SetAttributeValue("type", "file"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Warning },
-        { "import order puts a child before its parent", (s, d) => { var names = s.Root!.Element("entityImportOrder")!.Elements().ToList(); names[2].Value = "cmtl_child"; names[3].Value = "cmtl_parent"; }, ValidationDiagnostics.CmtImportOrderChildBeforeParent, ValidationSeverity.Warning },
+        {
+            "import order puts a child before its parent",
+            (s, d) => { var names = s.Root!.Element("entityImportOrder")!.Elements().ToList(); names[2].Value = "cmtl_child"; names[3].Value = "cmtl_parent"; },
+            ValidationDiagnostics.CmtImportOrderChildBeforeParent,
+            ValidationSeverity.Warning
+        },
         { "record id repeated", (s, d) => Record(d, "cmtl_child", 1).SetAttributeValue("id", Record(d, "cmtl_child", 0).Attribute("id")!.Value), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },
         { "primary-id value differs from record id", (s, d) => Value(d, "cmtl_child", "cmtl_childid").SetAttributeValue("value", Guid.Empty.ToString()), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },
         { "primary-id value empty", (s, d) => Value(d, "cmtl_child", "cmtl_childid").SetAttributeValue("value", string.Empty), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },

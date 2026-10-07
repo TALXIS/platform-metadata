@@ -94,7 +94,8 @@ public class CmtOtherAttributesTests : IDisposable
     public void Merge_ReportsAnExtensionAttributeTwoPackagesSetDifferently()
     {
         var first = new CmtPackageXmlReader().Read(XDocument.Parse(FilesPackageSchema), null).Schema.Entities[0];
-        var later = new CmtPackageXmlReader().Read(XDocument.Parse(FilesPackageSchema.Replace("guidswap=\"true\"", "guidswap=\"false\"").Replace("x-origin=\"lab\"", "x-origin=\"prod\"")), null).Schema.Entities[0];
+        var laterSchema = FilesPackageSchema.Replace("guidswap=\"true\"", "guidswap=\"false\"").Replace("x-origin=\"lab\"", "x-origin=\"prod\"");
+        var later = new CmtPackageXmlReader().Read(XDocument.Parse(laterSchema), null).Schema.Entities[0];
         var schema = new CmtDataSchema();
         var warnings = new List<string>();
 

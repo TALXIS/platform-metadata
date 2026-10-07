@@ -62,7 +62,8 @@ public static class CmtDataBuilder
 
         foreach (var association in entity.ManyToManyRelationships)
         {
-            var current = existing.ManyToManyRelationships.FirstOrDefault(m => m.SourceId == association.SourceId && string.Equals(m.RelationshipName, association.RelationshipName, StringComparison.Ordinal));
+            var current = existing.ManyToManyRelationships
+                .FirstOrDefault(m => m.SourceId == association.SourceId && string.Equals(m.RelationshipName, association.RelationshipName, StringComparison.Ordinal));
             if (current == null)
             {
                 existing.ManyToManyRelationships.Add(association.Copy());

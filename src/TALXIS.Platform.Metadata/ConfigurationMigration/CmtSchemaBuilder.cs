@@ -398,7 +398,13 @@ public static class CmtSchemaBuilder
     // CMT's generator writes each many-to-many once, on the Entity1 table, named by the intersect entity, with Entity2 as the
     // target and Entity2's id (its intersect attribute) as the key, and no nested <fields>. Like CMT, the entry is kept even
     // when the other table lives in another package: its records must already exist.
-    private static void AddManyToMany(CmtSchemaEntity result, EntityMetadata entity, IReadOnlyList<RelationshipMetadata> relationships, ICollection<string> warnings, CmtDataSchema? target, Func<string, EntityMetadata?>? findEntity)
+    private static void AddManyToMany(
+        CmtSchemaEntity result,
+        EntityMetadata entity,
+        IReadOnlyList<RelationshipMetadata> relationships,
+        ICollection<string> warnings,
+        CmtDataSchema? target,
+        Func<string, EntityMetadata?>? findEntity)
     {
         var manyToMany = relationships.OfType<ManyToManyRelationshipMetadata>()
             .Where(r => SameName(r.Entity1LogicalName, entity.LogicalName));

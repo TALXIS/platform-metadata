@@ -140,7 +140,8 @@ public class CmtDataBuilderTests
             attendees.ActivityPointerRecords.Add(Attendee(new Guid("dddddddd-0000-0000-0000-000000000001")));
             if (later && differsIn == "attendees") attendees.ActivityPointerRecords.Add(Attendee(new Guid("dddddddd-0000-0000-0000-000000000002")));
             record.Fields.Add(attendees);
-            record.Fields.Add(new CmtDataField { Name = "regardingobjectid", Value = "11111111-0000-0000-0000-000000000001", LookupEntity = "account", LookupEntityName = later && differsIn == "lookup name" ? "Fabrikam" : "Contoso" });
+            var regardingName = later && differsIn == "lookup name" ? "Fabrikam" : "Contoso";
+            record.Fields.Add(new CmtDataField { Name = "regardingobjectid", Value = "11111111-0000-0000-0000-000000000001", LookupEntity = "account", LookupEntityName = regardingName });
             record.Fields.Add(new CmtDataField { Name = "new_document", Value = "f1", FileName = later && differsIn == "file name" ? "offer-v2.pdf" : "offer.pdf" });
             return entity;
         }
