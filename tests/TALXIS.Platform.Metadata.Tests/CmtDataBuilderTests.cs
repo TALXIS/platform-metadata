@@ -95,4 +95,41 @@ public class CmtDataBuilderTests
         Assert.Equal(new[] { new Guid("d5d28c4c-3d94-ee11-be37-000d3a44810c") }, association.TargetIds);
         Assert.Contains("to 'talxis_product' in one package and to 'account' in another", Assert.Single(warnings));
     }
+
+    [Theory]
+    [InlineData("attendees", true)]
+    [InlineData("lookup name", true)]
+    [InlineData("file name", true)]
+    [InlineData("nothing", false)]
+    public void MergeEntity_ComparesEverythingTheImporterReadsFromAField(string differsIn, bool expectConflict)
+    {
+        CmtDataEntity Appointment(bool later)
+        {
+            var entity = new CmtDataEntity { Name = "appointment" };
+            var record = entity.AddRecord(new Guid("cccccccc-0000-0000-0000-000000000001"));
+            var attendees = new CmtDataField { Name = "requiredattendees" };
+            attendees.ActivityPointerRecords.Add(Attendee(new Guid("dddddddd-0000-0000-0000-000000000001")));
+            if (later && differsIn == "attendees") attendees.ActivityPointerRecords.Add(Attendee(new Guid("dddddddd-0000-0000-0000-000000000002")));
+            record.Fields.Add(attendees);
+            record.Fields.Add(new CmtDataField { Name = "regardingobjectid", Value = "11111111-0000-0000-0000-000000000001", LookupEntity = "account", LookupEntityName = later && differsIn == "lookup name" ? "Fabrikam" : "Contoso" });
+            record.Fields.Add(new CmtDataField { Name = "new_document", Value = "f1", FileName = later && differsIn == "file name" ? "offer-v2.pdf" : "offer.pdf" });
+            return entity;
+        }
+
+        CmtDataRecord Attendee(Guid id)
+        {
+            var attendee = new CmtDataRecord { Id = id };
+            attendee.Fields.Add(new CmtDataField { Name = "partyid", Value = id.ToString(), LookupEntity = "contact" });
+            return attendee;
+        }
+
+        var data = new CmtData();
+        var warnings = new List<string>();
+
+        CmtDataBuilder.MergeEntity(data, Appointment(later: false), warnings);
+        CmtDataBuilder.MergeEntity(data, Appointment(later: true), warnings);
+
+        Assert.Equal(expectConflict ? 1 : 0, warnings.Count);
+        Assert.Single(data.FindEntity("appointment")!.Records[0].Fields.Single(f => f.Name == "requiredattendees").ActivityPointerRecords);
+    }
 }
