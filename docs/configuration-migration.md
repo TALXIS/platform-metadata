@@ -5,6 +5,10 @@ A Configuration Migration Tool (CMT) package is a `data_schema.xml` that declare
 ## Load, change and save
 
 ```csharp
+using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Validation;
+
 var package = new CmtPackageXmlReader().LoadDirectory(@"C:\MyPackage");
 
 var account = package.Schema.FindEntity("account");
@@ -51,7 +55,8 @@ CmtSchemaBuilder.ResolveImportOrder(package.Schema, warnings);
 
 - `BuildEntity` maps the table's columns to CMT field types and marks the primary name as `updateCompare`. `CmtSchemaBuilder.BuildEntity` takes the `EntityMetadata` directly.
 - Columns CMT cannot migrate, such as bigint and file columns, are left out, and `warnings` says why.
-- `AddOrReplaceEntity` keeps fields that are already declared, so hand edits survive a refresh. `MergeEntity` (schema) and `CmtDataBuilder.MergeEntity` (data) combine several packages.
+- `AddOrReplaceEntity` keeps fields that are already declared, so hand edits survive a refresh.
+- `MergeEntity` (schema) and `CmtDataBuilder.MergeEntity` (data) combine several packages. The first package wins, and `warnings` lists every difference the import would notice: entity attributes, field and relationship declarations, field values (including lookup names, file names and attendees), `newId`, and associations that name another target table.
 - `ResolveImportOrder` puts every table after the tables it looks up. Pass `manualOrder` to keep a hand-written order.
 
 ## Validate
