@@ -27,8 +27,8 @@ public static class CmtSchemaBuilder
     /// <summary>
     /// Builds the data_schema.xml entry for one table from its metadata: the columns chosen by <see cref="CmtSchemaBuildOptions.FieldSelection"/>,
     /// each mapped with <see cref="CmtFieldTypeMapper"/>, the primary name (or id) as the updateCompare field, and relationship entries.
-    /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, derived, <c>_base</c> money, versionnumber, created/modified on)
-    /// are never included. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table, M2M entries
+    /// Columns CMT cannot migrate (calculated, rollup, formula, unreadable, derived, virtual, <c>_base</c> money, versionnumber, created/modified on)
+    /// are never included; bigint columns and types the mapper does not know are left out with a warning. N:1 entries are emitted only when <paramref name="target"/> declares the referenced table, M2M entries
     /// only with <see cref="CmtSchemaBuildOptions.IncludeManyToMany"/>, also when the other table is outside the package; skipped relationships are reported in <paramref name="warnings"/>.
     /// The result is detached: add it with <see cref="AddOrReplaceEntity"/>.
     /// </summary>
@@ -58,8 +58,8 @@ public static class CmtSchemaBuilder
 
         foreach (var attribute in selected)
         {
-            var type = CmtFieldTypeMapper.ToCmtType(attribute);
-            if (type is null) continue;
+            var type = MigratableType(attribute, entity, warnings);
+            if (type == null) continue;
 
             result.Fields.Add(new CmtSchemaField
             {
@@ -80,6 +80,25 @@ public static class CmtSchemaBuilder
         return result;
     }
 
+    // CMT accepts bigint in a schema but drops the values on import, and has no import conversion for the types the mapper
+    // does not know, so both are left out and reported instead of producing a column that silently migrates nothing.
+    private static string? MigratableType(AttributeMetadata attribute, EntityMetadata entity, ICollection<string> warnings)
+    {
+        var type = CmtFieldTypeMapper.ToCmtType(attribute);
+        if (type == CmtFieldTypes.BigInt)
+        {
+            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' is a bigint column. CMT accepts the type but drops its values on import, so the column is left out of the schema.");
+            return null;
+        }
+
+        if (type == null)
+        {
+            warnings.Add($"Column '{entity.LogicalName}.{attribute.LogicalName}' has type '{attribute.AttributeType}', which CMT cannot import, so the column is left out of the schema.");
+        }
+
+        return type;
+    }
+
     private static bool IsSelected(AttributeMetadata attribute, EntityMetadata entity, CmtFieldSelection selection)
     {
         var name = attribute.LogicalName;
@@ -88,6 +107,7 @@ public static class CmtSchemaBuilder
         if (attribute.SourceType is AttributeSourceType.Calculated or AttributeSourceType.Rollup or AttributeSourceType.Formula) return false;
         if (attribute.AttributeOf is not null && attribute.AttributeType is not (AttributeType.Image or AttributeType.MultiSelectPicklist)) return false;
         if (attribute.AttributeType == AttributeType.Money && name.EndsWith("_base", StringComparison.OrdinalIgnoreCase)) return false;
+        if (attribute.AttributeType == AttributeType.Virtual) return false;
 
         if (selection == CmtFieldSelection.Full)
         {
