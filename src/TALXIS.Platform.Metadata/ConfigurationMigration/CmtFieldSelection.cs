@@ -11,12 +11,12 @@ public enum CmtFieldSelection
     Minimal,
 
     /// <summary>
-    /// Minimal plus every lookup (transactioncurrencyid included), customer and choice column, and overriddencreatedon.
+    /// Minimal plus every lookup (transactioncurrencyid included), customer and choice column, overriddencreatedon, statecode and statuscode.
     /// </summary>
     Standard,
 
     /// <summary>
-    /// Every column that can be both created and updated, plus overriddencreatedon, createdby and modifiedby.
+    /// Every column that can be both created and updated, plus overriddencreatedon, statecode, statuscode, createdby and modifiedby.
     /// </summary>
     Full
 }

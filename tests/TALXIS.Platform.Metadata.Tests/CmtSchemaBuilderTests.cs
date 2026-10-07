@@ -24,7 +24,7 @@ public class CmtSchemaBuilderTests : IDisposable
     public static TheoryData<CmtFieldSelection, string[]> Selections => new()
     {
         { CmtFieldSelection.Minimal, new[] { "contactid", "fullname", "new_nickname", "lastname", "new_projectid" } },
-        { CmtFieldSelection.Standard, new[] { "contactid", "fullname", "new_nickname", "lastname", "parentcustomerid", "new_projectid", "preferredcontactmethodcode", "overriddencreatedon" } },
+        { CmtFieldSelection.Standard, new[] { "contactid", "fullname", "new_nickname", "lastname", "parentcustomerid", "new_projectid", "preferredcontactmethodcode", "statecode", "overriddencreatedon" } },
         { CmtFieldSelection.Full, new[] { "contactid", "fullname", "new_nickname", "lastname", "jobtitle", "parentcustomerid", "new_projectid", "ownerid", "createdby", "preferredcontactmethodcode", "statecode", "overriddencreatedon", "creditlimit" } },
     };
 
@@ -162,8 +162,8 @@ public class CmtSchemaBuilderTests : IDisposable
             }
         }
 
-        // Standard leaves out ownership and state and adds overriddencreatedon.
-        Assert.Equal(new[] { "ownerid", "statecode", "statuscode" }, fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name).Except(builtChild.Fields.Select(f => f.Name)).OrderBy(n => n));
+        // Standard leaves out ownership and adds overriddencreatedon.
+        Assert.Equal(new[] { "ownerid" }, fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name).Except(builtChild.Fields.Select(f => f.Name)).OrderBy(n => n));
         Assert.Equal(new[] { "overriddencreatedon" }, builtChild.Fields.Select(f => f.Name).Except(fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name)));
         var m2m = Assert.Single(builtParent.Relationships);
         var cmtM2m = Assert.Single(fixture.FindEntity("cmtl_parent")!.Relationships);
@@ -487,7 +487,7 @@ public class CmtSchemaBuilderTests : IDisposable
         entity.AddAttribute(new LookupAttributeMetadata { LogicalName = "ownerid", LookupKind = LookupKind.Owner, Targets = new[] { "systemuser", "team" } });
         entity.AddAttribute(new LookupAttributeMetadata { LogicalName = "createdby", IsValidForCreate = false, IsValidForUpdate = false });
         entity.AddAttribute(new PicklistAttributeMetadata { LogicalName = "preferredcontactmethodcode" });
-        entity.AddAttribute(new StateAttributeMetadata { LogicalName = "statecode" });
+        entity.AddAttribute(new StateAttributeMetadata { LogicalName = "statecode", IsValidForCreate = false });
         entity.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "createdon", IsValidForCreate = false, IsValidForUpdate = false });
         entity.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "overriddencreatedon", IsValidForUpdate = false });
         entity.AddAttribute(new BigIntAttributeMetadata { LogicalName = "versionnumber" });

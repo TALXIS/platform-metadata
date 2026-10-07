@@ -9,13 +9,19 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 /// </summary>
 public static class CmtSchemaBuilder
 {
-    private const string OverriddenCreatedOn = "overriddencreatedon";
     private const string TransactionCurrencyId = "transactioncurrencyid";
 
-    // Full selection adds the columns that let CMT carry the original creation date and audit users across.
+    // System columns Standard and Full take along: the original creation date, and state and status so inactive records do not
+    // import as active. statecode is not valid for create, so Full's create-and-update rule alone would drop it.
+    private static readonly HashSet<string> StandardSystemColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "overriddencreatedon", "statecode", "statuscode"
+    };
+
+    // Full selection also adds the audit users.
     private static readonly HashSet<string> FullSelectionAuditColumns = new(StringComparer.OrdinalIgnoreCase)
     {
-        OverriddenCreatedOn, "createdby", "modifiedby"
+        "createdby", "modifiedby"
     };
 
     /// <summary>
@@ -269,14 +275,18 @@ public static class CmtSchemaBuilder
         if (!CanMigrate(attribute)) return false;
 
         if (selection == CmtFieldSelection.Full)
-            return (attribute.IsValidForCreate != false && attribute.IsValidForUpdate != false) || FullSelectionAuditColumns.Contains(name);
+        {
+            return (attribute.IsValidForCreate != false && attribute.IsValidForUpdate != false)
+                || FullSelectionAuditColumns.Contains(name)
+                || StandardSystemColumns.Contains(name);
+        }
 
         // Money values import in the currency of this lookup; without it they land in the organisation's base currency.
         if (name == TransactionCurrencyId)
             return selection == CmtFieldSelection.Standard || entity.Attributes.Any(a => a.AttributeType == AttributeType.Money && IsSelected(a, entity, selection));
 
         if (DataverseSystemColumns.Contains(name))
-            return selection == CmtFieldSelection.Standard && name == OverriddenCreatedOn;
+            return selection == CmtFieldSelection.Standard && StandardSystemColumns.Contains(name);
 
         var minimal = attribute.IsCustomAttribute || attribute.RequiredLevel is RequiredLevel.ApplicationRequired or RequiredLevel.SystemRequired;
         if (minimal || selection == CmtFieldSelection.Minimal) return minimal;
