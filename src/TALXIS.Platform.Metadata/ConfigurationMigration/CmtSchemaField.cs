@@ -43,4 +43,23 @@ public sealed class CmtSchemaField : MetadataBase
     /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
     /// </summary>
     public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A deep copy, so a merge that adds this field to another schema leaves the package it came from unchanged.
+    internal CmtSchemaField Copy()
+    {
+        var copy = new CmtSchemaField
+        {
+            Name = Name,
+            DisplayName = DisplayName,
+            Type = Type,
+            IsPrimaryKey = IsPrimaryKey,
+            IsUpdateCompare = IsUpdateCompare,
+            IsCustomField = IsCustomField,
+            LookupType = LookupType,
+            DateMode = DateMode,
+            Source = Source
+        };
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

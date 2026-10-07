@@ -47,4 +47,13 @@ public sealed class CmtDataRecord : MetadataBase
         field.LookupEntityName = lookupEntityName;
         return this;
     }
+
+    // A deep copy, so a merge that adds this record to another package leaves the package it came from unchanged.
+    internal CmtDataRecord Copy()
+    {
+        var copy = new CmtDataRecord { Id = Id, NewId = NewId, Source = Source };
+        foreach (var field in Fields) copy.Fields.Add(field.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

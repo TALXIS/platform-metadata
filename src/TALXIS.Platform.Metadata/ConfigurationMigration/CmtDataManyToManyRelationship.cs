@@ -29,4 +29,21 @@ public sealed class CmtDataManyToManyRelationship : MetadataBase
     /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
     /// </summary>
     public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A deep copy, so a merge that unites target ids leaves the package the association came from unchanged.
+    internal CmtDataManyToManyRelationship Copy()
+    {
+        var copy = new CmtDataManyToManyRelationship
+        {
+            SourceId = SourceId,
+            TargetEntityName = TargetEntityName,
+            TargetEntityNameIdField = TargetEntityNameIdField,
+            RelationshipName = RelationshipName,
+            RelationshipSchemaName = RelationshipSchemaName,
+            Source = Source
+        };
+        foreach (var id in TargetIds) copy.TargetIds.Add(id);
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

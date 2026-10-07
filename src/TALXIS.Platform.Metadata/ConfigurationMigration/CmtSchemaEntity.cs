@@ -97,4 +97,26 @@ public sealed class CmtSchemaEntity : MetadataBase
         Relationships.Add(relationship);
         return relationship;
     }
+
+    // A deep copy, so a merge that adds this entity to another schema leaves the package it came from unchanged.
+    internal CmtSchemaEntity Copy()
+    {
+        var copy = new CmtSchemaEntity
+        {
+            Name = Name,
+            DisplayName = DisplayName,
+            PrimaryIdField = PrimaryIdField,
+            PrimaryNameField = PrimaryNameField,
+            DisablePlugins = DisablePlugins,
+            SkipUpdate = SkipUpdate,
+            ForceCreate = ForceCreate,
+            RenderLiquid = RenderLiquid,
+            FetchXmlFilter = FetchXmlFilter,
+            Source = Source
+        };
+        foreach (var field in Fields) copy.Fields.Add(field.Copy());
+        foreach (var relationship in Relationships) copy.Relationships.Add(relationship.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

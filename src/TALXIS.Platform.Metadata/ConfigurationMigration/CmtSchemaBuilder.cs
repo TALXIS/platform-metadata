@@ -60,20 +60,22 @@ public static class CmtSchemaBuilder
     /// Adds <paramref name="entity"/> to the schema, or refreshes the entity of the same name that is already there.
     /// When refreshing, fields already declared are kept as they are (hand edits such as updateCompare win) and only
     /// new fields are appended, unless <paramref name="replaceFields"/> is set. Relationships are always taken from
-    /// <paramref name="entity"/>, and entity attributes it leaves <c>null</c> keep their current value.
+    /// <paramref name="entity"/>, and entity attributes it leaves <c>null</c> keep their current value. What is added is copied,
+    /// so <paramref name="entity"/> stays unchanged and later edits to the schema do not reach it.
     /// </summary>
     /// <returns>
-    /// The entity now in the schema: <paramref name="entity"/> when it was added, otherwise the refreshed existing one.
+    /// The entity now in the schema: a copy of <paramref name="entity"/> when it was added, otherwise the refreshed existing one.
     /// </returns>
     public static CmtSchemaEntity AddOrReplaceEntity(CmtDataSchema target, CmtSchemaEntity entity, bool replaceFields = false)
     {
         var existing = target.FindEntity(entity.Name);
         if (existing == null)
         {
-            target.Entities.Add(entity);
+            var added = entity.Copy();
+            target.Entities.Add(added);
             if (target.EntityImportOrder.Count > 0 && !target.EntityImportOrder.Contains(entity.Name))
                 target.EntityImportOrder.Add(entity.Name);
-            return entity;
+            return added;
         }
 
         // The entity taken from this schema and passed back: clearing its lists first would erase what is being copied in.
@@ -95,7 +97,7 @@ public static class CmtSchemaBuilder
 
         existing.Relationships.Clear();
         foreach (var relationship in entity.Relationships)
-            existing.Relationships.Add(relationship);
+            existing.Relationships.Add(relationship.Copy());
 
         return existing;
     }
@@ -104,7 +106,8 @@ public static class CmtSchemaBuilder
     /// Merges <paramref name="entity"/> from another package into the schema, the way package merging has always worked: the first package
     /// that declares the entity wins its attributes (later packages only fill attributes that are still absent), fields and relationships are
     /// joined by name with the first declaration winning, so the result does not depend on which package carries the relationships. An
-    /// attribute two packages set to different values is reported in <paramref name="warnings"/>.
+    /// attribute two packages set to different values is reported in <paramref name="warnings"/>. What is added is copied, so the
+    /// packages being merged stay unchanged.
     /// </summary>
     /// <returns>
     /// The entity now in the schema.
@@ -131,7 +134,7 @@ public static class CmtSchemaBuilder
         ReportDifferingDeclarations(existing, entity, warnings);
         AddMissingFields(existing, entity);
         foreach (var relationship in entity.Relationships.Where(r => !existing.Relationships.Any(e => e.Name == r.Name)).ToList())
-            existing.Relationships.Add(relationship);
+            existing.Relationships.Add(relationship.Copy());
 
         return existing;
     }
@@ -397,7 +400,7 @@ public static class CmtSchemaBuilder
     private static void AddMissingFields(CmtSchemaEntity existing, CmtSchemaEntity entity)
     {
         foreach (var field in entity.Fields.Where(f => existing.FindField(f.Name) == null).ToList())
-            existing.Fields.Add(field);
+            existing.Fields.Add(field.Copy());
     }
 
     private static T? KeepFirst<T>(string entity, string attribute, T? first, T? next, ICollection<string>? warnings)

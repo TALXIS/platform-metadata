@@ -270,6 +270,75 @@ public class CmtSchemaBuilderTests : IDisposable
         Assert.Contains(warnings, w => w.Contains("field 'talxis_securityteamid'") && w.Contains("updateCompare"));
     }
 
+    // Merging must copy what it adds: the target is edited afterwards (and by later merges), and the input packages are the caller's.
+    [Fact]
+    public void MergeEntity_LeavesTheMergedPackagesUnchanged()
+    {
+        const string SchemaA = """
+            <entities>
+              <entity name="account" displayname="Account" primaryidfield="accountid" primarynamefield="name">
+                <fields>
+                  <field displayname="Account" name="accountid" type="guid" primaryKey="true" />
+                  <field displayname="Name" name="name" type="string" updateCompare="true" />
+                </fields>
+                <relationships>
+                  <relationship name="account_tag" manyToMany="true" isreflexive="false" relatedEntityName="account_tag" m2mTargetEntity="tag" m2mTargetEntityPrimaryKey="tagid" />
+                </relationships>
+              </entity>
+            </entities>
+            """;
+        const string DataA = """
+            <entities>
+              <entity name="account" displayname="Account">
+                <records>
+                  <record id="11111111-0000-0000-0000-000000000001">
+                    <field name="accountid" value="11111111-0000-0000-0000-000000000001" />
+                    <field name="name" value="Contoso" />
+                  </record>
+                </records>
+                <m2mrelationships>
+                  <m2mrelationship sourceid="11111111-0000-0000-0000-000000000001" targetentityname="tag" targetentitynameidfield="tagid" m2mrelationshipname="account_tag">
+                    <targetids>
+                      <targetid>22222222-0000-0000-0000-000000000001</targetid>
+                    </targetids>
+                  </m2mrelationship>
+                </m2mrelationships>
+              </entity>
+            </entities>
+            """;
+        var schemaB = SchemaA.Replace("type=\"string\" updateCompare=\"true\"", "type=\"string\"").Replace("</fields>", "  <field displayname=\"Phone\" name=\"telephone1\" type=\"string\" />\n      </fields>");
+        var dataB = DataA.Replace("<field name=\"name\" value=\"Contoso\" />", "<field name=\"name\" value=\"Contoso\" />\n            <field name=\"telephone1\" value=\"555\" />")
+            .Replace("22222222-0000-0000-0000-000000000001", "22222222-0000-0000-0000-000000000002");
+        var reader = new CmtPackageXmlReader();
+        var packages = new[] { reader.Read(XDocument.Parse(SchemaA), XDocument.Parse(DataA)), reader.Read(XDocument.Parse(schemaB), XDocument.Parse(dataB)) };
+        var before = packages.Select(Written).ToList();
+        var schema = new CmtDataSchema();
+        var data = new CmtData();
+
+        foreach (var package in packages)
+        {
+            CmtSchemaBuilder.MergeEntity(schema, package.Schema.Entities[0]);
+            CmtDataBuilder.MergeEntity(data, package.Data!.Entities[0]);
+        }
+
+        var account = schema.FindEntity("account")!;
+        account.FindField("telephone1")!.IsUpdateCompare = true;
+        account.Relationships[0].M2mTargetEntity = "label";
+        var record = data.FindEntity("account")!.Records[0];
+        record.Set("name", "Fabrikam").Set("telephone1", "777");
+        data.FindEntity("account")!.ManyToManyRelationships[0].TargetIds.Add(new Guid("22222222-0000-0000-0000-000000000003"));
+
+        Assert.Equal(before, packages.Select(Written));
+        Assert.Equal(2, data.FindEntity("account")!.Records[0].Fields.Count(f => f.Name is "name" or "telephone1"));
+    }
+
+    private string Written(CmtPackage package)
+    {
+        var directory = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        new CmtPackageXmlWriter().Save(new CmtPackage(package.Schema, package.Data), directory);
+        return File.ReadAllText(Path.Combine(directory, CmtPackageLayout.SchemaFileName)) + File.ReadAllText(Path.Combine(directory, CmtPackageLayout.DataFileName));
+    }
+
     [Fact]
     public void MergeEntity_ReportsFieldsAndRelationshipsDeclaredDifferently()
     {

@@ -11,7 +11,7 @@ public static class CmtDataBuilder
     /// when two packages give one field different values the first value is kept and the conflict is reported once per field in
     /// <paramref name="warnings"/>. Many-to-many associations are joined by source record and relationship, their target ids united;
     /// an association that names a different target table keeps the first package's targets and is reported.
-    /// Records repeated inside one package are merged the same way.
+    /// Records repeated inside one package are merged the same way. What is added is copied, so the packages being merged stay unchanged.
     /// </summary>
     /// <returns>
     /// The entity now in <paramref name="target"/>.
@@ -29,7 +29,7 @@ public static class CmtDataBuilder
             var current = existing.Records.FirstOrDefault(r => r.Id == record.Id);
             if (current == null)
             {
-                existing.Records.Add(record);
+                existing.Records.Add(record.Copy());
                 continue;
             }
 
@@ -41,7 +41,7 @@ public static class CmtDataBuilder
             {
                 var currentField = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
                 if (currentField == null)
-                    current.Fields.Add(field);
+                    current.Fields.Add(field.Copy());
                 else if (!SameContent(currentField, field))
                     conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
             }
@@ -59,7 +59,7 @@ public static class CmtDataBuilder
             var current = existing.ManyToManyRelationships.FirstOrDefault(m => m.SourceId == association.SourceId && string.Equals(m.RelationshipName, association.RelationshipName, StringComparison.Ordinal));
             if (current == null)
             {
-                existing.ManyToManyRelationships.Add(association);
+                existing.ManyToManyRelationships.Add(association.Copy());
                 continue;
             }
 

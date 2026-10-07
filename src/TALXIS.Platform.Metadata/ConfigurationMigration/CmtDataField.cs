@@ -35,4 +35,21 @@ public sealed class CmtDataField : MetadataBase
     /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
     /// </summary>
     public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A deep copy, attendee records included, so a merge leaves the package the field came from unchanged.
+    internal CmtDataField Copy()
+    {
+        var copy = new CmtDataField
+        {
+            Name = Name,
+            Value = Value,
+            FileName = FileName,
+            LookupEntity = LookupEntity,
+            LookupEntityName = LookupEntityName,
+            Source = Source
+        };
+        foreach (var party in ActivityPointerRecords) copy.ActivityPointerRecords.Add(party.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }
