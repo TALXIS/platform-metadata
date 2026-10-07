@@ -10,12 +10,12 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Table logical name.</summary>
     public required string Name { get; set; }
 
-    /// <summary>Display name. Written by CMT's generator but ignored by both importers; TALXIS packages use <c>#</c> as a placeholder.</summary>
+    /// <summary>Display name. Written by CMT's generator but ignored on import.</summary>
     public string? DisplayName { get; set; }
 
     /// <summary>
     /// Entity type code (<c>etc</c>). CMT imports and exports without it (its importer only uses it for a batch-mode
-    /// capability probe); the TALXIS dialect omits it, hence nullable.
+    /// capability probe), hence nullable.
     /// </summary>
     public int? ObjectTypeCode { get; set; }
 
@@ -27,8 +27,7 @@ public sealed class CmtSchemaEntity : MetadataBase
 
     /// <summary>
     /// When <c>true</c>, CMT bypasses plug-in execution and deactivates the entity's plug-in steps around the
-    /// import. Always written by CMT's generator but optional on import; omitted by the TALXIS dialect, which
-    /// ignores it, hence nullable.
+    /// import. Always written by CMT's generator but optional on import, hence nullable.
     /// </summary>
     public bool? DisablePlugins { get; set; }
 
@@ -38,17 +37,8 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>When <c>true</c>, CMT skips matching and always creates records. <c>null</c> when absent.</summary>
     public bool? ForceCreate { get; set; }
 
-    /// <summary>
-    /// TALXIS extension, ignored by Microsoft CMT. When <c>true</c>, the TALXIS importer renders the entity's data.xml
-    /// records through Liquid before import, so values may be templates rather than literals.
-    /// </summary>
+    /// <summary>Temporary: tolerates packages for the TALXIS importer (<c>renderliquid</c>); remove when that importer is retired.</summary>
     public bool? RenderLiquid { get; set; }
-
-    /// <summary>
-    /// TALXIS extension, ignored by Microsoft CMT. When <c>true</c>, the TALXIS importer replaces the entity's record ids,
-    /// and references to them from other <c>guidswap</c> entities in the package, with a consistent set of new ids.
-    /// </summary>
-    public bool? GuidSwap { get; set; }
 
     /// <summary>FetchXML used by the CMT GUI to filter the export (<c>&lt;filter&gt;</c> text). Stored but never read by the importer.</summary>
     public string? FetchXmlFilter { get; set; }

@@ -45,7 +45,7 @@ public class CmtValidationTests
         { "type capitalised", (s, d) => Field(s, "cmtl_child", "cmtl_string").SetAttributeValue("type", "String"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Error },
         { "type outside the CMT vocabulary", (s, d) => Field(s, "cmtl_child", "cmtl_string").SetAttributeValue("type", "text"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Error },
         { "type bigint", (s, d) => Field(s, "cmtl_child", "cmtl_number").SetAttributeValue("type", "bigint"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Warning },
-        { "TALXIS type file", (s, d) => Field(s, "cmtl_child", "cmtl_file").SetAttributeValue("type", "file"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Warning },
+        { "type file", (s, d) => Field(s, "cmtl_child", "cmtl_file").SetAttributeValue("type", "file"), ValidationDiagnostics.CmtFieldTypeNotImportable, ValidationSeverity.Warning },
         { "record id repeated", (s, d) => Record(d, "cmtl_child", 1).SetAttributeValue("id", Record(d, "cmtl_child", 0).Attribute("id")!.Value), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },
         { "primary-id value differs from record id", (s, d) => Value(d, "cmtl_child", "cmtl_childid").SetAttributeValue("value", Guid.Empty.ToString()), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },
         { "primary-id value empty", (s, d) => Value(d, "cmtl_child", "cmtl_childid").SetAttributeValue("value", string.Empty), ValidationDiagnostics.CmtRecordIdentityInvalid, ValidationSeverity.Error },
@@ -77,7 +77,7 @@ public class CmtValidationTests
         { "lookupType *", (s, d) => Field(s, "cmtl_child", "cmtl_regardingid").SetAttributeValue("lookupType", "*") },
         { "no entityImportOrder", (s, d) => s.Root!.Element("entityImportOrder")!.Remove() },
         { "no timestamp", (s, d) => d.Root!.Attribute("timestamp")!.Remove() },
-        { "displayname '#' as in TALXIS packages", (s, d) => Entity(s, "account").SetAttributeValue("displayname", "#") },
+        { "displayname '#' placeholder", (s, d) => Entity(s, "account").SetAttributeValue("displayname", "#") },
         { "Liquid value in a renderliquid entity", (s, d) => { Entity(s, "cmtl_child").SetAttributeValue("renderliquid", "true"); Value(d, "cmtl_child", "cmtl_number").SetAttributeValue("value", "{{ 40 | plus: 2 }}"); } },
     };
 

@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <!--
   Configuration Migration Tool (CMT) package files: data_schema.xml and data.xml share the <entities> root.
-  The schema is the union of what Microsoft CMT / Package Deployer / pac data write and read and what the
-  TALXIS importer (INT0014-DataMovement) accepts. Attributes CMT's own schema marks as required (entity
-  displayname, etc, disableplugins; field displayname) are optional here: the TALXIS dialect omits them
-  and CMT imports and exports without them. anyAttribute="skip" keeps forward compatibility with
-  attributes neither tool documents.
+  The schema covers what Microsoft CMT / Package Deployer / pac data write and read. Attributes CMT's own
+  schema marks as required (entity displayname, etc, disableplugins; field displayname) are optional here
+  because CMT imports without them. anyAttribute="skip" keeps forward compatibility with attributes CMT
+  does not document.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 
@@ -63,8 +62,7 @@
         <xs:attribute name="disableplugins" type="xs:boolean" use="optional" />
         <xs:attribute name="skipupdate" type="xs:boolean" use="optional" />
         <xs:attribute name="forcecreate" type="xs:boolean" use="optional" />
-        <!-- renderliquid and guidswap are TALXIS extensions (INT0014-DataMovement), not Microsoft CMT attributes.
-             CMT ignores them; the TALXIS importer renders <records> through Liquid / remaps GUIDs when true. -->
+        <!-- Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired. -->
         <xs:attribute name="renderliquid" type="xs:string" use="optional" />
         <xs:attribute name="guidswap" type="xs:string" use="optional" />
         <xs:attribute name="etc" type="xs:string" use="optional" />

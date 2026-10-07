@@ -49,4 +49,4 @@ findings.AddRange(new CmtPackageValidator().Validate(package));
 - `WorkspaceValidator.ValidateDirectory` runs both for every package it finds under a workspace folder, together with the XSD check.
 - Each finding carries a stable `Code`. The codes and what they mean are defined in `ValidationDiagnostics`.
 
-The rules follow what Microsoft CMT does on import. Packages written for the TALXIS importer, which adds attributes such as `renderliquid` and `guidswap`, validate without errors. Checks that need table metadata, such as whether a column exists in the target environment, are not part of this validation (#124).
+The rules follow what Microsoft CMT does on import. Checks that need table metadata, such as whether a column exists in the target environment, are not part of this validation (#124).

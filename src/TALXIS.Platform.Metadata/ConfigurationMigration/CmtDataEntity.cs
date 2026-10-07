@@ -18,8 +18,8 @@ public sealed class CmtDataEntity : MetadataBase
     public IList<CmtDataManyToManyRelationship> ManyToManyRelationships { get; } = new List<CmtDataManyToManyRelationship>();
 
     /// <summary>
-    /// Adds a record with the given id. Configuration data should use stable ids committed with the package
-    /// (or the TALXIS <c>guidswap</c> extension), never fresh GUIDs per build. Throws when a record with that id exists.
+    /// Adds a record with the given id. Configuration data should use stable ids committed with the package,
+    /// never fresh GUIDs per build. Throws when a record with that id exists.
     /// </summary>
     public CmtDataRecord AddRecord(Guid id)
     {

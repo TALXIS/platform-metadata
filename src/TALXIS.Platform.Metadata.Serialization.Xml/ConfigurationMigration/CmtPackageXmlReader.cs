@@ -118,7 +118,6 @@ public sealed class CmtPackageXmlReader
             SkipUpdate = BoolOrNull(element, "skipupdate"),
             ForceCreate = BoolOrNull(element, "forcecreate"),
             RenderLiquid = BoolOrNull(element, "renderliquid"),
-            GuidSwap = BoolOrNull(element, "guidswap"),
             FetchXmlFilter = element.Element("filter")?.Value
         };
         SetSource(entity, element, sourcePath);

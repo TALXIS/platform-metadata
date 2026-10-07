@@ -40,7 +40,7 @@ public sealed class CmtPackageValidator
                 var caseMatch = CmtFindings.CaseMatch(package.Schema.Entities.Select(e => e.Name), dataEntity.Name);
                 results.Add(caseMatch == null
                     ? CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtDataUndeclared,
-                        $"CMT data.xml entity '{dataEntity.Name}' ({Records(dataEntity.Records.Count)}) is not declared in data_schema.xml. CMT skips the entity and the TALXIS importer fails.")
+                        $"CMT data.xml entity '{dataEntity.Name}' ({Records(dataEntity.Records.Count)}) is not declared in data_schema.xml. CMT skips the entity.")
                     : CmtFindings.Error(dataEntity, ValidationDiagnostics.CmtNameCaseMismatch,
                         $"CMT data.xml entity '{dataEntity.Name}' is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and fails the import."));
                 continue;
@@ -58,7 +58,7 @@ public sealed class CmtPackageValidator
         return results;
     }
 
-    // CMT parses the timestamp before importing anything; the TALXIS importer ignores it.
+    // CMT parses the timestamp before importing anything.
     private static void ValidateTimestamp(CmtData data, List<ValidationResult> results)
     {
         if (data.Timestamp == null || DateTime.TryParse(data.Timestamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)) return;
@@ -114,7 +114,7 @@ public sealed class CmtPackageValidator
             var caseMatch = CmtFindings.CaseMatch(schemaEntity.Fields.Select(f => f.Name), group.Key);
             results.Add(caseMatch == null
                 ? CmtFindings.Error(group.First(), ValidationDiagnostics.CmtDataUndeclared,
-                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) is not declared in data_schema.xml. CMT drops the values and the TALXIS importer fails.")
+                    $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) is not declared in data_schema.xml. CMT drops the values.")
                 : CmtFindings.Warning(group.First(), ValidationDiagnostics.CmtNameCaseMismatch,
                     $"CMT data.xml field '{dataEntity.Name}.{group.Key}' ({Records(group.Count())}) is declared as '{caseMatch}' in data_schema.xml. CMT compares names case-sensitively and drops the values."));
         }
@@ -171,9 +171,10 @@ public sealed class CmtPackageValidator
     }
 
     // CMT parses values per schema type and silently drops, zeroes or misreads what it cannot parse. One finding per
-    // entity and field. Templates are only values once the TALXIS importer has rendered them; the primary id is TXM017's.
+    // entity and field; the primary id is TXM017's.
     private static void ValidateValues(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
+        // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
         if (schemaEntity.RenderLiquid == true) return;
 
         var invalid = new List<(CmtDataField Field, string Type)>();
@@ -206,6 +207,7 @@ public sealed class CmtPackageValidator
     // share those values all match the same existing record on re-import, so it is updated repeatedly and the others never land.
     private static void ValidateMatchKeys(CmtSchemaEntity schemaEntity, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
+        // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
         if (schemaEntity.RenderLiquid == true) return;
 
         var keyFields = schemaEntity.Fields.Where(f => f.IsUpdateCompare).Select(f => f.Name).ToList();
@@ -281,6 +283,6 @@ public sealed class CmtPackageValidator
 
     private static string Records(int count) => count == 1 ? "1 record" : $"{count} records";
 
-    // TALXIS Liquid templates ({{ }} and {% %}) are values only once the TALXIS importer has rendered them.
+    // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
     private static bool IsTemplate(string? value) => value != null && (value.Contains("{{") || value.Contains("{%"));
 }

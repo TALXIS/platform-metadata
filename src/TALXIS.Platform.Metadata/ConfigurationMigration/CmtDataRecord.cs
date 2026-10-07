@@ -7,7 +7,7 @@ public sealed class CmtDataRecord : MetadataBase
 {
     /// <summary>
     /// Primary key of the record (<c>record@id</c>), used for lookups and associations within the package. CMT creates the record
-    /// under its primary-id field value, so that field must carry the same GUID (TXM017); the TALXIS importer uses this id.
+    /// under its primary-id field value, so that field must carry the same GUID (TXM017).
     /// </summary>
     public Guid Id { get; set; }
 
