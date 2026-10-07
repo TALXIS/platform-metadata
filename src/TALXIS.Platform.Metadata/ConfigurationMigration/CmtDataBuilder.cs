@@ -11,7 +11,8 @@ public static class CmtDataBuilder
     /// when two packages give one field different values the first value is kept and the conflict is reported once per field in
     /// <paramref name="warnings"/>. Many-to-many associations are joined by source record and relationship, their target ids united;
     /// an association that names a different target table keeps the first package's targets and is reported.
-    /// Records repeated inside one package are merged the same way. What is added is copied, so the packages being merged stay unchanged.
+    /// Records repeated inside one package are first combined the way CMT imports them, copy after copy, so a later copy's value wins
+    /// there without a warning. What is added is copied, so the packages being merged stay unchanged.
     /// </summary>
     /// <returns>
     /// The entity now in <paramref name="target"/>.
@@ -24,12 +25,12 @@ public static class CmtDataBuilder
 
         var conflicts = new Dictionary<string, int>(StringComparer.Ordinal);
         var newIdConflicts = 0;
-        foreach (var record in entity.Records)
+        foreach (var record in CombineRepeatedRecords(entity.Records))
         {
             var current = existing.Records.FirstOrDefault(r => r.Id == record.Id);
             if (current == null)
             {
-                existing.Records.Add(record.Copy());
+                existing.Records.Add(record);
                 continue;
             }
 
@@ -41,7 +42,7 @@ public static class CmtDataBuilder
             {
                 var currentField = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
                 if (currentField == null)
-                    current.Fields.Add(field.Copy());
+                    current.Fields.Add(field);
                 else if (!SameContent(currentField, field))
                     conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
             }
@@ -75,6 +76,35 @@ public static class CmtDataBuilder
         }
 
         return existing;
+    }
+
+    // CMT imports every copy of a record in order, so inside one package each copy updates what the earlier ones wrote: the last
+    // value of a field wins and fields only an earlier copy sets stay. Returns copies, one per id, in first-seen order.
+    private static List<CmtDataRecord> CombineRepeatedRecords(IEnumerable<CmtDataRecord> records)
+    {
+        var combined = new List<CmtDataRecord>();
+        foreach (var record in records)
+        {
+            var current = combined.FirstOrDefault(r => r.Id == record.Id);
+            if (current == null)
+            {
+                combined.Add(record.Copy());
+                continue;
+            }
+
+            current.NewId = record.NewId ?? current.NewId;
+            foreach (var other in record.OtherAttributes) current.OtherAttributes[other.Key] = other.Value;
+            foreach (var field in record.Fields)
+            {
+                var earlier = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
+                if (earlier == null)
+                    current.Fields.Add(field.Copy());
+                else
+                    current.Fields[current.Fields.IndexOf(earlier)] = field.Copy();
+            }
+        }
+
+        return combined;
     }
 
     // Everything the importer reads from a field: the value, the lookup target and its fallback name, the file name, and for a

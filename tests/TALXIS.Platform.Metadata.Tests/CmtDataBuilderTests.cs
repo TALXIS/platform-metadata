@@ -75,6 +75,37 @@ public class CmtDataBuilderTests
         Assert.Equal(new[] { "talxis_name", "ntg_sell" }, bin.Fields.Select(f => f.Name));
     }
 
+    // CMT imports every copy in order, so inside one package the last copy wins; between packages the first package wins.
+    [Theory]
+    [InlineData(true, "Sales EU", 0)]
+    [InlineData(false, "Sales", 1)]
+    public void MergeEntity_RepeatedRecord_LastCopyWinsInsideOnePackage(bool samePackage, string expectedName, int expectedWarnings)
+    {
+        var first = TeamsFromMain();
+        var later = new CmtDataRecord { Id = TeamId, NewId = new Guid("aaaaaaaa-0000-0000-0000-000000000009") }.Set("talxis_name", "Sales EU");
+        var data = new CmtData();
+        var warnings = new List<string>();
+
+        if (samePackage)
+        {
+            first.Records.Add(later);
+            CmtDataBuilder.MergeEntity(data, first, warnings);
+        }
+        else
+        {
+            var other = new CmtDataEntity { Name = first.Name };
+            other.Records.Add(later);
+            CmtDataBuilder.MergeEntity(data, first, warnings);
+            CmtDataBuilder.MergeEntity(data, other, warnings);
+        }
+
+        var record = Assert.Single(data.FindEntity("talxis_securityteam")!.Records);
+        Assert.Equal(expectedName, record.Fields.Single(f => f.Name == "talxis_name").Value);
+        Assert.Equal("S", record.Fields.Single(f => f.Name == "talxis_code").Value);
+        Assert.Equal(new Guid("aaaaaaaa-0000-0000-0000-000000000009"), record.NewId);
+        Assert.Equal(expectedWarnings, warnings.Count);
+    }
+
     [Fact]
     public void MergeEntity_KeepsFirstTargetsWhenAnotherPackageLinksToADifferentTable()
     {
