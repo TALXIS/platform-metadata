@@ -301,9 +301,8 @@ public sealed class XmlWorkspaceReader
         attr.IsValidForCreate = ParseBit(attrEl.Element("ValidForCreateApi"));
         attr.IsValidForUpdate = ParseBit(attrEl.Element("ValidForUpdateApi"));
         attr.IsValidForRead = ParseBit(attrEl.Element("ValidForReadApi"));
-        attr.SourceType = int.TryParse(attrEl.Element("SourceType")?.Value, out var sourceType) && Enum.IsDefined(typeof(AttributeSourceType), sourceType)
-            ? (AttributeSourceType)sourceType
-            : null;
+        var sourceType = ParseInt(attrEl.Element("SourceType")?.Value);
+        attr.SourceType = sourceType != null && Enum.IsDefined(typeof(AttributeSourceType), sourceType.Value) ? (AttributeSourceType)sourceType.Value : null;
         attr.Source = CreateSourceLocation(filePath, attrEl);
 
         // Required level
