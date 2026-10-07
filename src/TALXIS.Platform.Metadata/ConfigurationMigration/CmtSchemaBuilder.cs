@@ -439,20 +439,43 @@ public static class CmtSchemaBuilder
         return ordered;
     }
 
-    // Only a lookup cycle is left: import the earliest slot that does not jump ahead of the manual order first, and let CMT's
-    // second pass fill in the lookups to its parents that are not imported yet.
+    // Only lookup cycles block what is left. Break the one that waits on nothing outside itself (otherwise a child waiting on
+    // a cycle would be taken for part of it), at its earliest slot that does not jump ahead of the manual order, and let CMT's
+    // second pass fill in the lookups that point back into the cycle.
     private static string BreakCycle(List<string> remaining, Dictionary<string, HashSet<string>> parents, List<string> manual, HashSet<string> emitted, ICollection<string> warnings)
     {
-        var next = remaining.First(name =>
+        var ancestors = remaining.ToDictionary(name => name, name => PendingAncestors(name, parents, emitted), StringComparer.Ordinal);
+        var cycle = remaining
+            .Select(name => remaining.Where(other => other == name || (ancestors[name].Contains(other) && ancestors[other].Contains(name))).ToList())
+            .First(members => members.Count > 1 && members.All(member => parents[member].All(p => emitted.Contains(p) || members.Contains(p))));
+
+        var next = cycle.First(name =>
         {
             var rank = manual.IndexOf(name);
             return rank <= 0 || emitted.Contains(manual[rank - 1]);
         });
 
         foreach (var parent in parents[next].Where(p => !emitted.Contains(p)))
+        {
             warnings.Add($"Entities '{next}' and '{parent}' look each other up (directly or through other entities); '{next}' is imported first and CMT's second pass fills in the lookup.");
+        }
 
         return next;
+    }
+
+    // The not yet imported ancestors of an entity: its parents, their parents and so on, everything it waits on to be imported.
+    private static HashSet<string> PendingAncestors(string entity, Dictionary<string, HashSet<string>> parents, HashSet<string> emitted)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var stack = new Stack<string>(parents[entity].Where(p => !emitted.Contains(p)));
+        while (stack.Count > 0)
+        {
+            var name = stack.Pop();
+            if (!seen.Add(name)) continue;
+            foreach (var parent in parents[name].Where(p => !emitted.Contains(p))) stack.Push(parent);
+        }
+
+        return seen;
     }
 
     private static void WriteOrder(CmtDataSchema target, List<string> ordered)

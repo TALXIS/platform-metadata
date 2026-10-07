@@ -290,6 +290,9 @@ public class CmtSchemaBuilderTests : IDisposable
         { "note:contact|account contact:@account account", null, null, "account contact note", null },
         // two-node cycle, broken at the current order
         { "account:contact contact:account", null, null, "account contact", "'account' and 'contact' look each other up" },
+        // a child waiting on a cycle is not mistaken for part of it: the cycle is broken, the child follows its parent
+        { "child:a a:b b:a", null, null, "a child b", "'a' and 'b' look each other up" },
+        { "task:project project:customer customer:project", null, null, "project task customer", "'project' and 'customer' look each other up" },
         // a hand-written order is kept unless a lookup disagrees
         { "x y z", "z y x", null, "z y x", null },
         { "account contact:account", "contact account", null, "account contact", null },
