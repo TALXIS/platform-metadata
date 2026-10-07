@@ -38,7 +38,7 @@ Wired into consumers: Build SDK references Validation, CLI has `workspace valida
 
 **Goal:** Type-safe component manipulation for CLI and template engine.
 
-- [x] Configuration Migration packages: typed model, patch-in-place reader/writer, structural validation ([docs](configuration-migration.md)); next: validation against `Workspace` metadata and a schema builder (`EffectiveMetadata` later)
+- [x] Configuration Migration packages: typed model, patch-in-place reader/writer, structural validation ([docs](configuration-migration.md)); schema builder, package merge and import order; next: validation against `Workspace` metadata (`EffectiveMetadata` later)
 
 ### IWorkspaceContext interface
 Abstraction layer for I/O — model never touches filesystem directly.

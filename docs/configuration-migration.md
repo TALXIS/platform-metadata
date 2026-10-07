@@ -37,6 +37,22 @@ new CmtPackageXmlWriter().Save(new CmtPackage(schema, data), @"C:\MyPackage");
 
 Use fixed record ids, not `Guid.NewGuid()`, and set the id both on the record and in its primary-key field: CMT takes the record id from that field and creates a new id without it. Re-importing the package then updates the same records instead of creating new ones.
 
+## Build schema entries from metadata
+
+```csharp
+var warnings = new List<string>();
+var options = new CmtSchemaBuildOptions { FieldSelection = CmtFieldSelection.Standard, IncludeManyToMany = true };
+
+var account = CmtWorkspaceSchemaBuilder.BuildEntity(workspace, "account", options, warnings, target: package.Schema);
+CmtSchemaBuilder.AddOrReplaceEntity(package.Schema, account);
+CmtSchemaBuilder.ResolveImportOrder(package.Schema, warnings);
+```
+
+- `BuildEntity` maps the table's columns to CMT field types and marks the primary name as `updateCompare`. `CmtSchemaBuilder.BuildEntity` takes the `EntityMetadata` directly.
+- Columns CMT cannot migrate, such as bigint and file columns, are left out, and `warnings` says why.
+- `AddOrReplaceEntity` keeps fields that are already declared, so hand edits survive a refresh. `MergeEntity` (schema) and `CmtDataBuilder.MergeEntity` (data) combine several packages.
+- `ResolveImportOrder` puts every table after the tables it looks up. Pass `manualOrder` to keep a hand-written order.
+
 ## Validate
 
 ```csharp
