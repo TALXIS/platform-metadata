@@ -231,6 +231,38 @@ public class WorkspaceValidatorTests
     }
 
     [Fact]
+    public void ValidateDirectory_CmtPackage_RunsPackageRules()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ws-test-cmtpkg-{Guid.NewGuid():N}");
+        try
+        {
+            WriteSolution(tempDir, "SolA");
+            // The live-proven package without its files/ folder, its filedata value pointing outside it: the payload is missing.
+            var cmtDir = Path.Combine(tempDir, "Packages.Main", "Data", "Default");
+            Directory.CreateDirectory(cmtDir);
+            var fixture = Path.Combine(AppContext.BaseDirectory, "TestData", "CmtPackage", "exhaustive");
+            File.Copy(Path.Combine(fixture, "data_schema.xml"), Path.Combine(cmtDir, "data_schema.xml"));
+            File.WriteAllText(Path.Combine(cmtDir, "data.xml"), File.ReadAllText(Path.Combine(fixture, "data.xml"))
+                .Replace("value=\"40ae271b-220c-57bf-915c-f426c58fee4f\"", "value=\"../40ae271b-220c-57bf-915c-f426c58fee4f\""));
+            File.WriteAllText(Path.Combine(cmtDir, "40ae271b-220c-57bf-915c-f426c58fee4f.bin"), "x");
+
+            var report = new WorkspaceValidator().ValidateDirectory(tempDir);
+            var cmt = report.Results.Where(r => r.Stage == ValidationStage.CmtData).ToList();
+
+            Assert.DoesNotContain(cmt, r => r.Severity == ValidationSeverity.Error);
+            Assert.Contains(cmt, r => r.Code == ValidationDiagnostics.CmtPrimaryNameFieldUndeclared);
+            var finding = Assert.Single(cmt, r => r.Code == ValidationDiagnostics.CmtDataFilePayloadMissing);
+            Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+            Assert.Contains("files/../40ae271b-220c-57bf-915c-f426c58fee4f.bin", finding.Message);
+            Assert.EndsWith("data.xml", finding.FilePath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
     public void ValidateRelationships_ExplicitRoots_ReportsMissingRootAndRelationshipFindings()
     {
         var missingRoot = Path.Combine(Path.GetTempPath(), $"ws-test-missing-{Guid.NewGuid():N}");

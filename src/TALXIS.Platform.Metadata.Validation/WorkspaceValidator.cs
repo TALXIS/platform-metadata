@@ -1,4 +1,6 @@
+using TALXIS.Platform.Metadata.ConfigurationMigration;
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
 
 namespace TALXIS.Platform.Metadata.Validation;
 
@@ -140,10 +142,42 @@ public sealed class WorkspaceValidator
     private static void CollectCmtDataSchemaFindings(string workspacePath, List<ValidationResult> results)
     {
         var cmtValidator = new CmtDataSchemaValidator();
+        var packageValidator = new CmtPackageValidator();
         foreach (var file in WorkspaceFiles.Enumerate(workspacePath, "*.xml"))
         {
             if (WorkspaceFiles.IsWebResourcePayload(file)) continue;
             results.AddRange(SolutionValidator.WithStage(cmtValidator.ValidateFile(file), ValidationStage.CmtData));
+
+            if (!string.Equals(Path.GetFileName(file), CmtPackageLayout.SchemaFileName, StringComparison.OrdinalIgnoreCase)) continue;
+
+            // Load errors are left to the XSD stage, which already reports malformed files.
+            var packageDirectory = Path.GetDirectoryName(file)!;
+            var package = new CmtPackageXmlReader().LoadDirectory(packageDirectory);
+            if (package.Data == null || package.LoadErrors.Count > 0) continue;
+            results.AddRange(SolutionValidator.WithStage(packageValidator.Validate(package), ValidationStage.CmtData));
+            CollectCmtFilePayloadFindings(package, packageDirectory, results);
+        }
+    }
+
+    // Needs the package folder, so it lives here rather than in the I/O-free CmtPackageValidator. CMT reads a filedata
+    // value's payload from files/<value>.bin; without it the record fails to import while the import still succeeds.
+    private static void CollectCmtFilePayloadFindings(CmtPackage package, string packageDirectory, List<ValidationResult> results)
+    {
+        foreach (var dataEntity in package.Data!.Entities)
+        {
+            var schemaEntity = package.Schema.FindEntity(dataEntity.Name);
+            if (schemaEntity == null) continue;
+
+            foreach (var field in dataEntity.Records.SelectMany(r => r.Fields))
+            {
+                if (string.IsNullOrEmpty(field.Value) || schemaEntity.FindField(field.Name)?.Type != CmtFieldTypes.FileData) continue;
+                // The value is a file name segment; one with separators or other invalid characters (../x) counts as missing.
+                if (field.Value!.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+                    && File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, field.Value + ".bin"))) continue;
+
+                results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtDataFilePayloadMissing,
+                    $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package.") with { Stage = ValidationStage.CmtData });
+            }
         }
     }
 
