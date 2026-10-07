@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <!--
   Configuration Migration Tool (CMT) package files: data_schema.xml and data.xml share the <entities> root.
-  The schema is the union of what Microsoft CMT / Package Deployer / pac data write and read and what the
-  TALXIS importer (INT0014-DataMovement) accepts. Attributes CMT's own schema marks as required (entity
-  displayname, etc, disableplugins; field displayname) are optional here: the TALXIS dialect omits them
-  and CMT imports and exports without them. anyAttribute="skip" keeps forward compatibility with
-  attributes neither tool documents.
+  The schema covers what Microsoft CMT / Package Deployer / pac data write and read. Attributes CMT's own
+  schema marks as required (entity displayname, etc, disableplugins; field displayname) are optional here
+  because CMT imports without them. anyAttribute="skip" keeps forward compatibility with attributes CMT
+  does not document.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 
@@ -59,11 +58,11 @@
         <xs:attribute name="displayname" type="xs:string" use="optional" />
         <xs:attribute name="primaryidfield" type="xs:string" use="optional" />
         <xs:attribute name="primarynamefield" type="xs:string" use="optional" />
-        <xs:attribute name="disableplugins" type="xs:string" use="optional" />
-        <xs:attribute name="skipupdate" type="xs:string" use="optional" />
-        <xs:attribute name="forcecreate" type="xs:string" use="optional" />
-        <!-- renderliquid and guidswap are TALXIS extensions (INT0014-DataMovement), not Microsoft CMT attributes.
-             CMT ignores them; the TALXIS importer renders <records> through Liquid / remaps GUIDs when true. -->
+        <!-- CMT reads the boolean attributes with XmlSerializer: only true|false|1|0, case-sensitive; any other token fails the load. -->
+        <xs:attribute name="disableplugins" type="xs:boolean" use="optional" />
+        <xs:attribute name="skipupdate" type="xs:boolean" use="optional" />
+        <xs:attribute name="forcecreate" type="xs:boolean" use="optional" />
+        <!-- Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired. -->
         <xs:attribute name="renderliquid" type="xs:string" use="optional" />
         <xs:attribute name="guidswap" type="xs:string" use="optional" />
         <xs:attribute name="etc" type="xs:string" use="optional" />
@@ -145,9 +144,9 @@
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="displayname" type="xs:string" use="optional" />
         <xs:attribute name="type" type="xs:string" use="optional" />
-        <xs:attribute name="primaryKey" type="xs:string" use="optional" />
-        <xs:attribute name="updateCompare" type="xs:string" use="optional" />
-        <xs:attribute name="customfield" type="xs:string" use="optional" />
+        <xs:attribute name="primaryKey" type="xs:boolean" use="optional" />
+        <xs:attribute name="updateCompare" type="xs:boolean" use="optional" />
+        <xs:attribute name="customfield" type="xs:boolean" use="optional" />
         <xs:attribute name="lookupType" type="xs:string" use="optional" />
         <xs:attribute name="dateMode" type="CmtDateModeType" use="optional" />
         <xs:anyAttribute processContents="skip" />
@@ -165,8 +164,8 @@
             <xs:element name="fields" type="CmtFieldsType" minOccurs="0" />
         </xs:sequence>
         <xs:attribute name="name" type="xs:string" use="required" />
-        <xs:attribute name="manyToMany" type="xs:string" use="optional" />
-        <xs:attribute name="isreflexive" type="xs:string" use="optional" />
+        <xs:attribute name="manyToMany" type="xs:boolean" use="optional" />
+        <xs:attribute name="isreflexive" type="xs:boolean" use="optional" />
         <xs:attribute name="relatedEntityName" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntity" type="xs:string" use="optional" />
         <xs:attribute name="m2mTargetEntityPrimaryKey" type="xs:string" use="optional" />

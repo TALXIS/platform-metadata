@@ -2,7 +2,7 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 
 /// <summary>
 /// The schema side of a Configuration Migration Tool package (data_schema.xml): which tables and columns a
-/// package migrates and how records are matched. Both Microsoft CMT and the TALXIS importer read it.
+/// package migrates and how records are matched.
 /// </summary>
 public sealed class CmtDataSchema : MetadataBase
 {

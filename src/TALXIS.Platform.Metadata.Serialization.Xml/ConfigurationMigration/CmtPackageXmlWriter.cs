@@ -87,7 +87,6 @@ public sealed class CmtPackageXmlWriter
         SetNullableBool(element, "skipupdate", entity.SkipUpdate);
         SetNullableBool(element, "forcecreate", entity.ForceCreate);
         SetNullableBool(element, "renderliquid", entity.RenderLiquid);
-        SetNullableBool(element, "guidswap", entity.GuidSwap);
         SyncChildren(Container(element, "fields", isNew || entity.Fields.Count > 0), "field", entity.Fields, f => f.Name, ApplySchemaField);
         SyncChildren(Container(element, "relationships", entity.Relationships.Count > 0), "relationship", entity.Relationships, r => r.Name, ApplyRelationship);
         SyncFilter(element, entity.FetchXmlFilter);
@@ -310,7 +309,7 @@ public sealed class CmtPackageXmlWriter
 
         var text = settings.Encoding.GetString(buffer.ToArray());
         if (KeepsSpacedEmptyRoot(document, existing, settings.Encoding)) text = ReplaceFirst(text, "<entities>", "<entities >");
-        // TALXIS packages declare <?xml version="1.0"?> without encoding; XmlWriter always adds one.
+        // Keep a declaration without encoding (<?xml version="1.0"?>) as loaded; XmlWriter always adds one.
         if (document.Declaration != null && string.IsNullOrEmpty(document.Declaration.Encoding))
             text = ReplaceFirst(text, "<?xml version=\"1.0\" encoding=\"utf-8\"?>", "<?xml version=\"1.0\"?>");
         return settings.Encoding.GetBytes(text);

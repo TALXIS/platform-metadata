@@ -21,7 +21,7 @@ public sealed class CmtDataField : MetadataBase
     /// <summary>For lookups: logical name of the referenced table (<c>field@lookupentity</c>).</summary>
     public string? LookupEntity { get; set; }
 
-    /// <summary>For lookups: primary name of the referenced record, used by CMT as a fallback when the id is not found; CMT skips a lookup without it. The TALXIS importer ignores it.</summary>
+    /// <summary>For lookups: primary name of the referenced record, used by CMT as a fallback when the id is not found; CMT skips a lookup without it.</summary>
     public string? LookupEntityName { get; set; }
 
     /// <summary>

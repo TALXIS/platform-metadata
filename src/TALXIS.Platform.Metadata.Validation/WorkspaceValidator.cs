@@ -171,7 +171,9 @@ public sealed class WorkspaceValidator
             foreach (var field in dataEntity.Records.SelectMany(r => r.Fields))
             {
                 if (string.IsNullOrEmpty(field.Value) || schemaEntity.FindField(field.Name)?.Type != CmtFieldTypes.FileData) continue;
-                if (File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, field.Value + ".bin"))) continue;
+                // The value is a file name segment; one with separators or other invalid characters (../x) counts as missing.
+                if (field.Value!.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+                    && File.Exists(Path.Combine(packageDirectory, CmtPackageLayout.FilesDirectory, field.Value + ".bin"))) continue;
 
                 results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtDataFilePayloadMissing,
                     $"CMT data.xml field '{dataEntity.Name}.{field.Name}' references file '{field.Value}', but {CmtPackageLayout.FilesDirectory}/{field.Value}.bin is missing. CMT fails that record's import without failing the package.") with { Stage = ValidationStage.CmtData });

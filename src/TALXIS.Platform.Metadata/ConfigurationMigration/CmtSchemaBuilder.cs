@@ -204,7 +204,6 @@ public static class CmtSchemaBuilder
         existing.SkipUpdate = entity.SkipUpdate ?? existing.SkipUpdate;
         existing.ForceCreate = entity.ForceCreate ?? existing.ForceCreate;
         existing.RenderLiquid = entity.RenderLiquid ?? existing.RenderLiquid;
-        existing.GuidSwap = entity.GuidSwap ?? existing.GuidSwap;
         existing.FetchXmlFilter = entity.FetchXmlFilter ?? existing.FetchXmlFilter;
 
         if (replaceFields) existing.Fields.Clear();
@@ -237,7 +236,6 @@ public static class CmtSchemaBuilder
         existing.SkipUpdate = KeepFirst(existing.Name, "skipupdate", existing.SkipUpdate, entity.SkipUpdate, warnings);
         existing.ForceCreate = KeepFirst(existing.Name, "forcecreate", existing.ForceCreate, entity.ForceCreate, warnings);
         existing.RenderLiquid = KeepFirst(existing.Name, "renderliquid", existing.RenderLiquid, entity.RenderLiquid, warnings);
-        existing.GuidSwap = KeepFirst(existing.Name, "guidswap", existing.GuidSwap, entity.GuidSwap, warnings);
         existing.FetchXmlFilter = KeepFirst(existing.Name, "filter", existing.FetchXmlFilter, entity.FetchXmlFilter, warnings);
 
         foreach (var field in entity.Fields.Where(f => existing.FindField(f.Name) is null).ToList()) existing.Fields.Add(field);

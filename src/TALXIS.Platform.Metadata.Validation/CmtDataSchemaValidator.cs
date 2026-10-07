@@ -7,7 +7,7 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 /// <summary>
 /// Structural rules for Configuration Migration Tool data schema files (data_schema.xml): does the schema
-/// hang together, and will both Microsoft CMT and the TALXIS importer accept it. The rules need no Dataverse
+/// hang together, and will Microsoft CMT accept it. The rules need no Dataverse
 /// metadata; rules that need data.xml live in <see cref="CmtPackageValidator"/>.
 /// </summary>
 public sealed class CmtDataSchemaValidator
@@ -105,7 +105,8 @@ public sealed class CmtDataSchemaValidator
                 $"CMT data_schema.xml entity '{entity.Name}' is not lowercase. Dataverse logical names are lowercase and CMT compares them case-sensitively, so the import fails."));
         }
 
-        foreach (var field in entity.Fields.Where(f => !IsLowercase(f.Name)))
+        // Many-to-many entries nest their intersect fields, which CMT looks up the same way.
+        foreach (var field in entity.Fields.Concat(entity.Relationships.SelectMany(r => r.Fields)).Where(f => !IsLowercase(f.Name)))
         {
             results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtNameCaseMismatch,
                 $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not lowercase. Dataverse logical names are lowercase and CMT rejects the package with 'Missing Fields'."));
@@ -165,9 +166,10 @@ public sealed class CmtDataSchemaValidator
             var type = field.Type;
             switch (type)
             {
+                // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
                 case CmtFieldTypes.File:
                     results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
-                        $"{subject} has type 'file', a TALXIS synonym for 'filedata'. Microsoft CMT rejects the package; use 'filedata' for it."));
+                        $"{subject} has type 'file', which Microsoft CMT rejects. Use 'filedata'."));
                     break;
                 case CmtFieldTypes.BigInt:
                     results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldTypeNotImportable,
@@ -231,7 +233,7 @@ public sealed class CmtDataSchemaValidator
         foreach (var duplicate in Duplicates(entity.Fields, f => f.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data_schema.xml field '{entity.Name}.{duplicate.Name}' is declared more than once. The TALXIS importer fails on the duplicate."));
+                $"CMT data_schema.xml field '{entity.Name}.{duplicate.Name}' is declared more than once. Remove the duplicate."));
         }
     }
 
@@ -240,7 +242,7 @@ public sealed class CmtDataSchemaValidator
         foreach (var duplicate in Duplicates(schema.Entities, e => e.Name))
         {
             results.Add(CmtFindings.Error(duplicate, ValidationDiagnostics.CmtDuplicateName,
-                $"CMT data_schema.xml entity '{duplicate.Name}' is declared more than once. The TALXIS importer fails on the duplicate."));
+                $"CMT data_schema.xml entity '{duplicate.Name}' is declared more than once. Remove the duplicate."));
         }
     }
 
@@ -296,10 +298,9 @@ public sealed class CmtDataSchemaValidator
         }
     }
 
-    // The TALXIS importer keys entities and fields in case-insensitive dictionaries, so case-only duplicates count.
     private static IEnumerable<T> Duplicates<T>(IEnumerable<T> items, Func<T, string> name)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         return items.Where(item => !seen.Add(name(item)));
     }
 }

@@ -80,7 +80,8 @@ public sealed class CmtPackageXmlReader
         return schema;
     }
 
-    // XmlSerializer boolean forms both importers accept: true|false|1|0. Anything else reads as false.
+    // Lenient: "1" or "true" in any case reads as true, anything else as false. CMT accepts only true|false|1|0
+    // (case-sensitive); the XSD stage reports other tokens.
     internal static bool ParseBool(string? value) => value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     internal static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : null;
@@ -117,7 +118,6 @@ public sealed class CmtPackageXmlReader
             SkipUpdate = BoolOrNull(element, "skipupdate"),
             ForceCreate = BoolOrNull(element, "forcecreate"),
             RenderLiquid = BoolOrNull(element, "renderliquid"),
-            GuidSwap = BoolOrNull(element, "guidswap"),
             FetchXmlFilter = element.Element("filter")?.Value
         };
         SetSource(entity, element, sourcePath);

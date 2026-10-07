@@ -4,7 +4,7 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 /// The CMT <c>type</c> vocabulary for schema fields. Values are lowercase because CMT's importer compares them
 /// ordinally. <see cref="Unknown"/> is written by CMT's generator but has no import conversion, <see cref="BigInt"/>
 /// is accepted but its values are dropped, <see cref="Customer"/> is rejected (Customer columns are
-/// <see cref="EntityReference"/>), and <see cref="File"/> is a TALXIS synonym for <see cref="FileData"/> that Microsoft CMT rejects.
+/// <see cref="EntityReference"/>).
 /// </summary>
 public static class CmtFieldTypes
 {
@@ -28,9 +28,10 @@ public static class CmtFieldTypes
     public const string ImageData = "imagedata";
     public const string FileData = "filedata";
     public const string Unknown = "unknown";
+    // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
     public const string File = "file";
 
-    /// <summary>Every type Microsoft CMT can import, in the spelling it requires. Excludes <see cref="BigInt"/>, <see cref="Customer"/>, <see cref="Unknown"/> and the TALXIS synonym <see cref="File"/>.</summary>
+    /// <summary>Every type Microsoft CMT can import, in the spelling it requires. Excludes <see cref="BigInt"/>, <see cref="Customer"/>, <see cref="Unknown"/> and <see cref="File"/>.</summary>
     public static readonly IReadOnlyCollection<string> Importable = new HashSet<string>(StringComparer.Ordinal)
     {
         String, Guid, Number, Bool, DateTime, Decimal, Float, Money, OptionSetValue, OptionSetValueCollection,
