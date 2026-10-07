@@ -54,7 +54,7 @@ CmtSchemaBuilder.ResolveImportOrder(package.Schema, warnings);
 ```
 
 - `BuildEntity` maps the table's columns to CMT field types and marks the primary name as `updateCompare`. `CmtSchemaBuilder.BuildEntity` takes the `EntityMetadata` directly.
-- Columns CMT cannot migrate, such as bigint and file columns, are left out, and `warnings` says why.
+- Columns CMT cannot migrate, such as bigint, are left out, and `warnings` says why. File columns are declared as `filedata`; exporting them needs file export to be on (`txc data package export --export-files`).
 - `AddOrReplaceEntity` keeps fields that are already declared, so hand edits survive a refresh.
 - `MergeEntity` (schema) and `CmtDataBuilder.MergeEntity` (data) combine several packages. The first package wins, and `warnings` lists every difference the import would notice: entity attributes, field and relationship declarations, field values (including lookup names, file names and attendees), `newId`, and associations that name another target table.
 - `ResolveImportOrder` puts every table after the tables it looks up. Pass `manualOrder` to keep a hand-written order.

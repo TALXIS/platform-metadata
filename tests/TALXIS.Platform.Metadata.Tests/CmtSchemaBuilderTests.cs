@@ -97,7 +97,7 @@ public class CmtSchemaBuilderTests : IDisposable
     }
 
     [Fact]
-    public void BuildEntity_LeavesOutColumnsCmtCannotImportWithWarning()
+    public void BuildEntity_LeavesOutColumnsCmtCannotImportWithWarningAndKeepsFileColumns()
     {
         var metadata = Contact();
         metadata.AddAttribute(new BigIntAttributeMetadata { LogicalName = "new_bignumber", IsCustomAttribute = true });
@@ -107,9 +107,10 @@ public class CmtSchemaBuilderTests : IDisposable
 
         var entity = CmtSchemaBuilder.BuildEntity(metadata, ContactRelationships, new CmtSchemaBuildOptions(), warnings);
 
-        Assert.DoesNotContain(entity.Fields, f => f.Name is "new_bignumber" or "new_document" or "new_rules");
+        Assert.DoesNotContain(entity.Fields, f => f.Name is "new_bignumber" or "new_rules");
+        Assert.Equal(CmtFieldTypes.FileData, entity.FindField("new_document")!.Type);
         Assert.Contains(warnings, w => w.Contains("'contact.new_bignumber'") && w.Contains("bigint"));
-        Assert.Contains(warnings, w => w.Contains("'contact.new_document'") && w.Contains("file column"));
+        Assert.DoesNotContain(warnings, w => w.Contains("new_document"));
         Assert.Contains(warnings, w => w.Contains("'contact.new_rules'") && w.Contains("'CalendarRules'"));
     }
 
@@ -161,8 +162,8 @@ public class CmtSchemaBuilderTests : IDisposable
             }
         }
 
-        // Standard leaves out ownership and state and adds overriddencreatedon; CMT export refuses the file column.
-        Assert.Equal(new[] { "cmtl_file", "ownerid", "statecode", "statuscode" }, fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name).Except(builtChild.Fields.Select(f => f.Name)).OrderBy(n => n));
+        // Standard leaves out ownership and state and adds overriddencreatedon.
+        Assert.Equal(new[] { "ownerid", "statecode", "statuscode" }, fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name).Except(builtChild.Fields.Select(f => f.Name)).OrderBy(n => n));
         Assert.Equal(new[] { "overriddencreatedon" }, builtChild.Fields.Select(f => f.Name).Except(fixture.FindEntity("cmtl_child")!.Fields.Select(f => f.Name)));
         var m2m = Assert.Single(builtParent.Relationships);
         var cmtM2m = Assert.Single(fixture.FindEntity("cmtl_parent")!.Relationships);
