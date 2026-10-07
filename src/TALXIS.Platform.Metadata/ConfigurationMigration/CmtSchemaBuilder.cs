@@ -124,12 +124,62 @@ public static class CmtSchemaBuilder
         existing.RenderLiquid = KeepFirst(existing.Name, "renderliquid", existing.RenderLiquid, entity.RenderLiquid, warnings);
         existing.FetchXmlFilter = KeepFirst(existing.Name, "filter", existing.FetchXmlFilter, entity.FetchXmlFilter, warnings);
 
+        ReportDifferingDeclarations(existing, entity, warnings);
         AddMissingFields(existing, entity);
         foreach (var relationship in entity.Relationships.Where(r => !existing.Relationships.Any(e => e.Name == r.Name)).ToList())
             existing.Relationships.Add(relationship);
 
         return existing;
     }
+
+    // The first package's field or relationship is kept; a later package that declares the same name differently would otherwise
+    // change how the records import without anyone noticing. Only what the importer reads is compared, not display names.
+    private static void ReportDifferingDeclarations(CmtSchemaEntity existing, CmtSchemaEntity entity, ICollection<string>? warnings)
+    {
+        if (warnings == null) return;
+
+        foreach (var field in entity.Fields)
+        {
+            var first = existing.FindField(field.Name);
+            if (first == null) continue;
+
+            var differences = FieldDifferences(first, field);
+            if (differences.Any) warnings.Add($"Entity '{existing.Name}': packages declare field '{field.Name}' differently ({differences}); the first package's declaration is kept.");
+        }
+
+        foreach (var relationship in entity.Relationships)
+        {
+            var first = existing.Relationships.FirstOrDefault(r => r.Name == relationship.Name);
+            if (first == null) continue;
+
+            var differences = RelationshipDifferences(first, relationship);
+            if (differences.Any) warnings.Add($"Entity '{existing.Name}': packages declare relationship '{relationship.Name}' differently ({differences}); the first package's declaration is kept.");
+        }
+    }
+
+    private static CmtDeclarationDifferences FieldDifferences(CmtSchemaField first, CmtSchemaField later) =>
+        new CmtDeclarationDifferences()
+            .Compare("type", first.Type, later.Type)
+            .Compare("primaryKey", first.IsPrimaryKey, later.IsPrimaryKey)
+            .Compare("updateCompare", first.IsUpdateCompare, later.IsUpdateCompare)
+            .Compare("lookupType", first.LookupType, later.LookupType)
+            .Compare("dateMode", first.DateMode, later.DateMode);
+
+    private static CmtDeclarationDifferences RelationshipDifferences(CmtSchemaRelationship first, CmtSchemaRelationship later) =>
+        new CmtDeclarationDifferences()
+            .Compare("manyToMany", first.IsManyToMany, later.IsManyToMany)
+            .Compare("isreflexive", first.IsReflexive, later.IsReflexive)
+            .Compare("relatedEntityName", first.RelatedEntityName, later.RelatedEntityName)
+            .Compare("m2mTargetEntity", first.M2mTargetEntity, later.M2mTargetEntity)
+            .Compare("m2mTargetEntityPrimaryKey", first.M2mTargetEntityPrimaryKey, later.M2mTargetEntityPrimaryKey)
+            .Compare("referencingAttribute", first.ReferencingAttribute, later.ReferencingAttribute)
+            .Compare("referencedEntity", first.ReferencedEntity, later.ReferencedEntity)
+            .Compare("referencedAttribute", first.ReferencedAttribute, later.ReferencedAttribute)
+            .Compare("fields", NestedFields(first), NestedFields(later));
+
+    // M2M entries carry their two intersect columns as nested fields; compared as one list, in the order CMT writes them.
+    private static string? NestedFields(CmtSchemaRelationship relationship) =>
+        relationship.Fields.Count == 0 ? null : string.Join(" ", relationship.Fields.Select(f => f.IsPrimaryKey ? $"{f.Name}:{f.Type}:primaryKey" : $"{f.Name}:{f.Type}"));
 
     /// <summary>
     /// Removes an entity, its import-order entry and every relationship on other entities that points at it

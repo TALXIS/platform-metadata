@@ -249,7 +249,35 @@ public class CmtSchemaBuilderTests : IDisposable
         Assert.Equal(2, merged.Relationships.Count);
         Assert.Equal(4, merged.Fields.Count);
         Assert.Equal(!mainFirst, merged.SkipUpdate);
-        Assert.Contains("skipupdate", Assert.Single(warnings));
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains(warnings, w => w.Contains("skipupdate"));
+        Assert.Contains(warnings, w => w.Contains("field 'talxis_securityteamid'") && w.Contains("updateCompare"));
+    }
+
+    [Fact]
+    public void MergeEntity_ReportsFieldsAndRelationshipsDeclaredDifferently()
+    {
+        var first = Entity("new_price");
+        first.AddField("new_amount", CmtFieldTypes.Decimal);
+        first.AddField("new_note", CmtFieldTypes.String, displayName: "Note");
+        first.AddField("new_validfrom", CmtFieldTypes.DateTime, updateCompare: true);
+        first.AddRelationship(new CmtSchemaRelationship { Name = "new_price_tag", IsManyToMany = true, M2mTargetEntity = "new_tag" });
+        var next = Entity("new_price");
+        next.AddField("new_amount", CmtFieldTypes.Money);
+        next.AddField("new_note", CmtFieldTypes.String, displayName: "Internal note");
+        next.AddField("new_validfrom", CmtFieldTypes.DateTime).DateMode = CmtDateModes.Absolute;
+        next.AddRelationship(new CmtSchemaRelationship { Name = "new_price_tag", IsManyToMany = true, M2mTargetEntity = "new_label" });
+        var schema = new CmtDataSchema();
+        var warnings = new List<string>();
+
+        CmtSchemaBuilder.MergeEntity(schema, first, warnings);
+        CmtSchemaBuilder.MergeEntity(schema, next, warnings);
+
+        Assert.Equal(3, warnings.Count);
+        Assert.Contains(warnings, w => w.Contains("field 'new_amount'") && w.Contains("type 'decimal' and 'money'"));
+        Assert.Contains(warnings, w => w.Contains("field 'new_validfrom'") && w.Contains("updateCompare 'true' and 'false', dateMode 'absent' and 'absolute'"));
+        Assert.Contains(warnings, w => w.Contains("relationship 'new_price_tag'") && w.Contains("m2mTargetEntity 'new_tag' and 'new_label'"));
+        Assert.Equal(CmtFieldTypes.Decimal, schema.FindEntity("new_price")!.FindField("new_amount")!.Type);
     }
 
     [Fact]
