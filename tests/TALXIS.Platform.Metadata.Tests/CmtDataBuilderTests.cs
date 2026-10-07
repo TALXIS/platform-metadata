@@ -46,51 +46,32 @@ public class CmtDataBuilderTests
     }
 
     [Fact]
-    public void MergeEntity_KeepsFirstValueAndReportsConflictOncePerField()
+    public void MergeEntity_ReportsConflictsMergesRepeatedRecordsAndUnitesTargets()
     {
         var data = new CmtData();
         var warnings = new List<string>();
         var other = TeamsFromSecurityRules();
         other.Records[0].Set("talxis_name", "Sales EU");
+        var extra = Guid.NewGuid();
+        other.ManyToManyRelationships[0].TargetIds.Add(extra);
+        var repeated = new CmtDataEntity { Name = "talxis_wastecollectionbintype" };
+        var id = Guid.NewGuid();
+        repeated.Records.Add(new CmtDataRecord { Id = id, Fields = { new CmtDataField { Name = "talxis_name", Value = "Bin" } } });
+        repeated.Records.Add(new CmtDataRecord { Id = id, Fields = { new CmtDataField { Name = "ntg_sell", Value = "True" } } });
 
-        CmtDataBuilder.MergeEntity(data, TeamsFromMain(), warnings);
+        CmtDataBuilder.MergeEntity(data, TeamsFromSecurityRules(), warnings);
         CmtDataBuilder.MergeEntity(data, other, warnings);
+        CmtDataBuilder.MergeEntity(data, repeated, warnings);
 
-        Assert.Equal("Sales", data.Entities[0].Records[0].Fields.Single(f => f.Name == "talxis_name").Value);
+        var team = data.FindEntity("talxis_securityteam")!;
+        Assert.Equal("Sales", team.Records[0].Fields.Single(f => f.Name == "talxis_name").Value);
         var warning = Assert.Single(warnings);
         Assert.Contains("'talxis_name'", warning);
         Assert.Contains("1 record(s)", warning);
-    }
-
-    [Fact]
-    public void MergeEntity_MergesRecordRepeatedInsideOnePackage()
-    {
-        var entity = new CmtDataEntity { Name = "talxis_wastecollectionbintype" };
-        var id = Guid.NewGuid();
-        entity.Records.Add(new CmtDataRecord { Id = id, Fields = { new CmtDataField { Name = "talxis_name", Value = "Bin" } } });
-        entity.Records.Add(new CmtDataRecord { Id = id, Fields = { new CmtDataField { Name = "ntg_sell", Value = "True" } } });
-        var data = new CmtData();
-
-        CmtDataBuilder.MergeEntity(data, entity);
-
-        var record = Assert.Single(data.Entities[0].Records);
-        Assert.Equal(new[] { "talxis_name", "ntg_sell" }, record.Fields.Select(f => f.Name));
-    }
-
-    [Fact]
-    public void MergeEntity_UnitesManyToManyTargetIds()
-    {
-        var data = new CmtData();
-        var first = TeamsFromSecurityRules();
-        var second = TeamsFromSecurityRules();
-        var extra = Guid.NewGuid();
-        second.ManyToManyRelationships[0].TargetIds.Add(extra);
-
-        CmtDataBuilder.MergeEntity(data, first);
-        CmtDataBuilder.MergeEntity(data, second);
-
-        var association = Assert.Single(data.Entities[0].ManyToManyRelationships);
+        var association = Assert.Single(team.ManyToManyRelationships);
         Assert.Equal(2, association.TargetIds.Count);
         Assert.Contains(extra, association.TargetIds);
+        var bin = Assert.Single(data.FindEntity("talxis_wastecollectionbintype")!.Records);
+        Assert.Equal(new[] { "talxis_name", "ntg_sell" }, bin.Fields.Select(f => f.Name));
     }
 }
