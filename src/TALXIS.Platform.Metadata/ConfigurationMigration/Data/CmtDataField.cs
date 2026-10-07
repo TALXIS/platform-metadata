@@ -29,4 +29,10 @@ public sealed class CmtDataField : MetadataBase
     /// columns as fields. A party without an id reads as <see cref="Guid.Empty"/> and is written back without one.
     /// </summary>
     public IList<CmtDataRecord> ActivityPointerRecords { get; } = new List<CmtDataRecord>();
+
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }

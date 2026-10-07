@@ -89,6 +89,7 @@ public sealed class CmtPackageXmlWriter
         SetNullableBool(element, "skipupdate", entity.SkipUpdate);
         SetNullableBool(element, "forcecreate", entity.ForceCreate);
         SetNullableBool(element, "renderliquid", entity.RenderLiquid);
+        CmtOtherAttributes.Write(element, entity.OtherAttributes, CmtOtherAttributes.SchemaEntity);
         SyncChildren(Container(element, "fields", isNew || entity.Fields.Count > 0), "field", entity.Fields, f => f.Name, ApplySchemaField);
         SyncChildren(Container(element, "relationships", entity.Relationships.Count > 0), "relationship", entity.Relationships, r => r.Name, ApplyRelationship);
         SyncFilter(element, entity.FetchXmlFilter);
@@ -104,6 +105,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "dateMode", field.DateMode);
         SetBool(element, "primaryKey", field.IsPrimaryKey);
         SetBool(element, "customfield", field.IsCustomField);
+        CmtOtherAttributes.Write(element, field.OtherAttributes, CmtOtherAttributes.SchemaField);
     }
 
     private static void ApplyRelationship(CmtSchemaRelationship relationship, XElement element)
@@ -118,6 +120,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "referencedEntity", relationship.ReferencedEntity);
         SetString(element, "referencedAttribute", relationship.ReferencedAttribute);
         SetString(element, "referencingEntity", relationship.ReferencingEntity);
+        CmtOtherAttributes.Write(element, relationship.OtherAttributes, CmtOtherAttributes.Relationship);
         SyncChildren(Container(element, "fields", relationship.Fields.Count > 0), "field", relationship.Fields, f => f.Name, ApplySchemaField);
     }
 
@@ -127,6 +130,7 @@ public sealed class CmtPackageXmlWriter
         var isNew = element.IsEmpty && !element.HasAttributes;
         SetString(element, "name", entity.Name);
         SetString(element, "displayname", entity.DisplayName);
+        CmtOtherAttributes.Write(element, entity.OtherAttributes, CmtOtherAttributes.DataEntity);
         SyncChildren(Container(element, "records", isNew || entity.Records.Count > 0), "record", entity.Records, r => GuidKey(r.Id), ApplyRecord);
         SyncChildren(Container(element, "m2mrelationships", isNew || entity.ManyToManyRelationships.Count > 0), "m2mrelationship",
             entity.ManyToManyRelationships, m => ManyToManyKey(m.RelationshipName, m.SourceId), ApplyManyToMany);
@@ -137,6 +141,7 @@ public sealed class CmtPackageXmlWriter
         // Activity parties may have no id (read as Guid.Empty); records always carry one.
         if (record.Id != Guid.Empty || element.Name.LocalName == "record") SetGuid(element, "id", record.Id);
         SetNullableGuid(element, "newId", record.NewId);
+        CmtOtherAttributes.Write(element, record.OtherAttributes, CmtOtherAttributes.Record);
         SyncChildren(element, "field", record.Fields, f => f.Name, ApplyDataField);
     }
 
@@ -147,6 +152,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "filename", field.FileName);
         SetString(element, "lookupentity", field.LookupEntity);
         SetString(element, "lookupentityname", field.LookupEntityName);
+        CmtOtherAttributes.Write(element, field.OtherAttributes, CmtOtherAttributes.DataField);
         // Partylist: one <activitypointerrecords> element per activity party, directly under the field.
         SyncChildren(element, "activitypointerrecords", field.ActivityPointerRecords, r => GuidKey(r.Id), ApplyRecord);
     }
@@ -158,6 +164,7 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "targetentitynameidfield", m2m.TargetEntityNameIdField);
         SetString(element, "m2mrelationshipname", m2m.RelationshipName);
         SetString(element, "m2mrelationshipschemaname", m2m.RelationshipSchemaName);
+        CmtOtherAttributes.Write(element, m2m.OtherAttributes, CmtOtherAttributes.ManyToMany);
 
         var targets = Container(element, "targetids", create: true)!;
         var current = targets.Elements("targetid").Select(e => CmtPackageXmlReader.ParseGuid(e.Value) ?? Guid.Empty);

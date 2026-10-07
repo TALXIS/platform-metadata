@@ -17,6 +17,7 @@ bool written = new CmtPackageXmlWriter().Save(package, @"C:\MyPackage");
 - `LoadDirectory` reads `data_schema.xml` and, when present, `data.xml` from a folder. `Load(schemaPath, dataPath)` takes the two files directly.
 - Problems found while reading are in `package.LoadErrors`.
 - `Save` writes only what changed and keeps everything else in the files as it was. It returns `false` when nothing changed. `SaveSchema` and `SaveData` write one file to a path of your choice.
+- Attributes the model has no property for, such as the TALXIS importer's `guidswap`, are kept in `OtherAttributes` on each element and written back, also when a package is merged or written from scratch.
 
 ## Create a package
 

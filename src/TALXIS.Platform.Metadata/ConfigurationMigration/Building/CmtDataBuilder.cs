@@ -22,6 +22,7 @@ public static class CmtDataBuilder
     {
         var existing = target.FindEntity(entity.Name) ?? target.AddEntity(entity.Name, entity.DisplayName);
         existing.DisplayName ??= entity.DisplayName;
+        AddMissingOtherAttributes(existing.OtherAttributes, entity.OtherAttributes);
 
         var conflicts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var record in entity.Records)
@@ -34,6 +35,7 @@ public static class CmtDataBuilder
             }
 
             current.NewId ??= record.NewId;
+            AddMissingOtherAttributes(current.OtherAttributes, record.OtherAttributes);
             foreach (var field in record.Fields)
             {
                 var currentField = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
@@ -79,6 +81,8 @@ public static class CmtDataBuilder
         && first.LookupEntity == later.LookupEntity
         && first.LookupEntityName == later.LookupEntityName
         && first.FileName == later.FileName
+        && first.OtherAttributes.Count == later.OtherAttributes.Count
+        && first.OtherAttributes.All(other => later.OtherAttributes.TryGetValue(other.Key, out var value) && value == other.Value)
         && SameAttendees(first.ActivityPointerRecords, later.ActivityPointerRecords);
 
     private static bool SameAttendees(IList<CmtDataRecord> first, IList<CmtDataRecord> later) =>
@@ -88,4 +92,10 @@ public static class CmtDataBuilder
         first.Id == later.Id
         && first.Fields.Count == later.Fields.Count
         && first.Fields.Zip(later.Fields, (a, b) => a.Name == b.Name && SameContent(a, b)).All(same => same);
+
+    // Extension attributes a later copy brings are added; one the first copy already has keeps its value, like the other attributes.
+    private static void AddMissingOtherAttributes(IDictionary<string, string> first, IDictionary<string, string> later)
+    {
+        foreach (var other in later.Where(o => !first.ContainsKey(o.Key)).ToList()) first[other.Key] = other.Value;
+    }
 }

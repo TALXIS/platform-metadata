@@ -29,6 +29,19 @@ internal sealed class CmtDeclarationDifferences
         Compare(attribute, AsXml(inFirstPackage), AsXml(inLaterPackage));
 
     /// <summary>
+    /// Compares the attributes the model does not know, by name, so an extension attribute set differently in two packages is reported too.
+    /// </summary>
+    public CmtDeclarationDifferences CompareOtherAttributes(IDictionary<string, string> inFirstPackage, IDictionary<string, string> inLaterPackage)
+    {
+        foreach (var name in inFirstPackage.Keys.Union(inLaterPackage.Keys).OrderBy(n => n, StringComparer.Ordinal))
+        {
+            Compare(name, inFirstPackage.TryGetValue(name, out var first) ? first : null, inLaterPackage.TryGetValue(name, out var later) ? later : null);
+        }
+
+        return this;
+    }
+
+    /// <summary>
     /// The differences as one readable list, for example <c>type 'decimal' and 'money', updateCompare 'true' and 'false'</c>.
     /// </summary>
     public override string ToString() => string.Join(", ", _differences);

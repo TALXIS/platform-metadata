@@ -18,6 +18,12 @@ public sealed class CmtDataEntity : MetadataBase
     public IList<CmtDataManyToManyRelationship> ManyToManyRelationships { get; } = new List<CmtDataManyToManyRelationship>();
 
     /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Adds a record with the given id. Configuration data should use stable ids committed with the package,
     /// never fresh GUIDs per build. Throws when a record with that id exists.
     /// </summary>

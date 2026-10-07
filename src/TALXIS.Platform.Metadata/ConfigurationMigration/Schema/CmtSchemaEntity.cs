@@ -49,6 +49,12 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Relationships CMT follows from this entity (N:1 entries and M2M entries emitted from this side).</summary>
     public IList<CmtSchemaRelationship> Relationships { get; } = new List<CmtSchemaRelationship>();
 
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     /// <summary>Finds a field by logical name using ordinal comparison (as CMT does), or <c>null</c>.</summary>
     public CmtSchemaField? FindField(string name) =>
         Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));

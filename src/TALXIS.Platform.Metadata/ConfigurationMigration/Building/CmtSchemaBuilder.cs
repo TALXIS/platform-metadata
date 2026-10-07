@@ -90,6 +90,7 @@ public static class CmtSchemaBuilder
         existing.ForceCreate = entity.ForceCreate ?? existing.ForceCreate;
         existing.RenderLiquid = entity.RenderLiquid ?? existing.RenderLiquid;
         existing.FetchXmlFilter = entity.FetchXmlFilter ?? existing.FetchXmlFilter;
+        foreach (var other in entity.OtherAttributes) existing.OtherAttributes[other.Key] = other.Value;
 
         if (replaceFields)
             existing.Fields.Clear();
@@ -125,6 +126,11 @@ public static class CmtSchemaBuilder
         existing.ForceCreate = KeepFirst(existing.Name, "forcecreate", existing.ForceCreate, entity.ForceCreate, warnings);
         existing.RenderLiquid = KeepFirst(existing.Name, "renderliquid", existing.RenderLiquid, entity.RenderLiquid, warnings);
         existing.FetchXmlFilter = KeepFirst(existing.Name, "filter", existing.FetchXmlFilter, entity.FetchXmlFilter, warnings);
+        foreach (var other in entity.OtherAttributes)
+        {
+            var kept = KeepFirst(existing.Name, other.Key, existing.OtherAttributes.TryGetValue(other.Key, out var first) ? first : null, other.Value, warnings);
+            existing.OtherAttributes[other.Key] = kept!;
+        }
 
         ReportDifferingDeclarations(existing, entity, warnings);
         AddMissingFields(existing, entity);
@@ -165,7 +171,8 @@ public static class CmtSchemaBuilder
             .Compare("primaryKey", first.IsPrimaryKey, later.IsPrimaryKey)
             .Compare("updateCompare", first.IsUpdateCompare, later.IsUpdateCompare)
             .Compare("lookupType", first.LookupType, later.LookupType)
-            .Compare("dateMode", first.DateMode, later.DateMode);
+            .Compare("dateMode", first.DateMode, later.DateMode)
+            .CompareOtherAttributes(first.OtherAttributes, later.OtherAttributes);
 
     private static CmtDeclarationDifferences RelationshipDifferences(CmtSchemaRelationship first, CmtSchemaRelationship later) =>
         new CmtDeclarationDifferences()
@@ -177,7 +184,8 @@ public static class CmtSchemaBuilder
             .Compare("referencingAttribute", first.ReferencingAttribute, later.ReferencingAttribute)
             .Compare("referencedEntity", first.ReferencedEntity, later.ReferencedEntity)
             .Compare("referencedAttribute", first.ReferencedAttribute, later.ReferencedAttribute)
-            .Compare("fields", NestedFields(first), NestedFields(later));
+            .Compare("fields", NestedFields(first), NestedFields(later))
+            .CompareOtherAttributes(first.OtherAttributes, later.OtherAttributes);
 
     // M2M entries carry their two intersect columns as nested fields; compared as one list, in the order CMT writes them.
     private static string? NestedFields(CmtSchemaRelationship relationship) =>

@@ -41,4 +41,10 @@ public sealed class CmtSchemaRelationship : MetadataBase
     /// and no displayname. Empty for N:1 entries.
     /// </summary>
     public IList<CmtSchemaField> Fields { get; } = new List<CmtSchemaField>();
+
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }

@@ -23,4 +23,10 @@ public sealed class CmtDataManyToManyRelationship : MetadataBase
 
     /// <summary>Ids of the associated target records, in document order.</summary>
     public IList<Guid> TargetIds { get; } = new List<Guid>();
+
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }
