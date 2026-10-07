@@ -6,12 +6,12 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 public enum CmtFieldSelection
 {
     /// <summary>
-    /// Primary id and name, custom columns and required non-system columns.
+    /// Primary id and name, custom columns and required non-system columns, plus transactioncurrencyid when a money column is selected.
     /// </summary>
     Minimal,
 
     /// <summary>
-    /// Minimal plus every lookup, customer and choice column, and overriddencreatedon.
+    /// Minimal plus every lookup (transactioncurrencyid included), customer and choice column, and overriddencreatedon.
     /// </summary>
     Standard,
 

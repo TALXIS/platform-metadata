@@ -10,6 +10,7 @@ namespace TALXIS.Platform.Metadata.ConfigurationMigration;
 public static class CmtSchemaBuilder
 {
     private const string OverriddenCreatedOn = "overriddencreatedon";
+    private const string TransactionCurrencyId = "transactioncurrencyid";
 
     // Full selection adds the columns that let CMT carry the original creation date and audit users across.
     private static readonly HashSet<string> FullSelectionAuditColumns = new(StringComparer.OrdinalIgnoreCase)
@@ -210,6 +211,10 @@ public static class CmtSchemaBuilder
 
         if (selection == CmtFieldSelection.Full)
             return (attribute.IsValidForCreate != false && attribute.IsValidForUpdate != false) || FullSelectionAuditColumns.Contains(name);
+
+        // Money values import in the currency of this lookup; without it they land in the organisation's base currency.
+        if (name == TransactionCurrencyId)
+            return selection == CmtFieldSelection.Standard || entity.Attributes.Any(a => a.AttributeType == AttributeType.Money && IsSelected(a, entity, selection));
 
         if (DataverseSystemColumns.Contains(name))
             return selection == CmtFieldSelection.Standard && name == OverriddenCreatedOn;

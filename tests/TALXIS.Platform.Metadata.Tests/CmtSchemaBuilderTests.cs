@@ -28,6 +28,26 @@ public class CmtSchemaBuilderTests : IDisposable
         { CmtFieldSelection.Full, new[] { "contactid", "fullname", "new_nickname", "lastname", "jobtitle", "parentcustomerid", "new_projectid", "ownerid", "createdby", "preferredcontactmethodcode", "statecode", "overriddencreatedon", "creditlimit" } },
     };
 
+    [Theory]
+    [InlineData(CmtFieldSelection.Minimal, true, true)]
+    [InlineData(CmtFieldSelection.Minimal, false, false)]
+    [InlineData(CmtFieldSelection.Standard, true, true)]
+    [InlineData(CmtFieldSelection.Standard, false, true)]
+    [InlineData(CmtFieldSelection.Full, true, true)]
+    public void BuildEntity_TakesTheCurrencyAlongWithMoney(CmtFieldSelection selection, bool hasCustomMoney, bool expectCurrency)
+    {
+        var priceList = new EntityMetadata { LogicalName = "new_pricelist", PrimaryIdAttribute = "new_pricelistid", PrimaryNameAttribute = "new_name" };
+        priceList.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "new_pricelistid" });
+        priceList.AddAttribute(new StringAttributeMetadata { LogicalName = "new_name" });
+        priceList.AddAttribute(new LookupAttributeMetadata { LogicalName = "transactioncurrencyid", Targets = new[] { "transactioncurrency" } });
+        if (hasCustomMoney) priceList.AddAttribute(new MoneyAttributeMetadata { LogicalName = "new_amount", IsCustomAttribute = true });
+
+        var entity = CmtSchemaBuilder.BuildEntity(priceList, Array.Empty<RelationshipMetadata>(), new CmtSchemaBuildOptions { FieldSelection = selection }, new List<string>());
+
+        Assert.Equal(expectCurrency, entity.FindField("transactioncurrencyid") != null);
+        if (expectCurrency) Assert.Equal("transactioncurrency", entity.FindField("transactioncurrencyid")!.LookupType);
+    }
+
     // Never selected: createdon, versionnumber, the _base money column, the rollup, the unreadable and the derived column.
     [Theory]
     [MemberData(nameof(Selections))]
