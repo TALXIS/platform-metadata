@@ -132,4 +132,27 @@ public class CmtDataBuilderTests
         Assert.Equal(expectConflict ? 1 : 0, warnings.Count);
         Assert.Single(data.FindEntity("appointment")!.Records[0].Fields.Single(f => f.Name == "requiredattendees").ActivityPointerRecords);
     }
+
+    [Theory]
+    [InlineData("aaaaaaaa-0000-0000-0000-000000000001", "aaaaaaaa-0000-0000-0000-000000000002", true, "aaaaaaaa-0000-0000-0000-000000000001")]
+    [InlineData("aaaaaaaa-0000-0000-0000-000000000001", "aaaaaaaa-0000-0000-0000-000000000001", false, "aaaaaaaa-0000-0000-0000-000000000001")]
+    [InlineData(null, "aaaaaaaa-0000-0000-0000-000000000002", false, "aaaaaaaa-0000-0000-0000-000000000002")]
+    public void MergeEntity_ReportsCopiesThatAskForDifferentNewIds(string? firstNewId, string? laterNewId, bool expectWarning, string expectedNewId)
+    {
+        CmtDataEntity Teams(string? newId)
+        {
+            var entity = TeamsFromSecurityRules();
+            entity.Records[0].NewId = newId == null ? null : new Guid(newId);
+            return entity;
+        }
+
+        var data = new CmtData();
+        var warnings = new List<string>();
+
+        CmtDataBuilder.MergeEntity(data, Teams(firstNewId), warnings);
+        CmtDataBuilder.MergeEntity(data, Teams(laterNewId), warnings);
+
+        Assert.Equal(new Guid(expectedNewId), data.FindEntity("talxis_securityteam")!.Records[0].NewId);
+        Assert.Equal(expectWarning, warnings.Any(w => w.Contains("different newId values in 1 record(s)")));
+    }
 }

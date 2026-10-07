@@ -25,6 +25,7 @@ public static class CmtDataBuilder
         AddMissingOtherAttributes(existing.OtherAttributes, entity.OtherAttributes);
 
         var conflicts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var newIdConflicts = 0;
         foreach (var record in entity.Records)
         {
             var current = existing.Records.FirstOrDefault(r => r.Id == record.Id);
@@ -34,6 +35,8 @@ public static class CmtDataBuilder
                 continue;
             }
 
+            // newId decides under which id the record is created, so two different ones change the import result with package order.
+            if (current.NewId != null && record.NewId != null && current.NewId != record.NewId) newIdConflicts++;
             current.NewId ??= record.NewId;
             AddMissingOtherAttributes(current.OtherAttributes, record.OtherAttributes);
             foreach (var field in record.Fields)
@@ -45,6 +48,8 @@ public static class CmtDataBuilder
                     conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
             }
         }
+
+        if (newIdConflicts > 0) warnings?.Add($"Entity '{entity.Name}': copies of the same record give different newId values in {newIdConflicts} record(s); the first copy's newId is kept.");
 
         foreach (var conflict in conflicts)
         {
