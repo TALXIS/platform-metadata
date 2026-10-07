@@ -183,9 +183,17 @@ public class CmtValidationTests
             Record(d, "cmtl_child", 0).AddAfterSelf(copy);
         });
         var identical = Validate((s, d) => Record(d, "cmtl_child", 0).AddAfterSelf(new XElement(Record(d, "cmtl_child", 0))));
+        // Compared like package merging: a lookup name the importer falls back on counts too.
+        var lookupName = Validate((s, d) =>
+        {
+            var copy = new XElement(Record(d, "cmtl_child", 0));
+            copy.Elements("field").First(f => f.Attribute("name")?.Value == "cmtl_parentid").SetAttributeValue("lookupentityname", "Other parent");
+            Record(d, "cmtl_child", 0).AddAfterSelf(copy);
+        });
 
         Assert.Contains(differing, r => r.Code == ValidationDiagnostics.CmtRecordIdentityInvalid && r.Message.Contains("copies differ in cmtl_string"));
         Assert.Contains(identical, r => r.Code == ValidationDiagnostics.CmtRecordIdentityInvalid && r.Severity == ValidationSeverity.Error && r.Message.Contains("identical copies"));
+        Assert.Contains(lookupName, r => r.Code == ValidationDiagnostics.CmtRecordIdentityInvalid && r.Message.Contains("copies differ in cmtl_parentid"));
     }
 
     private static IReadOnlyList<ValidationResult> Validate(Action<XDocument, XDocument> edit)

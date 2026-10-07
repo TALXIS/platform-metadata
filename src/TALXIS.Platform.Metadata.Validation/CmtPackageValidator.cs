@@ -288,18 +288,21 @@ public sealed class CmtPackageValidator
     // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
     private static bool IsTemplate(string? value) => value != null && (value.Contains("{{") || value.Contains("{%"));
 
-    // Lets the repeated-id finding say what the copies disagree on: the environment keeps the last copy.
+    // Lets the repeated-id finding say what the copies disagree on: the environment keeps the last copy. A field one copy lacks
+    // differs; present fields are compared like package merging compares them.
     private static List<string> DifferingFields(IReadOnlyList<CmtDataRecord> records)
     {
-        string Content(CmtDataRecord record, string name)
-        {
-            var field = record.Fields.FirstOrDefault(f => f.Name == name);
-            return field == null ? "\0absent" : $"{field.Value}\0{field.LookupEntity}\0{field.FileName}";
-        }
-
         var names = records.SelectMany(r => r.Fields.Select(f => f.Name)).Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal);
-        var differing = names.Where(name => records.Select(r => Content(r, name)).Distinct(StringComparer.Ordinal).Count() > 1).ToList();
+        var differing = names.Where(name => Differs(records, name)).ToList();
         if (records.Select(r => r.NewId).Distinct().Count() > 1) differing.Insert(0, "newId");
         return differing;
+    }
+
+    private static bool Differs(IReadOnlyList<CmtDataRecord> records, string name)
+    {
+        var copies = records.Select(r => r.Fields.FirstOrDefault(f => f.Name == name)).ToList();
+        if (copies.Any(f => f == null)) return true;
+
+        return copies.Skip(1).Any(f => !CmtDataComparison.SameContent(copies[0]!, f!));
     }
 }

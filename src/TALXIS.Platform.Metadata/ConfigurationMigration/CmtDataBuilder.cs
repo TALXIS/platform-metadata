@@ -43,7 +43,7 @@ public static class CmtDataBuilder
                 var currentField = current.Fields.FirstOrDefault(f => string.Equals(f.Name, field.Name, StringComparison.Ordinal));
                 if (currentField == null)
                     current.Fields.Add(field);
-                else if (!SameContent(currentField, field))
+                else if (!CmtDataComparison.SameContent(currentField, field))
                     conflicts[field.Name] = conflicts.TryGetValue(field.Name, out var count) ? count + 1 : 1;
             }
         }
@@ -106,25 +106,6 @@ public static class CmtDataBuilder
 
         return combined;
     }
-
-    // Everything the importer reads from a field: the value, the lookup target and its fallback name, the file name, and for a
-    // party list (whose value is empty) the attendee records, so two copies with different attendees are not taken as equal.
-    private static bool SameContent(CmtDataField first, CmtDataField later) =>
-        first.Value == later.Value
-        && first.LookupEntity == later.LookupEntity
-        && first.LookupEntityName == later.LookupEntityName
-        && first.FileName == later.FileName
-        && first.OtherAttributes.Count == later.OtherAttributes.Count
-        && first.OtherAttributes.All(other => later.OtherAttributes.TryGetValue(other.Key, out var value) && value == other.Value)
-        && SameAttendees(first.ActivityPointerRecords, later.ActivityPointerRecords);
-
-    private static bool SameAttendees(IList<CmtDataRecord> first, IList<CmtDataRecord> later) =>
-        first.Count == later.Count && first.Zip(later, SameAttendee).All(same => same);
-
-    private static bool SameAttendee(CmtDataRecord first, CmtDataRecord later) =>
-        first.Id == later.Id
-        && first.Fields.Count == later.Fields.Count
-        && first.Fields.Zip(later.Fields, (a, b) => a.Name == b.Name && SameContent(a, b)).All(same => same);
 
     // Extension attributes a later copy brings are added; one the first copy already has keeps its value, like the other attributes.
     private static void AddMissingOtherAttributes(IDictionary<string, string> first, IDictionary<string, string> later)
