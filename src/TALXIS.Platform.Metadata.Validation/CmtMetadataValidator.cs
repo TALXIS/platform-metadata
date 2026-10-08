@@ -35,12 +35,33 @@ public sealed class CmtMetadataValidator
             }
 
             ValidateImportable(entity, table, results);
+            ValidatePrimaryFields(entity, table, results);
             ValidateFields(entity, table, results);
             ValidateManyToMany(entity, table, metadata, results);
         }
 
         return results.Select(r => r with { Stage = ValidationStage.CmtData }).ToList();
     }
+
+    private static void ValidatePrimaryFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
+    {
+        if (Differs(entity.PrimaryIdField, table.PrimaryIdAttribute))
+        {
+            results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryFieldMismatch,
+                $"CMT data_schema.xml entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}', but the table's primary id column is '{table.PrimaryIdAttribute}'. "
+                + "CMT reads record ids from primaryidfield, so the records may not keep their ids and a re-import can create them again."));
+        }
+
+        if (Differs(entity.PrimaryNameField, table.PrimaryNameAttribute))
+        {
+            results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryFieldMismatch,
+                $"CMT data_schema.xml entity '{entity.Name}' has primarynamefield '{entity.PrimaryNameField}', but the table's primary name column is '{table.PrimaryNameAttribute}'."));
+        }
+    }
+
+    // Missing values on either side are not a mismatch: CmtDataSchemaValidator reports an empty primary field, and the metadata may not say.
+    private static bool Differs(string? declared, string? inMetadata) =>
+        !string.IsNullOrEmpty(declared) && !string.IsNullOrEmpty(inMetadata) && !SameName(declared, inMetadata);
 
     private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {

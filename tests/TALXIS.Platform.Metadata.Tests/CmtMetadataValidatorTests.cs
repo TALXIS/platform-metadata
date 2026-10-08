@@ -134,6 +134,33 @@ public class CmtMetadataValidatorTests
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata && r.Severity == ValidationSeverity.Error));
     }
 
+    [Theory]
+    [InlineData("talxis_contractid", "name", 0)]
+    [InlineData("talxis_title", "name", 1)]
+    [InlineData("talxis_contractid", "talxis_title", 1)]
+    [InlineData("talxis_title", "talxis_title", 2)]
+    public void PrimaryFieldsThatAreNotTheTablePrimaryColumns_AreWarnings(string primaryIdField, string primaryNameField, int expected)
+    {
+        var schema = new CmtDataSchema();
+        var entity = schema.AddEntity("talxis_contract", "talxis_contractid", primaryNameField);
+        entity.PrimaryIdField = primaryIdField;
+
+        var findings = new CmtMetadataValidator().Validate(new CmtPackage(schema), Metadata(Table("talxis_contract")))
+            .Where(r => r.Code == ValidationDiagnostics.CmtPrimaryFieldMismatch).ToList();
+
+        Assert.Equal(expected, findings.Count);
+        Assert.All(findings, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
+    }
+
+    [Fact]
+    public void PrimaryNameTheMetadataDoesNotKnow_IsNotAMismatch()
+    {
+        var table = Table("talxis_contract");
+        table.PrimaryNameAttribute = null;
+
+        Assert.Empty(new CmtMetadataValidator().Validate(Package("talxis_contract"), Metadata(table)));
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");

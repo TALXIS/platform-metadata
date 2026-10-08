@@ -109,4 +109,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml many-to-many entry does not name the intersect table of a many-to-many relationship whose first table (FirstEntityName) is its entity.
     /// </summary>
     public const string CmtManyToManyNotInMetadata = "TXM030";
+
+    /// <summary>
+    /// A CMT data_schema.xml entity's primaryidfield or primarynamefield is not the table's primary id or primary name column in the metadata.
+    /// </summary>
+    public const string CmtPrimaryFieldMismatch = "TXM031";
 }
