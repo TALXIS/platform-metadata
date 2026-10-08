@@ -94,4 +94,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml entity is not a table in the metadata, or is a table that does not accept data imports.
     /// </summary>
     public const string CmtEntityNotInMetadata = "TXM027";
+
+    /// <summary>
+    /// A CMT data_schema.xml field is not a column of its table in the metadata.
+    /// </summary>
+    public const string CmtFieldNotInMetadata = "TXM028";
 }

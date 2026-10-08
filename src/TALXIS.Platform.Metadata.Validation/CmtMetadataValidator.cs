@@ -35,9 +35,20 @@ public sealed class CmtMetadataValidator
             }
 
             ValidateImportable(entity, table, results);
+            ValidateFields(entity, table, results);
         }
 
         return results.Select(r => r with { Stage = ValidationStage.CmtData }).ToList();
+    }
+
+    private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
+    {
+        // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
+        foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber" && table.FindAttribute(f.Name) == null))
+        {
+            results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
+                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
+        }
     }
 
     private static void ValidateImportable(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)

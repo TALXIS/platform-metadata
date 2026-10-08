@@ -1,4 +1,5 @@
 using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.DataMigration;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 using TALXIS.Platform.Metadata.Validation;
@@ -50,15 +51,47 @@ public class CmtMetadataValidatorTests
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtEntityNotInMetadata && r.Severity == ValidationSeverity.Error));
     }
 
+    [Theory]
+    [InlineData("talxis_amount", true)]
+    [InlineData("talxis_note", false)]
+    [InlineData("versionnumber", false)]
+    public void FieldThatIsNotAColumnOfTheTable_IsAnError(string field, bool reported)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField(field, CmtFieldTypes.String);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_note" });
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table));
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata && r.Severity == ValidationSeverity.Error && r.Message.Contains($"'talxis_contract.{field}'")));
+    }
+
+    [Fact]
+    public void FieldWhoseNameDiffersOnlyByCase_IsLeftToTheLowercaseRule()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_Note", CmtFieldTypes.String);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_note" });
+
+        Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
+    }
+
     private static CmtPackage Package(params string[] tables)
     {
         var schema = new CmtDataSchema();
-        foreach (var table in tables) schema.AddEntity(table, $"{table}id", "name");
+        foreach (var table in tables) schema.AddEntity(table, $"{table}id", "name").AddField("name", CmtFieldTypes.String, updateCompare: true);
         return new CmtPackage(schema);
     }
 
-    private static EntityMetadata Table(string logicalName, bool? isImportable = null) =>
-        new() { LogicalName = logicalName, PrimaryIdAttribute = $"{logicalName}id", PrimaryNameAttribute = "name", IsImportable = isImportable };
+    private static EntityMetadata Table(string logicalName, bool? isImportable = null)
+    {
+        var table = new EntityMetadata { LogicalName = logicalName, PrimaryIdAttribute = $"{logicalName}id", PrimaryNameAttribute = "name", IsImportable = isImportable };
+        table.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = $"{logicalName}id" });
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "name" });
+        return table;
+    }
 
     private static Workspace Metadata(params EntityMetadata[] tables)
     {
