@@ -114,4 +114,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml entity's primaryidfield or primarynamefield is not the table's primary id or primary name column in the metadata.
     /// </summary>
     public const string CmtPrimaryFieldMismatch = "TXM031";
+
+    /// <summary>
+    /// A CMT data_schema.xml field's lookupType names a table its lookup column cannot point to in the metadata.
+    /// </summary>
+    public const string CmtLookupTargetNotAllowed = "TXM032";
 }

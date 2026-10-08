@@ -36,7 +36,7 @@ public sealed class CmtMetadataValidator
 
             ValidateImportable(entity, table, results);
             ValidatePrimaryFields(entity, table, results);
-            ValidateFields(entity, table, results);
+            ValidateFields(entity, table, metadata, results);
             ValidateManyToMany(entity, table, metadata, results);
         }
 
@@ -63,8 +63,9 @@ public sealed class CmtMetadataValidator
     private static bool Differs(string? declared, string? inMetadata) =>
         !string.IsNullOrEmpty(declared) && !string.IsNullOrEmpty(inMetadata) && !SameName(declared, inMetadata);
 
-    private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
+    private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
     {
+        var relationships = Relationships(table, metadata);
         // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
         foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
         {
@@ -77,6 +78,7 @@ public sealed class CmtMetadataValidator
             }
 
             ValidateFieldType(entity, field, column, results);
+            ValidateLookupTargets(entity, field, column, table, relationships, results);
         }
     }
 
@@ -90,6 +92,23 @@ public sealed class CmtMetadataValidator
             + "CMT rejects the package with 'Missing Fields'."));
     }
 
+    // lookupType="*" lets CMT take any table, and a column whose targets the metadata does not know cannot be checked.
+    private static void ValidateLookupTargets(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, EntityMetadata table,
+        IReadOnlyList<RelationshipMetadata> relationships, List<ValidationResult> results)
+    {
+        if (string.IsNullOrEmpty(field.LookupType) || field.LookupType == "*") return;
+
+        var allowed = LookupTargets.Resolve(column, table.LogicalName, relationships);
+        if (allowed.Count == 0) return;
+
+        foreach (var target in field.LookupType!.Split('|').Where(t => t.Length > 0 && !allowed.Contains(t.ToLowerInvariant())))
+        {
+            results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtLookupTargetNotAllowed,
+                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the column can only point to {string.Join(", ", allowed.Select(a => $"'{a}'"))}. "
+                + "Dataverse rejects a record whose lookup points there."));
+        }
+    }
+
     // The type the importer reads a declared type as: it takes lookup and customer for entityreference, and the TALXIS importer writes file for filedata.
     private static string ImportedAs(string type) => type.ToLowerInvariant() switch
     {
@@ -101,7 +120,7 @@ public sealed class CmtMetadataValidator
     // CMT finds a many-to-many entry by its intersect table, only among the relationships whose first table (FirstEntityName) is the entity.
     private static void ValidateManyToMany(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
     {
-        var manyToMany = metadata.Relationships.Concat(table.Relationships).OfType<ManyToManyRelationshipMetadata>().ToList();
+        var manyToMany = Relationships(table, metadata).OfType<ManyToManyRelationshipMetadata>().ToList();
         foreach (var relationship in entity.Relationships.Where(r => r.IsManyToMany))
         {
             var matches = manyToMany.Where(m => SameName(m.IntersectEntityName, relationship.Name)).ToList();
@@ -115,6 +134,10 @@ public sealed class CmtMetadataValidator
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import."));
         }
     }
+
+    // Relationships from another solution sit only on the workspace; ones filled in from a live environment may sit only on the table.
+    private static IReadOnlyList<RelationshipMetadata> Relationships(EntityMetadata table, Workspace metadata) =>
+        metadata.Relationships.Concat(table.Relationships).Distinct().ToList();
 
     private static bool SameName(string? left, string? right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 

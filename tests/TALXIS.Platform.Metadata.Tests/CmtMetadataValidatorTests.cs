@@ -161,6 +161,31 @@ public class CmtMetadataValidatorTests
         Assert.Empty(new CmtMetadataValidator().Validate(Package("talxis_contract"), Metadata(table)));
     }
 
+    [Theory]
+    [InlineData("account|contact", true, 0)]
+    [InlineData("account", true, 0)]
+    [InlineData("account|talxis_partner", true, 1)]
+    [InlineData("*", true, 0)]
+    [InlineData("talxis_partner", false, 0)]
+    public void LookupTypeNamingATableTheColumnCannotPointTo_IsAWarning(string lookupType, bool relationshipsKnown, int expected)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_customerid", CmtFieldTypes.EntityReference, lookupType: lookupType);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_customerid", LookupKind = LookupKind.Customer });
+        var metadata = Metadata(table);
+        if (relationshipsKnown)
+        {
+            metadata.AddRelationship(ManyToOne("talxis_contract", "talxis_customerid", "account"));
+            metadata.AddRelationship(ManyToOne("talxis_contract", "talxis_customerid", "contact"));
+        }
+
+        var findings = new CmtMetadataValidator().Validate(package, metadata).Where(r => r.Code == ValidationDiagnostics.CmtLookupTargetNotAllowed).ToList();
+
+        Assert.Equal(expected, findings.Count);
+        Assert.All(findings, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");
@@ -184,6 +209,16 @@ public class CmtMetadataValidatorTests
         table.AddAttribute(new StringAttributeMetadata { LogicalName = "name" });
         return table;
     }
+
+    private static OneToManyRelationshipMetadata ManyToOne(string referencingEntity, string referencingAttribute, string referencedEntity) =>
+        new()
+        {
+            SchemaName = $"{referencingEntity}_{referencingAttribute}_{referencedEntity}",
+            ReferencingEntity = referencingEntity,
+            ReferencingAttribute = referencingAttribute,
+            ReferencedEntity = referencedEntity,
+            ReferencedAttribute = $"{referencedEntity}id"
+        };
 
     private static Workspace Metadata(params EntityMetadata[] tables)
     {
