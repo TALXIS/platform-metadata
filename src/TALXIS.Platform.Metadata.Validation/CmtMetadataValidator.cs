@@ -45,6 +45,8 @@ public sealed class CmtMetadataValidator
 
         foreach (var dataEntity in package.Data?.Entities ?? Enumerable.Empty<CmtDataEntity>())
         {
+            ValidateLookupEntities(dataEntity, metadata, options, results);
+
             var entity = package.Schema.FindEntity(dataEntity.Name);
             var table = metadata.FindEntity(dataEntity.Name);
             if (entity == null || table == null || entity.RenderLiquid == true) continue;
@@ -141,6 +143,20 @@ public sealed class CmtMetadataValidator
         CmtFieldTypes.File => CmtFieldTypes.FileData,
         var lowercase => lowercase
     };
+
+    // One finding per field and missing table; the system tables every export points to exist in every environment.
+    private static void ValidateLookupEntities(CmtDataEntity dataEntity, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)
+    {
+        var missing = dataEntity.Records.SelectMany(r => r.Fields)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!) && metadata.FindEntity(f.LookupEntity!) == null)
+            .GroupBy(f => (f.Name, f.LookupEntity));
+        foreach (var group in missing)
+        {
+            results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, group.First(), ValidationDiagnostics.CmtDataLookupEntityUnknown,
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key.Name}' points to table '{group.Key.LookupEntity}' in {group.Count()} record(s), which is not a table in the metadata. "
+                + "Those lookups cannot be resolved, so the records fail or lose the lookup."));
+        }
+    }
 
     // One finding per field, listing the unknown values; values that are not integers are left to CmtPackageValidator's format rule.
     private static void ValidateOptionValues(CmtDataEntity dataEntity, CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)

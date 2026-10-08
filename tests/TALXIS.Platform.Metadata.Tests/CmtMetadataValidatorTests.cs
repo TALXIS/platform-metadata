@@ -298,6 +298,30 @@ public class CmtMetadataValidatorTests
         Assert.Contains("'7', '8' in 2 record(s)", finding.Message);
     }
 
+    [Theory]
+    [InlineData("account", ValidationSeverity.Error, 0)]
+    [InlineData("systemuser", ValidationSeverity.Error, 0)]
+    [InlineData("talxis_region", ValidationSeverity.Error, 1)]
+    [InlineData("talxis_region", ValidationSeverity.Warning, 1)]
+    public void LookupToATableNotInTheMetadata_TakesTheIncompleteMetadataSeverity(string lookupEntity, ValidationSeverity severity, int expected)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_parentid", CmtFieldTypes.EntityReference);
+        var records = package.Data!.AddEntity("talxis_contract");
+        records.AddRecord(Guid.NewGuid()).Set("talxis_parentid", Guid.NewGuid().ToString(), lookupEntity);
+        records.AddRecord(Guid.NewGuid()).Set("talxis_parentid", Guid.NewGuid().ToString(), lookupEntity);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_parentid" });
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = severity };
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table, Table("account")), options)
+            .Where(r => r.Code == ValidationDiagnostics.CmtDataLookupEntityUnknown).ToList();
+
+        Assert.Equal(expected, findings.Count);
+        Assert.All(findings, r => Assert.Equal(severity, r.Severity));
+        Assert.All(findings, r => Assert.Contains("in 2 record(s)", r.Message));
+    }
+
     private static PicklistAttributeMetadata LocalChoice()
     {
         var optionSet = new OptionSetMetadata { Name = "talxis_contract_talxis_size" };

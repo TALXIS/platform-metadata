@@ -18,7 +18,7 @@ public sealed class CmtPackageValidator
     };
 
     // Lookup targets every CMT export references (owner, createdby, currency) and that exist in every environment.
-    private static readonly HashSet<string> SystemLookupTargets = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> SystemLookupTargets = new(StringComparer.Ordinal)
     {
         "systemuser", "team", "businessunit", "transactioncurrency", "organization"
     };

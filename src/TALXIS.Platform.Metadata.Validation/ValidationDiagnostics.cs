@@ -134,4 +134,9 @@ public static class ValidationDiagnostics
     /// A CMT data.xml choice value is not an option of the column's choice in the metadata.
     /// </summary>
     public const string CmtDataOptionValueUnknown = "TXM035";
+
+    /// <summary>
+    /// A CMT data.xml lookup points to a table that is not in the metadata.
+    /// </summary>
+    public const string CmtDataLookupEntityUnknown = "TXM036";
 }
