@@ -119,4 +119,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml field's lookupType names a table its lookup column cannot point to in the metadata.
     /// </summary>
     public const string CmtLookupTargetNotAllowed = "TXM032";
+
+    /// <summary>
+    /// A CMT data_schema.xml N:1 relationship entry is not a relationship in the metadata, or names other columns or tables than it does.
+    /// </summary>
+    public const string CmtRelationshipNotInMetadata = "TXM033";
 }

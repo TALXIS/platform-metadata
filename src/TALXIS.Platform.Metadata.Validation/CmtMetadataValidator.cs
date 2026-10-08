@@ -38,6 +38,7 @@ public sealed class CmtMetadataValidator
             ValidatePrimaryFields(entity, table, results);
             ValidateFields(entity, table, metadata, results);
             ValidateManyToMany(entity, table, metadata, results);
+            ValidateManyToOne(entity, table, metadata, results);
         }
 
         return results.Select(r => r with { Stage = ValidationStage.CmtData }).ToList();
@@ -132,6 +133,25 @@ public sealed class CmtMetadataValidator
                 : $"belongs to table '{other.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
             results.Add(CmtFindings.Error(relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import."));
+        }
+    }
+
+    // CMT does not check N:1 entries, so a stale one does not stop the import; it only misleads whoever reads the schema.
+    private static void ValidateManyToOne(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
+    {
+        var manyToOne = Relationships(table, metadata).OfType<OneToManyRelationshipMetadata>().ToList();
+        foreach (var relationship in entity.Relationships.Where(r => !r.IsManyToMany && !string.IsNullOrEmpty(r.Name)))
+        {
+            var match = manyToOne.FirstOrDefault(m => SameName(m.SchemaName, relationship.Name));
+            var problem = match == null
+                ? "is not a relationship in the metadata"
+                : SameName(match.ReferencingAttribute, relationship.ReferencingAttribute) && SameName(match.ReferencedEntity, relationship.ReferencedEntity)
+                    ? null
+                    : $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
+            if (problem == null) continue;
+
+            results.Add(CmtFindings.Warning(relationship, ValidationDiagnostics.CmtRelationshipNotInMetadata,
+                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {problem}. CMT does not check N:1 entries, so the import goes on, but the entry is out of date."));
         }
     }
 

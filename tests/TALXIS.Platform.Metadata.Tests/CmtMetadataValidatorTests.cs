@@ -186,6 +186,34 @@ public class CmtMetadataValidatorTests
         Assert.All(findings, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
     }
 
+    [Theory]
+    [InlineData("talxis_contract_talxis_regionid_talxis_region", "talxis_regionid", "talxis_region", null)]
+    [InlineData("talxis_contract_talxis_areaid_talxis_region", "talxis_areaid", "talxis_region", "is not a relationship in the metadata")]
+    [InlineData("talxis_contract_talxis_regionid_talxis_region", "talxis_regionid", "talxis_country", "pointing to 'talxis_region'")]
+    public void ManyToOneEntry_MustMatchARelationshipInTheMetadata(string name, string referencingAttribute, string referencedEntity, string? reported)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddRelationship(new CmtSchemaRelationship
+        {
+            Name = name, ReferencingEntity = "talxis_contract", ReferencingAttribute = referencingAttribute,
+            ReferencedEntity = referencedEntity, ReferencedAttribute = $"{referencedEntity}id"
+        });
+        var metadata = Metadata(Table("talxis_contract"));
+        metadata.AddRelationship(ManyToOne("talxis_contract", "talxis_regionid", "talxis_region"));
+
+        var findings = new CmtMetadataValidator().Validate(package, metadata).Where(r => r.Code == ValidationDiagnostics.CmtRelationshipNotInMetadata).ToList();
+
+        if (reported == null)
+        {
+            Assert.Empty(findings);
+            return;
+        }
+
+        var finding = Assert.Single(findings);
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains(reported, finding.Message);
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");
