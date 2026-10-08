@@ -408,6 +408,11 @@ public sealed class XmlWorkspaceWriter
 
         SetElementValueIfExists(attrEl, "RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel));
 
+        // Owner and customer columns are lookups in the model; their kind lives only in the type name.
+        var lookupType = attr is LookupAttributeMetadata ? GetXmlTypeName(attr) : null;
+        if (lookupType != null && !string.Equals(attrEl.Element("Type")?.Value, lookupType, StringComparison.OrdinalIgnoreCase))
+            SetElementValueIfExists(attrEl, "Type", lookupType);
+
         PatchApiFlag(attrEl, "ValidForUpdateApi", attr.IsValidForUpdate);
         PatchApiFlag(attrEl, "ValidForReadApi", attr.IsValidForRead);
         PatchApiFlag(attrEl, "ValidForCreateApi", attr.IsValidForCreate);
@@ -557,6 +562,9 @@ public sealed class XmlWorkspaceWriter
 
     private static string GetXmlTypeName(AttributeMetadata attr)
     {
+        if (attr is LookupAttributeMetadata lookup)
+            return lookup.LookupKind switch { LookupKind.Owner => "owner", LookupKind.Customer => "customer", _ => "lookup" };
+
         return attr.AttributeType switch
         {
             AttributeType.String => "nvarchar",
