@@ -78,6 +78,49 @@ public class CmtMetadataValidatorTests
         Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
     }
 
+    [Theory]
+    [InlineData("string", false)]
+    [InlineData("optionsetvalue", true)]
+    [InlineData("lookup", true)]
+    public void FieldDeclaredWithAnotherTypeThanItsColumn_IsAnError(string declared, bool reported)
+    {
+        var findings = ValidateField(new StringAttributeMetadata { LogicalName = "talxis_note" }, declared);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldTypeMismatch && r.Severity == ValidationSeverity.Error));
+    }
+
+    [Theory]
+    [InlineData(LookupKind.Lookup, "entityreference", false)]
+    [InlineData(LookupKind.Lookup, "lookup", false)]
+    [InlineData(LookupKind.Customer, "customer", false)]
+    [InlineData(LookupKind.Customer, "entityreference", false)]
+    [InlineData(LookupKind.Owner, "owner", false)]
+    [InlineData(LookupKind.Owner, "entityreference", true)]
+    [InlineData(LookupKind.Lookup, "string", true)]
+    public void LookupField_AcceptsTheImporterSynonyms(LookupKind kind, string declared, bool reported)
+    {
+        var findings = ValidateField(new LookupAttributeMetadata { LogicalName = "talxis_note", LookupKind = kind }, declared);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldTypeMismatch));
+    }
+
+    [Theory]
+    [InlineData("filedata")]
+    [InlineData("file")]
+    public void FileField_AcceptsTheTalxisSpelling(string declared)
+    {
+        Assert.Empty(ValidateField(new FileAttributeMetadata { LogicalName = "talxis_note" }, declared));
+    }
+
+    private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField(column.LogicalName, declaredType);
+        var table = Table("talxis_contract");
+        table.AddAttribute(column);
+        return new CmtMetadataValidator().Validate(package, Metadata(table));
+    }
+
     private static CmtPackage Package(params string[] tables)
     {
         var schema = new CmtDataSchema();

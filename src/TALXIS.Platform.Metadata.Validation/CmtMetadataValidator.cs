@@ -44,12 +44,37 @@ public sealed class CmtMetadataValidator
     private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {
         // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
-        foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber" && table.FindAttribute(f.Name) == null))
+        foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
         {
-            results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
-                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
+            var column = table.FindAttribute(field.Name);
+            if (column == null)
+            {
+                results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
+                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
+                continue;
+            }
+
+            ValidateFieldType(entity, field, column, results);
         }
     }
+
+    private static void ValidateFieldType(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)
+    {
+        var expected = CmtFieldTypeMapper.ToCmtType(column);
+        if (expected == null || string.IsNullOrEmpty(field.Type) || ImportedAs(field.Type!) == expected) return;
+
+        results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeMismatch,
+            $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is declared as '{field.Type}', but the column is {column.AttributeType}, which CMT handles as '{expected}'. "
+            + "CMT rejects the package with 'Missing Fields'."));
+    }
+
+    // The type the importer reads a declared type as: it takes lookup and customer for entityreference, and the TALXIS importer writes file for filedata.
+    private static string ImportedAs(string type) => type.ToLowerInvariant() switch
+    {
+        "lookup" or CmtFieldTypes.Customer => CmtFieldTypes.EntityReference,
+        CmtFieldTypes.File => CmtFieldTypes.FileData,
+        var lowercase => lowercase
+    };
 
     private static void ValidateImportable(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {

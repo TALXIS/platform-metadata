@@ -99,4 +99,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml field is not a column of its table in the metadata.
     /// </summary>
     public const string CmtFieldNotInMetadata = "TXM028";
+
+    /// <summary>
+    /// A CMT data_schema.xml field's type is not the type CMT uses for its column in the metadata.
+    /// </summary>
+    public const string CmtFieldTypeMismatch = "TXM029";
 }
