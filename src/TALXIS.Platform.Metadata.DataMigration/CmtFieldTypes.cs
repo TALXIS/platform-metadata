@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// The CMT <c>type</c> vocabulary for schema fields. Values are lowercase because CMT's importer compares them

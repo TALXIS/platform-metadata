@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// The lookups between the entities a data_schema.xml declares, shared by the import-order resolver and the TXM026 check so both

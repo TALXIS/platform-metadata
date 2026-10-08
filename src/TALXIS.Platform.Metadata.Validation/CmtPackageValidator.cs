@@ -1,6 +1,5 @@
 using System.Globalization;
-using TALXIS.Platform.Metadata.ConfigurationMigration;
-using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+using TALXIS.Platform.Metadata.DataMigration;
 
 namespace TALXIS.Platform.Metadata.Validation;
 

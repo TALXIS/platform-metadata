@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// One <c>&lt;record&gt;</c> of data.xml, identified by the primary key of the record it was exported from.

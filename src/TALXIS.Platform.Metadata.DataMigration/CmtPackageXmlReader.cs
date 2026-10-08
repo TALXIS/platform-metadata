@@ -1,8 +1,8 @@
 using System.Xml;
 using System.Xml.Linq;
-using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Serialization.Xml;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Reads CMT data_schema.xml and data.xml into the typed model. Documents are loaded with whitespace and

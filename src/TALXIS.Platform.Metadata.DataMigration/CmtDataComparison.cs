@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// When two copies of a data.xml field count as the same, shared by package merging and the repeated-record check (TXM017) so both

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TALXIS.Platform.Metadata.DataMigration</RootNamespace>
+    <PackageId>TALXIS.Platform.Metadata.DataMigration</PackageId>
+    <Description>Configuration Migration Tool (CMT) package model for Dataverse data migration: roundtrip-safe read/write of data_schema.xml and data.xml, schema building from a solution workspace, package merge and import order. Tooling only; the runtime does not load it.</Description>
+    <Title>TALXIS Platform Metadata Data Migration</Title>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.15.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
+    <ProjectReference Include="../TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,6 @@
-using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Serialization.Xml;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Builds CMT schema entities from a loaded <see cref="Workspace"/>, so callers can name a table instead of passing its metadata.

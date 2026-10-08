@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// The attributes the CMT model maps to properties, per element, and the reading and writing of everything else into the models'

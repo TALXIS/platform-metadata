@@ -1,5 +1,5 @@
 using System.Xml.Linq;
-using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+using TALXIS.Platform.Metadata.DataMigration;
 using TALXIS.Platform.Metadata.Validation;
 
 namespace TALXIS.Platform.Metadata.Tests;

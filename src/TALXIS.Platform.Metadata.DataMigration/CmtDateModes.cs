@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Values of the CMT <c>dateMode</c> attribute (root and per field). CMT deserialises them as an enum, so any

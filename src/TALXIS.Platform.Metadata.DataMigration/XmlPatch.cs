@@ -1,7 +1,7 @@
 using System.Xml;
 using System.Xml.Linq;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Element insert/remove helpers that keep the indentation of a hand-edited document intact, so patching
