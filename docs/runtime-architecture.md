@@ -312,6 +312,7 @@ Comprehensive XML deserialization model for `customizations.xml`. Covers entitie
 | `TALXIS.Platform.Metadata` | Published | none | Core model, merging, layering, registry |
 | `.Serialization.Xml` | Published | core | SolutionPackager XML read/write |
 | `.Validation` | Published | core | XSD schemas + structural validators |
+| `.DataMigration` | Next release | core + Xml | CMT `data_schema.xml`/`data.xml` model and read/write. Tooling, not loaded by the runtime |
 | `.Serialization.Zip` | Planned | core + Xml | Solution ZIP pack/unpack |
 | `.Serialization.Snap` | Planned | core | CDN-optimized snapshot format |
 | `.Provider.Dataverse` | Planned | core | Load/push metadata via Dataverse SDK |
