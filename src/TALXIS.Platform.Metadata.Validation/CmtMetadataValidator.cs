@@ -80,6 +80,7 @@ public sealed class CmtMetadataValidator
 
             ValidateFieldType(entity, field, column, results);
             ValidateLookupTargets(entity, field, column, table, relationships, results);
+            ValidateWritable(entity, field, column, results);
         }
     }
 
@@ -91,6 +92,16 @@ public sealed class CmtMetadataValidator
         results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeMismatch,
             $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is declared as '{field.Type}', but the column is {column.AttributeType}, which CMT handles as '{expected}'. "
             + "CMT rejects the package with 'Missing Fields'."));
+    }
+
+    // Only a column closed to both create and update is reported: one open to either still takes the value on that path.
+    private static void ValidateWritable(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)
+    {
+        if (column.IsValidForCreate != false || column.IsValidForUpdate != false) return;
+
+        results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldNotWritable,
+            $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is a column Dataverse does not let anyone set on create or update. "
+            + "The import goes on, but its values are dropped without an error."));
     }
 
     // lookupType="*" lets CMT take any table, and a column whose targets the metadata does not know cannot be checked.

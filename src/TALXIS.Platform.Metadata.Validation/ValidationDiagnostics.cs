@@ -124,4 +124,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml N:1 relationship entry is not a relationship in the metadata, or names other columns or tables than it does.
     /// </summary>
     public const string CmtRelationshipNotInMetadata = "TXM033";
+
+    /// <summary>
+    /// A CMT data_schema.xml field is a column that is valid neither for create nor for update, so its values are not imported.
+    /// </summary>
+    public const string CmtFieldNotWritable = "TXM034";
 }

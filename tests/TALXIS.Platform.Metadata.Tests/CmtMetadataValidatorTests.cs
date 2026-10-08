@@ -214,6 +214,21 @@ public class CmtMetadataValidatorTests
         Assert.Contains(reported, finding.Message);
     }
 
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(null, false, false)]
+    [InlineData(null, null, false)]
+    public void ColumnClosedToCreateAndUpdate_IsAWarning(bool? validForCreate, bool? validForUpdate, bool reported)
+    {
+        var column = new StringAttributeMetadata { LogicalName = "talxis_note", IsValidForCreate = validForCreate, IsValidForUpdate = validForUpdate };
+
+        var findings = ValidateField(column, CmtFieldTypes.String);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotWritable && r.Severity == ValidationSeverity.Warning));
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");
