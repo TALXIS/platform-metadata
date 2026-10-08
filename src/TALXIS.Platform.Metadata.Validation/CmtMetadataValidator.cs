@@ -29,15 +29,15 @@ public sealed class CmtMetadataValidator
             var table = metadata.FindEntity(entity.Name);
             if (table == null)
             {
-                results.Add(CmtFindings.Finding(options.UnknownEntitySeverity, entity, ValidationDiagnostics.CmtEntityNotInMetadata,
+                results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, entity, ValidationDiagnostics.CmtEntityNotInMetadata,
                     $"CMT data_schema.xml entity '{entity.Name}' is not a table in the metadata. CMT stops the import on a table the target environment does not have."));
                 continue;
             }
 
             ValidateImportable(entity, table, results);
             ValidatePrimaryFields(entity, table, results);
-            ValidateFields(entity, table, metadata, results);
-            ValidateManyToMany(entity, table, metadata, results);
+            ValidateFields(entity, table, metadata, options, results);
+            ValidateManyToMany(entity, table, metadata, options, results);
             ValidateManyToOne(entity, table, metadata, results);
         }
 
@@ -64,17 +64,19 @@ public sealed class CmtMetadataValidator
     private static bool Differs(string? declared, string? inMetadata) =>
         !string.IsNullOrEmpty(declared) && !string.IsNullOrEmpty(inMetadata) && !SameName(declared, inMetadata);
 
-    private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
+    private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)
     {
         var relationships = Relationships(table, metadata);
+        var partial = IsPartial(table);
         // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
         foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
         {
             var column = table.FindAttribute(field.Name);
             if (column == null)
             {
-                results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
-                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
+                results.Add(CmtFindings.Finding(partial ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, field, ValidationDiagnostics.CmtFieldNotInMetadata,
+                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."
+                    + (partial ? PartialTableNote : string.Empty)));
                 continue;
             }
 
@@ -130,7 +132,7 @@ public sealed class CmtMetadataValidator
     };
 
     // CMT finds a many-to-many entry by its intersect table, only among the relationships whose first table (FirstEntityName) is the entity.
-    private static void ValidateManyToMany(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
+    private static void ValidateManyToMany(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)
     {
         var manyToMany = Relationships(table, metadata).OfType<ManyToManyRelationshipMetadata>().ToList();
         foreach (var relationship in entity.Relationships.Where(r => r.IsManyToMany))
@@ -142,8 +144,9 @@ public sealed class CmtMetadataValidator
             var reason = other == null
                 ? "is not a many-to-many relationship in the metadata"
                 : $"belongs to table '{other.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
-            results.Add(CmtFindings.Error(relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
-                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import."));
+            var unknown = other == null && IsPartial(table);
+            results.Add(CmtFindings.Finding(unknown ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
+                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import." + (unknown ? PartialTableNote : string.Empty)));
         }
     }
 
@@ -164,6 +167,15 @@ public sealed class CmtMetadataValidator
             results.Add(CmtFindings.Warning(relationship, ValidationDiagnostics.CmtRelationshipNotInMetadata,
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {problem}. CMT does not check N:1 entries, so the import goes on, but the entry is out of date."));
         }
+    }
+
+    private const string PartialTableNote = " The table is only partly in the metadata (its primary id column is missing), so the metadata may just leave this out.";
+
+    // A table added to a solution without all its columns, typically one owned by another solution, lacks its primary id column.
+    private static bool IsPartial(EntityMetadata table)
+    {
+        var primaryId = !string.IsNullOrEmpty(table.PrimaryIdAttribute) ? table.PrimaryIdAttribute! : table.IsActivity ? "activityid" : $"{table.LogicalName}id";
+        return table.FindAttribute(primaryId) == null;
     }
 
     // Relationships from another solution sit only on the workspace; ones filled in from a live environment may sit only on the table.

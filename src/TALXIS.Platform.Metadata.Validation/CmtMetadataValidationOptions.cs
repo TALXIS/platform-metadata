@@ -6,8 +6,9 @@ namespace TALXIS.Platform.Metadata.Validation;
 public sealed class CmtMetadataValidationOptions
 {
     /// <summary>
-    /// Severity for a table the metadata does not contain. Lower it to <see cref="ValidationSeverity.Warning"/> when the metadata
-    /// covers only some tables, for example a solution that does not include the system tables the package also carries.
+    /// Severity for what the metadata may simply not cover: a table it does not contain, and a column or many-to-many relationship of a table
+    /// it holds only in part (without its primary id column, as a solution holds a table another solution owns). Lower it to
+    /// <see cref="ValidationSeverity.Warning"/> when the metadata comes from solutions rather than the whole target environment.
     /// </summary>
-    public ValidationSeverity UnknownEntitySeverity { get; set; } = ValidationSeverity.Error;
+    public ValidationSeverity IncompleteMetadataSeverity { get; set; } = ValidationSeverity.Error;
 }

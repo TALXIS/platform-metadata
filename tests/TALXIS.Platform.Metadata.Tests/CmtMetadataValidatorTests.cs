@@ -30,7 +30,7 @@ public class CmtMetadataValidatorTests
     [Fact]
     public void TableMissingFromPartialMetadata_CanBeLoweredToAWarning()
     {
-        var options = new CmtMetadataValidationOptions { UnknownEntitySeverity = ValidationSeverity.Warning };
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = ValidationSeverity.Warning };
 
         var finding = Assert.Single(new CmtMetadataValidator().Validate(Package("account", "talxis_contract"), Metadata(Table("talxis_contract")), options));
 
@@ -227,6 +227,36 @@ public class CmtMetadataValidatorTests
         var findings = ValidateField(column, CmtFieldTypes.String);
 
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotWritable && r.Severity == ValidationSeverity.Warning));
+    }
+
+    [Theory]
+    [InlineData(ValidationSeverity.Error)]
+    [InlineData(ValidationSeverity.Warning)]
+    public void FieldOfATableOnlyPartlyInTheMetadata_TakesTheIncompleteMetadataSeverity(ValidationSeverity severity)
+    {
+        var package = Package("talxis_contract");
+        var table = new EntityMetadata { LogicalName = "talxis_contract" };
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_note" });
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = severity };
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table), options).Where(r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata).ToList();
+
+        Assert.Equal(2, findings.Count);
+        Assert.All(findings, r => Assert.Equal(severity, r.Severity));
+        Assert.All(findings, r => Assert.Contains("only partly in the metadata", r.Message));
+    }
+
+    [Fact]
+    public void ManyToManyMissingOnATableOnlyPartlyInTheMetadata_TakesTheIncompleteMetadataSeverity()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddRelationship(new CmtSchemaRelationship { Name = "talxis_contract_account", IsManyToMany = true });
+        var table = new EntityMetadata { LogicalName = "talxis_contract" };
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = ValidationSeverity.Warning };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(table), options), r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata);
+
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
     }
 
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
