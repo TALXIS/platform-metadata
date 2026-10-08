@@ -89,4 +89,9 @@ public static class ValidationDiagnostics
     /// flags an order that disagrees with the lookups, usually on purpose.
     /// </summary>
     public const string CmtImportOrderChildBeforeParent = "TXM026";
+
+    /// <summary>
+    /// A CMT data_schema.xml entity is not a table in the metadata, or is a table that does not accept data imports.
+    /// </summary>
+    public const string CmtEntityNotInMetadata = "TXM027";
 }
