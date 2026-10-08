@@ -230,6 +230,97 @@ public class CmtMetadataValidatorTests
     }
 
     [Theory]
+    [InlineData("100000001", 0)]
+    [InlineData("100000005", 1)]
+    [InlineData("not-a-number", 0)]
+    public void ChoiceValueThatIsNotAnOption_IsAWarning(string value, int expected)
+    {
+        var findings = ValidateOptionValue(LocalChoice(), CmtFieldTypes.OptionSetValue, value);
+
+        Assert.Equal(expected, findings.Count(r => r.Code == ValidationDiagnostics.CmtDataOptionValueUnknown && r.Severity == ValidationSeverity.Warning));
+    }
+
+    [Theory]
+    [InlineData("[-1,100000000,100000001,-1]", 0)]
+    [InlineData("100000000,100000001", 0)]
+    [InlineData("[\"100000000\",\"100000001\"]", 0)]
+    [InlineData("[-1,100000000,100000009,-1]", 1)]
+    [InlineData("[\"100000009\"]", 1)]
+    public void MultiSelectValue_IsReadInEveryFormat(string value, int expected)
+    {
+        var column = new MultiSelectPicklistAttributeMetadata { LogicalName = "talxis_size", OptionSet = LocalChoice().OptionSet };
+
+        var findings = ValidateOptionValue(column, CmtFieldTypes.OptionSetValueCollection, value);
+
+        Assert.Equal(expected, findings.Count(r => r.Code == ValidationDiagnostics.CmtDataOptionValueUnknown));
+    }
+
+    [Fact]
+    public void GlobalChoice_TakesItsOptionsFromTheGlobalOptionSet()
+    {
+        var column = new PicklistAttributeMetadata { LogicalName = "talxis_size", IsGlobal = true, OptionSet = new OptionSetMetadata { Name = "talxis_size", IsGlobal = true } };
+        var global = new OptionSetMetadata { Name = "talxis_size", IsGlobal = true };
+        global.AddOption(new OptionMetadata { Value = 1 });
+
+        var findings = ValidateOptionValue(column, CmtFieldTypes.OptionSetValue, "2", workspace => workspace.AddGlobalOptionSet(global));
+
+        Assert.Single(findings, r => r.Code == ValidationDiagnostics.CmtDataOptionValueUnknown);
+    }
+
+    [Fact]
+    public void ChoiceWhoseOptionsTheMetadataDoesNotList_IsNotChecked()
+    {
+        var column = new PicklistAttributeMetadata { LogicalName = "talxis_size", OptionSet = new OptionSetMetadata { Name = "talxis_size", IsGlobal = true } };
+
+        Assert.Empty(ValidateOptionValue(column, CmtFieldTypes.OptionSetValue, "2"));
+    }
+
+    [Fact]
+    public void ChoiceValuesOfALiquidEntity_AreNotChecked()
+    {
+        var findings = ValidateOptionValue(LocalChoice(), CmtFieldTypes.OptionSetValue, "9", configure: null, renderLiquid: true);
+
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void UnknownChoiceValues_AreReportedOncePerField()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_size", CmtFieldTypes.OptionSetValue);
+        package.Data!.AddEntity("talxis_contract").AddRecord(Guid.NewGuid()).Set("talxis_size", "7");
+        package.Data.FindEntity("talxis_contract")!.AddRecord(Guid.NewGuid()).Set("talxis_size", "8");
+        var table = Table("talxis_contract");
+        table.AddAttribute(LocalChoice());
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(table)));
+
+        Assert.Contains("'7', '8' in 2 record(s)", finding.Message);
+    }
+
+    private static PicklistAttributeMetadata LocalChoice()
+    {
+        var optionSet = new OptionSetMetadata { Name = "talxis_contract_talxis_size" };
+        optionSet.AddOption(new OptionMetadata { Value = 100000000 });
+        optionSet.AddOption(new OptionMetadata { Value = 100000001 });
+        return new PicklistAttributeMetadata { LogicalName = "talxis_size", OptionSet = optionSet };
+    }
+
+    private static IReadOnlyList<ValidationResult> ValidateOptionValue(AttributeMetadata column, string type, string value, Action<Workspace>? configure = null, bool renderLiquid = false)
+    {
+        var package = Package("talxis_contract");
+        var entity = package.Schema.FindEntity("talxis_contract")!;
+        entity.AddField(column.LogicalName, type);
+        entity.RenderLiquid = renderLiquid ? true : null;
+        package.Data!.AddEntity("talxis_contract").AddRecord(Guid.NewGuid()).Set(column.LogicalName, value);
+        var table = Table("talxis_contract");
+        table.AddAttribute(column);
+        var metadata = Metadata(table);
+        configure?.Invoke(metadata);
+        return new CmtMetadataValidator().Validate(package, metadata);
+    }
+
+    [Theory]
     [InlineData(ValidationSeverity.Error)]
     [InlineData(ValidationSeverity.Warning)]
     public void FieldOfATableOnlyPartlyInTheMetadata_TakesTheIncompleteMetadataSeverity(ValidationSeverity severity)
@@ -272,7 +363,7 @@ public class CmtMetadataValidatorTests
     {
         var schema = new CmtDataSchema();
         foreach (var table in tables) schema.AddEntity(table, $"{table}id", "name").AddField("name", CmtFieldTypes.String, updateCompare: true);
-        return new CmtPackage(schema);
+        return new CmtPackage(schema, new CmtData());
     }
 
     private static EntityMetadata Table(string logicalName, bool? isImportable = null)

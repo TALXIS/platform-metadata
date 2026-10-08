@@ -129,4 +129,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml field is a column that is valid neither for create nor for update, so its values are not imported.
     /// </summary>
     public const string CmtFieldNotWritable = "TXM034";
+
+    /// <summary>
+    /// A CMT data.xml choice value is not an option of the column's choice in the metadata.
+    /// </summary>
+    public const string CmtDataOptionValueUnknown = "TXM035";
 }

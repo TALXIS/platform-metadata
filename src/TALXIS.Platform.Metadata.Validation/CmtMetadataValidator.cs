@@ -1,4 +1,6 @@
+using System.Globalization;
 using TALXIS.Platform.Metadata.Components;
+using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.DataMigration;
 using TALXIS.Platform.Metadata.Serialization.Xml;
 
@@ -39,6 +41,15 @@ public sealed class CmtMetadataValidator
             ValidateFields(entity, table, metadata, options, results);
             ValidateManyToMany(entity, table, metadata, options, results);
             ValidateManyToOne(entity, table, metadata, results);
+        }
+
+        foreach (var dataEntity in package.Data?.Entities ?? Enumerable.Empty<CmtDataEntity>())
+        {
+            var entity = package.Schema.FindEntity(dataEntity.Name);
+            var table = metadata.FindEntity(dataEntity.Name);
+            if (entity == null || table == null || entity.RenderLiquid == true) continue;
+
+            ValidateOptionValues(dataEntity, entity, table, metadata, results);
         }
 
         return results.Select(r => r with { Stage = ValidationStage.CmtData }).ToList();
@@ -130,6 +141,53 @@ public sealed class CmtMetadataValidator
         CmtFieldTypes.File => CmtFieldTypes.FileData,
         var lowercase => lowercase
     };
+
+    // One finding per field, listing the unknown values; values that are not integers are left to CmtPackageValidator's format rule.
+    private static void ValidateOptionValues(CmtDataEntity dataEntity, CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
+    {
+        var fields = dataEntity.Records.SelectMany(r => r.Fields).Where(f => !string.IsNullOrEmpty(f.Value)).GroupBy(f => f.Name, StringComparer.Ordinal);
+        foreach (var group in fields)
+        {
+            var options = Options(entity.FindField(group.Key), table.FindAttribute(group.Key), metadata);
+            if (options == null) continue;
+
+            var unknown = group.Select(f => (field: f, values: OptionValues(f.Value!).Where(v => !options.Contains(v)).ToList())).Where(x => x.values.Count > 0).ToList();
+            if (unknown.Count == 0) continue;
+
+            var values = string.Join(", ", unknown.SelectMany(x => x.values).Distinct().OrderBy(v => v).Take(5).Select(v => $"'{v}'"));
+            results.Add(CmtFindings.Warning(unknown[0].field, ValidationDiagnostics.CmtDataOptionValueUnknown,
+                $"CMT data.xml field '{dataEntity.Name}.{group.Key}' has option value(s) {values} in {unknown.Count} record(s) that the column's choice does not have in the metadata. "
+                + "Dataverse rejects those records."));
+        }
+    }
+
+    // The option values of a choice column declared as one in the schema, or null when the metadata does not list them.
+    private static HashSet<int>? Options(CmtSchemaField? field, AttributeMetadata? column, Workspace metadata)
+    {
+        if (field == null || column == null) return null;
+        if (field.Type is not (CmtFieldTypes.OptionSetValue or CmtFieldTypes.OptionSetValueCollection or CmtFieldTypes.State or CmtFieldTypes.Status)) return null;
+
+        var optionSet = column switch
+        {
+            PicklistAttributeMetadata picklist => picklist.OptionSet,
+            MultiSelectPicklistAttributeMetadata multiSelect => multiSelect.OptionSet,
+            _ => null
+        };
+        if (optionSet == null) return null;
+
+        var listed = optionSet.Options.Count > 0 ? optionSet : metadata.GlobalOptionSets.FirstOrDefault(o => SameName(o.Name, optionSet.Name));
+        return listed == null || listed.Options.Count == 0 ? null : new HashSet<int>(listed.Options.Select(o => o.Value));
+    }
+
+    // A single value, or a list: CMT's "[-1,1,2,-1]", plain "1,2", or the TALXIS importer's ["1","2"].
+    private static IEnumerable<int> OptionValues(string value)
+    {
+        var list = value.Trim().TrimStart('[').TrimEnd(']');
+        foreach (var part in list.Split(','))
+        {
+            if (int.TryParse(part.Trim().Trim('"'), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var option) && option != -1) yield return option;
+        }
+    }
 
     // CMT finds a many-to-many entry by its intersect table, only among the relationships whose first table (FirstEntityName) is the entity.
     private static void ValidateManyToMany(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)

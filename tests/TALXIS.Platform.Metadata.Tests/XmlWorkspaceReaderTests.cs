@@ -594,6 +594,51 @@ public class XmlWorkspaceReaderTests
         }
     }
 
+    [Fact]
+    public void Load_ReadsTheOptionSetsOfChoiceColumns()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        CopyDirectory(SamplePath, root);
+        try
+        {
+            var entityPath = Directory.GetFiles(Path.Combine(root, "Entities"), "Entity.xml", SearchOption.AllDirectories)[0];
+            var xml = File.ReadAllText(entityPath).Replace("</attributes>", """
+                <attribute PhysicalName="tp_size">
+                  <Type>picklist</Type>
+                  <LogicalName>tp_size</LogicalName>
+                  <optionset Name="tp_entity_tp_size">
+                    <OptionSetType>picklist</OptionSetType>
+                    <options>
+                      <option value="100000000" />
+                      <option value="100000001" />
+                    </options>
+                  </optionset>
+                </attribute>
+                <attribute PhysicalName="tp_activity">
+                  <Type>multiselectpicklist</Type>
+                  <LogicalName>tp_activity</LogicalName>
+                  <OptionSetName>tp_activity</OptionSetName>
+                </attribute>
+              </attributes>
+              """);
+            File.WriteAllText(entityPath, xml);
+
+            var entity = new XmlWorkspaceReader().Load(root).Entities[0];
+
+            var size = Assert.IsType<PicklistAttributeMetadata>(entity.FindAttribute("tp_size"));
+            Assert.False(size.IsGlobal);
+            Assert.Equal(new[] { 100000000, 100000001 }, size.OptionSet!.Options.Select(o => o.Value));
+            var activity = Assert.IsType<MultiSelectPicklistAttributeMetadata>(entity.FindAttribute("tp_activity"));
+            Assert.True(activity.IsGlobal);
+            Assert.Equal("tp_activity", activity.OptionSet!.Name);
+            Assert.Empty(activity.OptionSet.Options);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static void CopyDirectory(string source, string target)
     {
         foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories)) Directory.CreateDirectory(directory.Replace(source, target));
