@@ -36,6 +36,7 @@ public sealed class CmtMetadataValidator
 
             ValidateImportable(entity, table, results);
             ValidateFields(entity, table, results);
+            ValidateManyToMany(entity, table, metadata, results);
         }
 
         return results.Select(r => r with { Stage = ValidationStage.CmtData }).ToList();
@@ -75,6 +76,26 @@ public sealed class CmtMetadataValidator
         CmtFieldTypes.File => CmtFieldTypes.FileData,
         var lowercase => lowercase
     };
+
+    // CMT finds a many-to-many entry by its intersect table, only among the relationships whose first table (FirstEntityName) is the entity.
+    private static void ValidateManyToMany(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, List<ValidationResult> results)
+    {
+        var manyToMany = metadata.Relationships.Concat(table.Relationships).OfType<ManyToManyRelationshipMetadata>().ToList();
+        foreach (var relationship in entity.Relationships.Where(r => r.IsManyToMany))
+        {
+            var matches = manyToMany.Where(m => SameName(m.IntersectEntityName, relationship.Name)).ToList();
+            if (matches.Any(m => SameName(m.Entity1LogicalName, table.LogicalName))) continue;
+
+            var other = matches.FirstOrDefault(m => SameName(m.Entity2LogicalName, table.LogicalName));
+            var reason = other == null
+                ? "is not a many-to-many relationship in the metadata"
+                : $"belongs to table '{other.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
+            results.Add(CmtFindings.Error(relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
+                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import."));
+        }
+    }
+
+    private static bool SameName(string? left, string? right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateImportable(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {

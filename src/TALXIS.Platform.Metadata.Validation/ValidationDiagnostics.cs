@@ -104,4 +104,9 @@ public static class ValidationDiagnostics
     /// A CMT data_schema.xml field's type is not the type CMT uses for its column in the metadata.
     /// </summary>
     public const string CmtFieldTypeMismatch = "TXM029";
+
+    /// <summary>
+    /// A CMT data_schema.xml many-to-many entry does not name the intersect table of a many-to-many relationship whose first table (FirstEntityName) is its entity.
+    /// </summary>
+    public const string CmtManyToManyNotInMetadata = "TXM030";
 }

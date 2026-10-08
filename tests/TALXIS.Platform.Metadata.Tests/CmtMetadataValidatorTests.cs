@@ -112,6 +112,28 @@ public class CmtMetadataValidatorTests
         Assert.Empty(ValidateField(new FileAttributeMetadata { LogicalName = "talxis_note" }, declared));
     }
 
+    [Theory]
+    [InlineData("talxis_contract", "talxis_contract_account", false)]
+    [InlineData("talxis_contract", "talxis_contract_contact", true)]
+    [InlineData("account", "talxis_contract_account", true)]
+    public void ManyToManyEntry_MustSitOnTheFirstTableOfItsRelationship(string entity, string intersect, bool reported)
+    {
+        var package = Package("talxis_contract", "account");
+        package.Schema.FindEntity(entity)!.AddRelationship(new CmtSchemaRelationship
+        {
+            Name = intersect, IsManyToMany = true, RelatedEntityName = intersect, M2mTargetEntity = "account", M2mTargetEntityPrimaryKey = "accountid"
+        });
+        var metadata = Metadata(Table("talxis_contract"), Table("account"));
+        metadata.AddRelationship(new ManyToManyRelationshipMetadata
+        {
+            SchemaName = "talxis_contract_account", Entity1LogicalName = "talxis_contract", Entity2LogicalName = "account", IntersectEntityName = "talxis_contract_account"
+        });
+
+        var findings = new CmtMetadataValidator().Validate(package, metadata);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata && r.Severity == ValidationSeverity.Error));
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");
