@@ -17,11 +17,22 @@ public sealed class SolutionPackagerResult
     public bool HasMissingRootComponents => MissingRootComponentWarnings.Count > 0;
 
     internal SolutionPackagerResult(IReadOnlyList<string> errors, IReadOnlyList<string> warnings)
+        : this(
+            errors,
+            warnings,
+            warnings
+                .Where(w => w.StartsWith(MissingRootComponentsWarningPrefix, StringComparison.OrdinalIgnoreCase))
+                .ToArray())
+    {
+    }
+
+    internal SolutionPackagerResult(
+        IReadOnlyList<string> errors,
+        IReadOnlyList<string> warnings,
+        IReadOnlyList<string> missingRootComponentWarnings)
     {
         Errors = errors;
         Warnings = warnings;
-        MissingRootComponentWarnings = warnings
-            .Where(w => w.StartsWith(MissingRootComponentsWarningPrefix, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        MissingRootComponentWarnings = missingRootComponentWarnings;
     }
 }
