@@ -11,3 +11,8 @@ public sealed class LookupAttributeMetadata : AttributeMetadata
     /// </summary>
     public LookupKind LookupKind { get; set; } = LookupKind.Lookup;
 }
+
+/// <summary>
+/// Which kind of lookup column a <see cref="LookupAttributeMetadata"/> is. Dataverse stores all three as lookups but CMT and validation treat them differently.
+/// </summary>
+public enum LookupKind { Lookup, Customer, Owner }
