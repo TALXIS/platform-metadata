@@ -78,6 +78,7 @@ public static class CmtDataBuilder
                 continue;
             }
 
+            AddMissingOtherAttributes(current.OtherAttributes, association.OtherAttributes);
             foreach (var id in association.TargetIds.Where(id => !current.TargetIds.Contains(id)).ToList())
                 current.TargetIds.Add(id);
         }

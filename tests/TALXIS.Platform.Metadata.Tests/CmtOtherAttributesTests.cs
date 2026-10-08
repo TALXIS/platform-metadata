@@ -28,6 +28,28 @@ public class CmtOtherAttributesTests : IDisposable
                 <field name="talxis_name" value="Contract" x-note="kept" />
               </record>
             </records>
+            <m2mrelationships>
+              <m2mrelationship sourceid="11111111-0000-0000-0000-000000000001" targetentityname="talxis_tag" m2mrelationshipname="talxis_file_tag" x-sync="full">
+                <targetids>
+                  <targetid>22222222-0000-0000-0000-000000000001</targetid>
+                </targetids>
+              </m2mrelationship>
+            </m2mrelationships>
+          </entity>
+        </entities>
+        """;
+
+    private const string OtherPackageData = """
+        <entities>
+          <entity name="talxis_file" displayname="File">
+            <records />
+            <m2mrelationships>
+              <m2mrelationship sourceid="11111111-0000-0000-0000-000000000001" targetentityname="talxis_tag" m2mrelationshipname="talxis_file_tag">
+                <targetids>
+                  <targetid>22222222-0000-0000-0000-000000000002</targetid>
+                </targetids>
+              </m2mrelationship>
+            </m2mrelationships>
           </entity>
         </entities>
         """;
@@ -53,7 +75,7 @@ public class CmtOtherAttributesTests : IDisposable
     public void MergedPackageWrittenFromScratch_KeepsAttributesTheModelDoesNotKnow(bool filesPackageFirst)
     {
         var filesPackage = new CmtPackageXmlReader().Read(XDocument.Parse(FilesPackageSchema), XDocument.Parse(FilesPackageData));
-        var otherPackage = new CmtPackageXmlReader().Read(XDocument.Parse(OtherPackageSchema), null);
+        var otherPackage = new CmtPackageXmlReader().Read(XDocument.Parse(OtherPackageSchema), XDocument.Parse(OtherPackageData));
         var packages = filesPackageFirst ? new[] { filesPackage, otherPackage } : new[] { otherPackage, filesPackage };
         var schema = new CmtDataSchema();
         var data = new CmtData();
@@ -71,9 +93,13 @@ public class CmtOtherAttributesTests : IDisposable
         Assert.Equal("true", (string?)file.Attribute("guidswap"));
         Assert.Equal("10234", (string?)file.Attribute("etc"));
         Assert.Equal("lab", (string?)file.Element("fields")!.Elements("field").Single(f => (string?)f.Attribute("name") == "talxis_name").Attribute("x-origin"));
-        var record = XDocument.Load(Path.Combine(_root, CmtPackageLayout.DataFileName)).Root!.Element("entity")!.Element("records")!.Element("record")!;
+        var writtenData = XDocument.Load(Path.Combine(_root, CmtPackageLayout.DataFileName)).Root!.Element("entity")!;
+        var record = writtenData.Element("records")!.Element("record")!;
         Assert.Equal("7", (string?)record.Attribute("x-batch"));
         Assert.Equal("kept", (string?)record.Elements("field").Single(f => (string?)f.Attribute("name") == "talxis_name").Attribute("x-note"));
+        var association = Assert.Single(writtenData.Element("m2mrelationships")!.Elements("m2mrelationship"));
+        Assert.Equal("full", (string?)association.Attribute("x-sync"));
+        Assert.Equal(2, association.Element("targetids")!.Elements("targetid").Count());
     }
 
     [Fact]
