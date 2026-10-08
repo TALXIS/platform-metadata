@@ -21,6 +21,12 @@ public sealed class CmtDataRecord : MetadataBase
     public IList<CmtDataField> Fields { get; } = new List<CmtDataField>();
 
     /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Sets a field value, replacing an existing field of the same name (ordinal) or appending a new one.
     /// <paramref name="value"/> must already be in CMT's encoding for the column type (see <see cref="CmtDataField.Value"/>).
     /// </summary>
@@ -40,5 +46,14 @@ public sealed class CmtDataRecord : MetadataBase
         field.LookupEntity = lookupEntity;
         field.LookupEntityName = lookupEntityName;
         return this;
+    }
+
+    // A deep copy, so a merge that adds this record to another package leaves the package it came from unchanged.
+    internal CmtDataRecord Copy()
+    {
+        var copy = new CmtDataRecord { Id = Id, NewId = NewId, Source = Source };
+        foreach (var field in Fields) copy.Fields.Add(field.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
     }
 }

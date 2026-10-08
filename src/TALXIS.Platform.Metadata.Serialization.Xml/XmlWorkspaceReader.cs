@@ -298,6 +298,11 @@ public sealed class XmlWorkspaceReader
         attr.IsAuditEnabled = attrEl.Element("IsAuditEnabled")?.Value == "1";
         attr.IsSecured = attrEl.Element("IsSecured")?.Value == "1";
         attr.IsSearchable = attrEl.Element("IsSearchable")?.Value == "1";
+        attr.IsValidForCreate = ParseBit(attrEl.Element("ValidForCreateApi"));
+        attr.IsValidForUpdate = ParseBit(attrEl.Element("ValidForUpdateApi"));
+        attr.IsValidForRead = ParseBit(attrEl.Element("ValidForReadApi"));
+        var sourceType = ParseInt(attrEl.Element("SourceType")?.Value);
+        attr.SourceType = sourceType != null && Enum.IsDefined(typeof(AttributeSourceType), sourceType.Value) ? (AttributeSourceType)sourceType.Value : null;
         attr.Source = CreateSourceLocation(filePath, attrEl);
 
         // Required level
@@ -313,6 +318,13 @@ public sealed class XmlWorkspaceReader
 
         return attr;
     }
+
+    private static bool? ParseBit(XElement? element) => element?.Value switch
+    {
+        "1" or "true" => true,
+        "0" or "false" => false,
+        _ => null
+    };
 
     private static AttributeMetadata? CreateTypedAttribute(string typeStr, XElement attrEl, string logicalName)
     {
@@ -339,11 +351,11 @@ public sealed class XmlWorkspaceReader
                 return new UniqueIdentifierAttributeMetadata { LogicalName = logicalName };
 
             case "lookup" or "customer" or "owner":
-            {
-                if (typeStr == "owner")
-                    return new LookupAttributeMetadata { LogicalName = logicalName }; // Owner type maps to Lookup in model
-                return new LookupAttributeMetadata { LogicalName = logicalName };
-            }
+                return new LookupAttributeMetadata
+                {
+                    LogicalName = logicalName,
+                    LookupKind = typeStr == "owner" ? LookupKind.Owner : typeStr == "customer" ? LookupKind.Customer : LookupKind.Lookup
+                };
             case "datetime":
             {
                 var da = new DateTimeAttributeMetadata { LogicalName = logicalName };
@@ -448,8 +460,14 @@ public sealed class XmlWorkspaceReader
             case "uniqueidentifier":
                 return new UniqueIdentifierAttributeMetadata { LogicalName = logicalName };
 
-            case "entityname" or "virtual":
-                // EntityName and virtual types — use String as a reasonable fallback
+            case "virtual":
+                return new VirtualAttributeMetadata { LogicalName = logicalName };
+
+            case "partylist":
+                return new PartyListAttributeMetadata { LogicalName = logicalName };
+
+            case "entityname":
+                // EntityName — use String as a reasonable fallback
                 return new StringAttributeMetadata { LogicalName = logicalName };
 
             default:

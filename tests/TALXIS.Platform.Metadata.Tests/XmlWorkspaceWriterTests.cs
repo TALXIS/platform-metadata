@@ -590,6 +590,95 @@ public class XmlWorkspaceWriterTests
         }
     }
 
+    // A rollup or read-only column that comes back as a plain writable one would be picked up by the CMT schema builder.
+    [Fact]
+    public void Roundtrip_PreservesApiFlagsAndSourceType()
+    {
+        var inMemoryPath = Path.Combine(Path.GetTempPath(), $"roundtrip-apiflags-new-{Guid.NewGuid():N}");
+        var patchedPath = Path.Combine(Path.GetTempPath(), $"roundtrip-apiflags-patch-{Guid.NewGuid():N}");
+
+        try
+        {
+            var inMemory = new Workspace("in-memory");
+            inMemory.AddSolution(new Solution { UniqueName = "InMemorySolution", Version = "1.0", Publisher = new Publisher { UniqueName = "test", Prefix = "test" } });
+            var table = new EntityMetadata { LogicalName = "test_order", SchemaName = "test_order", DisplayName = new Label("Order"), IsCustomEntity = true };
+            table.AddAttribute(new MoneyAttributeMetadata
+            {
+                LogicalName = "test_total", IsCustomAttribute = true, IsValidForCreate = false, IsValidForUpdate = false, IsValidForRead = true,
+                SourceType = AttributeSourceType.Rollup
+            });
+            table.AddAttribute(new StringAttributeMetadata { LogicalName = "test_name", IsCustomAttribute = true });
+            inMemory.AddEntity(table);
+            var patched = new XmlWorkspaceReader().Load(SamplePath);
+            var name = patched.FindEntity("test_entity")!.FindAttribute("tp_name")!;
+            name.IsValidForCreate = false;
+            name.IsValidForUpdate = false;
+            name.SourceType = AttributeSourceType.Calculated;
+
+            new XmlWorkspaceWriter().Write(inMemory, inMemoryPath);
+            new XmlWorkspaceWriter().Write(patched, patchedPath);
+
+            var reloaded = new XmlWorkspaceReader().Load(inMemoryPath).FindEntity("test_order")!;
+            var total = reloaded.FindAttribute("test_total")!;
+            Assert.Equal((false, false, true, AttributeSourceType.Rollup), (total.IsValidForCreate, total.IsValidForUpdate, total.IsValidForRead, total.SourceType));
+            var plain = reloaded.FindAttribute("test_name")!;
+            Assert.Equal((true, true, true, AttributeSourceType.Simple), (plain.IsValidForCreate, plain.IsValidForUpdate, plain.IsValidForRead, plain.SourceType));
+            var reloadedName = new XmlWorkspaceReader().Load(patchedPath).FindEntity("test_entity")!.FindAttribute("tp_name")!;
+            Assert.Equal((false, false, null, AttributeSourceType.Calculated), (reloadedName.IsValidForCreate, reloadedName.IsValidForUpdate, reloadedName.IsValidForRead, reloadedName.SourceType));
+        }
+        finally
+        {
+            if (Directory.Exists(inMemoryPath)) Directory.Delete(inMemoryPath, true);
+            if (Directory.Exists(patchedPath)) Directory.Delete(patchedPath, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_PreservesOwnerAndCustomerLookups()
+    {
+        var inMemoryPath = Path.Combine(Path.GetTempPath(), $"roundtrip-lookupkind-new-{Guid.NewGuid():N}");
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-lookupkind-in-{Guid.NewGuid():N}");
+        var patchedPath = Path.Combine(Path.GetTempPath(), $"roundtrip-lookupkind-patch-{Guid.NewGuid():N}");
+
+        try
+        {
+            var inMemory = new Workspace("in-memory");
+            inMemory.AddSolution(new Solution { UniqueName = "InMemorySolution", Version = "1.0", Publisher = new Publisher { UniqueName = "test", Prefix = "test" } });
+            var table = new EntityMetadata { LogicalName = "test_order", SchemaName = "test_order", DisplayName = new Label("Order"), IsCustomEntity = true };
+            table.AddAttribute(new LookupAttributeMetadata { LogicalName = "ownerid", LookupKind = LookupKind.Owner });
+            table.AddAttribute(new LookupAttributeMetadata { LogicalName = "test_customerid", LookupKind = LookupKind.Customer, IsCustomAttribute = true });
+            table.AddAttribute(new LookupAttributeMetadata { LogicalName = "test_projectid", IsCustomAttribute = true });
+            inMemory.AddEntity(table);
+            CopyDirectory(SamplePath, inputPath);
+            var entityFile = Path.Combine(inputPath, "Entities", "test_entity", "Entity.xml");
+            File.WriteAllText(entityFile, File.ReadAllText(entityFile).Replace("</attributes>", """
+                <attribute PhysicalName="tp_customerid">
+                  <Type>lookup</Type>
+                  <LogicalName>tp_customerid</LogicalName>
+                </attribute>
+              </attributes>
+              """));
+            var patched = new XmlWorkspaceReader().Load(inputPath);
+            ((LookupAttributeMetadata)patched.FindEntity("test_entity")!.FindAttribute("tp_customerid")!).LookupKind = LookupKind.Customer;
+
+            new XmlWorkspaceWriter().Write(inMemory, inMemoryPath);
+            new XmlWorkspaceWriter().Write(patched, patchedPath);
+
+            var reloaded = new XmlWorkspaceReader().Load(inMemoryPath).FindEntity("test_order")!;
+            Assert.Equal(LookupKind.Owner, Assert.IsType<LookupAttributeMetadata>(reloaded.FindAttribute("ownerid")).LookupKind);
+            Assert.Equal(LookupKind.Customer, Assert.IsType<LookupAttributeMetadata>(reloaded.FindAttribute("test_customerid")).LookupKind);
+            Assert.Equal(LookupKind.Lookup, Assert.IsType<LookupAttributeMetadata>(reloaded.FindAttribute("test_projectid")).LookupKind);
+            var reloadedCustomer = new XmlWorkspaceReader().Load(patchedPath).FindEntity("test_entity")!.FindAttribute("tp_customerid");
+            Assert.Equal(LookupKind.Customer, Assert.IsType<LookupAttributeMetadata>(reloadedCustomer).LookupKind);
+        }
+        finally
+        {
+            if (Directory.Exists(inMemoryPath)) Directory.Delete(inMemoryPath, true);
+            if (Directory.Exists(inputPath)) Directory.Delete(inputPath, true);
+            if (Directory.Exists(patchedPath)) Directory.Delete(patchedPath, true);
+        }
+    }
+
     [Fact]
     public void Roundtrip_PreservesPassthroughWorkspaceFiles()
     {

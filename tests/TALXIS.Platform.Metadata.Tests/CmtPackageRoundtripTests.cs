@@ -110,6 +110,25 @@ public class CmtPackageRoundtripTests : IDisposable
         Assert.Equal(Encoding.UTF8.GetString(expected), Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(_root, CmtPackageLayout.DataFileName))));
     }
 
+    // The model does not map etc; an existing one is an unmodelled attribute and must survive an edit of its entity.
+    [Fact]
+    public void Save_EditedSchema_KeepsEtc()
+    {
+        const string ParentStart = "<entity name=\"cmtl_parent\" ";
+        var schema = ReadFixture(CmtPackageLayout.SchemaFileName).Replace(ParentStart, ParentStart + "etc=\"10234\" ");
+        WritePackage(Encoding.UTF8.GetBytes(schema), null);
+        var package = new CmtPackageXmlReader().LoadDirectory(_root);
+
+        package.Schema.FindEntity("cmtl_parent")!.SkipUpdate = true;
+        var written = new CmtPackageXmlWriter().Save(package, _root);
+
+        Assert.True(written);
+        Assert.Equal("10234", package.Schema.FindEntity("cmtl_parent")!.OtherAttributes["etc"]);
+        var expected = schema.Replace("disableplugins=\"false\">\n    <fields>\n      <field displayname=\"CMTL Parent\"",
+            "disableplugins=\"false\" skipupdate=\"true\">\n    <fields>\n      <field displayname=\"CMTL Parent\"");
+        Assert.Equal(expected, File.ReadAllText(Path.Combine(_root, CmtPackageLayout.SchemaFileName)));
+    }
+
     [Fact]
     public void Load_MalformedXml_ReportsLoadError()
     {
@@ -154,7 +173,8 @@ public class CmtPackageRoundtripTests : IDisposable
         Assert.Equal(5, package.Schema.Entities.Count);
     }
 
-    private static string ReadFixture(string fileName) => File.ReadAllText(Path.Combine(FixturePath, fileName));
+    // The variants add their own line endings, so start from LF whatever the checkout produced.
+    private static string ReadFixture(string fileName) => File.ReadAllText(Path.Combine(FixturePath, fileName)).Replace("\r\n", "\n");
 
     private static byte[] Variant(string variant, string text)
     {

@@ -52,6 +52,19 @@ internal static class XmlPatch
         return element;
     }
 
+    /// <summary>
+    /// Moves an existing <paramref name="element"/> right after <paramref name="previous"/> (or before the first <paramref name="name"/>
+    /// sibling) when it is not already there, keeping its indentation.
+    /// </summary>
+    public static void MoveAfter(XElement container, string name, XElement? previous, XElement element)
+    {
+        var expected = previous == null ? container.Elements(name).FirstOrDefault() : previous.ElementsAfterSelf(name).FirstOrDefault();
+        if (expected == element) return;
+
+        Remove(element);
+        Insert(container, name, previous, element);
+    }
+
     /// <summary>Removes <paramref name="element"/> together with the whitespace that indented it.</summary>
     public static void Remove(XElement element)
     {

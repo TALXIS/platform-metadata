@@ -13,12 +13,6 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Display name. Written by CMT's generator but ignored on import.</summary>
     public string? DisplayName { get; set; }
 
-    /// <summary>
-    /// Entity type code (<c>etc</c>). CMT imports and exports without it (its importer only uses it for a batch-mode
-    /// capability probe), hence nullable.
-    /// </summary>
-    public int? ObjectTypeCode { get; set; }
-
     /// <summary>Primary id column (<c>primaryidfield</c>); must be a declared <c>guid</c> field, which CMT's generator marks primaryKey.</summary>
     public string? PrimaryIdField { get; set; }
 
@@ -49,6 +43,12 @@ public sealed class CmtSchemaEntity : MetadataBase
     /// <summary>Relationships CMT follows from this entity (N:1 entries and M2M entries emitted from this side).</summary>
     public IList<CmtSchemaRelationship> Relationships { get; } = new List<CmtSchemaRelationship>();
 
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     /// <summary>Finds a field by logical name using ordinal comparison (as CMT does), or <c>null</c>.</summary>
     public CmtSchemaField? FindField(string name) =>
         Fields.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal));
@@ -68,6 +68,26 @@ public sealed class CmtSchemaEntity : MetadataBase
         return field;
     }
 
+    /// <summary>
+    /// Names of the other entities this one looks up, which must be imported first: N:1 relationship targets and the
+    /// <c>lookupType</c> tables of its entityreference fields (<c>account|contact</c> counts both). Self-references are left out.
+    /// </summary>
+    public IReadOnlyList<string> ReferencedEntities()
+    {
+        var fromRelationships = Relationships
+            .Where(r => !r.IsManyToMany && !string.IsNullOrEmpty(r.ReferencedEntity))
+            .Select(r => r.ReferencedEntity!);
+        var fromLookups = Fields
+            .Where(f => (f.Type == CmtFieldTypes.EntityReference || f.Type == CmtFieldTypes.Customer) && !string.IsNullOrEmpty(f.LookupType))
+            .SelectMany(f => f.LookupType!.Split('|'));
+
+        return fromRelationships.Concat(fromLookups)
+            .Select(name => name.Trim())
+            .Where(name => name.Length > 0 && name != Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
     /// <summary>Adds a relationship entry. Throws when one of that name exists.</summary>
     public CmtSchemaRelationship AddRelationship(CmtSchemaRelationship relationship)
     {
@@ -76,5 +96,27 @@ public sealed class CmtSchemaEntity : MetadataBase
 
         Relationships.Add(relationship);
         return relationship;
+    }
+
+    // A deep copy, so a merge that adds this entity to another schema leaves the package it came from unchanged.
+    internal CmtSchemaEntity Copy()
+    {
+        var copy = new CmtSchemaEntity
+        {
+            Name = Name,
+            DisplayName = DisplayName,
+            PrimaryIdField = PrimaryIdField,
+            PrimaryNameField = PrimaryNameField,
+            DisablePlugins = DisablePlugins,
+            SkipUpdate = SkipUpdate,
+            ForceCreate = ForceCreate,
+            RenderLiquid = RenderLiquid,
+            FetchXmlFilter = FetchXmlFilter,
+            Source = Source
+        };
+        foreach (var field in Fields) copy.Fields.Add(field.Copy());
+        foreach (var relationship in Relationships) copy.Relationships.Add(relationship.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
     }
 }

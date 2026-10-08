@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
 using TALXIS.Platform.Metadata.ConfigurationMigration;
@@ -111,7 +110,6 @@ public sealed class CmtPackageXmlReader
         {
             Name = Attr(element, "name") ?? string.Empty,
             DisplayName = Attr(element, "displayname"),
-            ObjectTypeCode = int.TryParse(Attr(element, "etc"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var etc) ? etc : null,
             PrimaryIdField = Attr(element, "primaryidfield"),
             PrimaryNameField = Attr(element, "primarynamefield"),
             DisablePlugins = BoolOrNull(element, "disableplugins"),
@@ -121,6 +119,7 @@ public sealed class CmtPackageXmlReader
             FetchXmlFilter = element.Element("filter")?.Value
         };
         SetSource(entity, element, sourcePath);
+        CmtOtherAttributes.Read(element, entity.OtherAttributes, CmtOtherAttributes.SchemaEntity);
         foreach (var field in element.Elements("fields").Elements("field")) entity.Fields.Add(ReadSchemaField(field, sourcePath));
         foreach (var relationship in element.Elements("relationships").Elements("relationship")) entity.Relationships.Add(ReadRelationship(relationship, sourcePath));
         return entity;
@@ -140,6 +139,7 @@ public sealed class CmtPackageXmlReader
             DateMode = Attr(element, "dateMode")
         };
         SetSource(field, element, sourcePath);
+        CmtOtherAttributes.Read(element, field.OtherAttributes, CmtOtherAttributes.SchemaField);
         return field;
     }
 
@@ -159,6 +159,7 @@ public sealed class CmtPackageXmlReader
             ReferencingEntity = Attr(element, "referencingEntity")
         };
         SetSource(relationship, element, sourcePath);
+        CmtOtherAttributes.Read(element, relationship.OtherAttributes, CmtOtherAttributes.Relationship);
         foreach (var field in element.Elements("fields").Elements("field")) relationship.Fields.Add(ReadSchemaField(field, sourcePath));
         return relationship;
     }
@@ -171,6 +172,7 @@ public sealed class CmtPackageXmlReader
             DisplayName = Attr(element, "displayname")
         };
         SetSource(entity, element, sourcePath);
+        CmtOtherAttributes.Read(element, entity.OtherAttributes, CmtOtherAttributes.DataEntity);
         foreach (var recordElement in element.Elements("records").Elements("record"))
         {
             var record = ReadRecord(recordElement, sourcePath, errors);
@@ -199,6 +201,7 @@ public sealed class CmtPackageXmlReader
 
         var record = new CmtDataRecord { Id = id.Value, NewId = ParseGuid(Attr(element, "newId")) };
         SetSource(record, element, sourcePath);
+        CmtOtherAttributes.Read(element, record.OtherAttributes, CmtOtherAttributes.Record);
         foreach (var fieldElement in element.Elements("field"))
         {
             var field = new CmtDataField
@@ -210,6 +213,7 @@ public sealed class CmtPackageXmlReader
                 LookupEntityName = Attr(fieldElement, "lookupentityname")
             };
             SetSource(field, fieldElement, sourcePath);
+            CmtOtherAttributes.Read(fieldElement, field.OtherAttributes, CmtOtherAttributes.DataField);
             // Partylist: one <activitypointerrecords> element per activity party, directly under the field.
             foreach (var partyElement in fieldElement.Elements("activitypointerrecords"))
             {
@@ -240,6 +244,7 @@ public sealed class CmtPackageXmlReader
             RelationshipSchemaName = Attr(element, "m2mrelationshipschemaname")
         };
         SetSource(m2m, element, sourcePath);
+        CmtOtherAttributes.Read(element, m2m.OtherAttributes, CmtOtherAttributes.ManyToMany);
         foreach (var target in element.Elements("targetids").Elements("targetid"))
         {
             var targetId = ParseGuid(target.Value);

@@ -41,4 +41,32 @@ public sealed class CmtSchemaRelationship : MetadataBase
     /// and no displayname. Empty for N:1 entries.
     /// </summary>
     public IList<CmtSchemaField> Fields { get; } = new List<CmtSchemaField>();
+
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A deep copy, so a merge that adds this relationship to another schema leaves the package it came from unchanged.
+    internal CmtSchemaRelationship Copy()
+    {
+        var copy = new CmtSchemaRelationship
+        {
+            Name = Name,
+            IsManyToMany = IsManyToMany,
+            IsReflexive = IsReflexive,
+            RelatedEntityName = RelatedEntityName,
+            M2mTargetEntity = M2mTargetEntity,
+            M2mTargetEntityPrimaryKey = M2mTargetEntityPrimaryKey,
+            ReferencingAttribute = ReferencingAttribute,
+            ReferencedEntity = ReferencedEntity,
+            ReferencedAttribute = ReferencedAttribute,
+            ReferencingEntity = ReferencingEntity,
+            Source = Source
+        };
+        foreach (var field in Fields) copy.Fields.Add(field.Copy());
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

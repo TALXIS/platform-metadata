@@ -37,4 +37,29 @@ public sealed class CmtSchemaField : MetadataBase
 
     /// <summary>Per-column override of <see cref="CmtDataSchema.DateMode"/> for datetime columns; one of <see cref="CmtDateModes"/> or <c>null</c>.</summary>
     public string? DateMode { get; set; }
+
+    /// <summary>
+    /// Attributes of this element the model does not know (TALXIS importer extensions such as <c>guidswap</c>, or anything newer), by XML
+    /// name. They are kept so a package written from these objects, for example a merge, carries them; the writer adds, changes and removes them.
+    /// </summary>
+    public IDictionary<string, string> OtherAttributes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A deep copy, so a merge that adds this field to another schema leaves the package it came from unchanged.
+    internal CmtSchemaField Copy()
+    {
+        var copy = new CmtSchemaField
+        {
+            Name = Name,
+            DisplayName = DisplayName,
+            Type = Type,
+            IsPrimaryKey = IsPrimaryKey,
+            IsUpdateCompare = IsUpdateCompare,
+            IsCustomField = IsCustomField,
+            LookupType = LookupType,
+            DateMode = DateMode,
+            Source = Source
+        };
+        foreach (var other in OtherAttributes) copy.OtherAttributes[other.Key] = other.Value;
+        return copy;
+    }
 }

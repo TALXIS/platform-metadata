@@ -407,6 +407,28 @@ public sealed class XmlWorkspaceWriter
         SetElementValueIfExists(attrEl, "IsCustomField", attr.IsCustomAttribute ? "1" : "0");
 
         SetElementValueIfExists(attrEl, "RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel));
+
+        // Owner and customer columns are lookups in the model; their kind lives only in the type name.
+        var lookupType = attr is LookupAttributeMetadata ? GetXmlTypeName(attr) : null;
+        if (lookupType != null && !string.Equals(attrEl.Element("Type")?.Value, lookupType, StringComparison.OrdinalIgnoreCase))
+            SetElementValueIfExists(attrEl, "Type", lookupType);
+
+        PatchApiFlag(attrEl, "ValidForUpdateApi", attr.IsValidForUpdate);
+        PatchApiFlag(attrEl, "ValidForReadApi", attr.IsValidForRead);
+        PatchApiFlag(attrEl, "ValidForCreateApi", attr.IsValidForCreate);
+        if (attr.SourceType != null && attrEl.Element("SourceType")?.Value != ((int)attr.SourceType.Value).ToString())
+            attrEl.SetElementValue("SourceType", (int)attr.SourceType.Value);
+    }
+
+    // A flag the model leaves null stays as the file has it; one the file already states, as 1 or true, keeps its spelling.
+    private static void PatchApiFlag(XElement attrEl, string elementName, bool? value)
+    {
+        if (value == null) return;
+
+        var current = attrEl.Element(elementName)?.Value;
+        if (value.Value ? current is "1" or "true" : current is "0" or "false") return;
+
+        attrEl.SetElementValue(elementName, value.Value ? "1" : "0");
     }
 
     private static XDocument BuildEntityFromScratch(EntityMetadata entity)
@@ -463,9 +485,9 @@ public sealed class XmlWorkspaceWriter
         attrEl.Add(new XElement("RequiredLevel", RequiredLevelXml.ToXmlValue(attr.RequiredLevel)));
         attrEl.Add(new XElement("DisplayMask", "ValidForAdvancedFind|ValidForForm|ValidForGrid"));
         attrEl.Add(new XElement("ImeMode", "auto"));
-        attrEl.Add(new XElement("ValidForUpdateApi", "1"));
-        attrEl.Add(new XElement("ValidForReadApi", "1"));
-        attrEl.Add(new XElement("ValidForCreateApi", "1"));
+        attrEl.Add(new XElement("ValidForUpdateApi", attr.IsValidForUpdate != false ? "1" : "0"));
+        attrEl.Add(new XElement("ValidForReadApi", attr.IsValidForRead != false ? "1" : "0"));
+        attrEl.Add(new XElement("ValidForCreateApi", attr.IsValidForCreate != false ? "1" : "0"));
         attrEl.Add(new XElement("IsCustomField", attr.IsCustomAttribute ? "1" : "0"));
         attrEl.Add(new XElement("IsAuditEnabled", attr.IsAuditEnabled ? "1" : "0"));
         attrEl.Add(new XElement("IsSecured", attr.IsSecured ? "1" : "0"));
@@ -475,7 +497,7 @@ public sealed class XmlWorkspaceWriter
         attrEl.Add(new XElement("CanModifySearchSettings", "1"));
         attrEl.Add(new XElement("CanModifyRequirementLevelSettings", "1"));
         attrEl.Add(new XElement("CanModifyAdditionalSettings", "1"));
-        attrEl.Add(new XElement("SourceType", "0"));
+        attrEl.Add(new XElement("SourceType", (int)(attr.SourceType ?? AttributeSourceType.Simple)));
         attrEl.Add(new XElement("IsSearchable", attr.IsSearchable ? "1" : "0"));
 
         // Type-specific elements
@@ -540,6 +562,9 @@ public sealed class XmlWorkspaceWriter
 
     private static string GetXmlTypeName(AttributeMetadata attr)
     {
+        if (attr is LookupAttributeMetadata lookup)
+            return lookup.LookupKind switch { LookupKind.Owner => "owner", LookupKind.Customer => "customer", _ => "lookup" };
+
         return attr.AttributeType switch
         {
             AttributeType.String => "nvarchar",
@@ -559,6 +584,8 @@ public sealed class XmlWorkspaceWriter
             AttributeType.MultiSelectPicklist => "multiselectpicklist",
             AttributeType.Image => "image",
             AttributeType.File => "file",
+            AttributeType.PartyList => "partylist",
+            AttributeType.Virtual => "virtual",
             _ => "nvarchar"
         };
     }

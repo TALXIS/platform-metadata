@@ -73,8 +73,10 @@ public sealed class CmtPackageValidator
     {
         foreach (var duplicate in dataEntity.Records.GroupBy(r => r.Id).Where(g => g.Count() > 1))
         {
+            var differing = DifferingFields(duplicate.ToList());
+            var content = differing.Count == 0 ? "identical copies" : $"copies differ in {string.Join(", ", differing)}";
             results.Add(CmtFindings.Error(duplicate.ElementAt(1), ValidationDiagnostics.CmtRecordIdentityInvalid,
-                $"CMT data.xml entity '{dataEntity.Name}' has {duplicate.Count()} records with id '{duplicate.Key}'. CMT imports each copy, but lookups to that id are skipped."));
+                $"CMT data.xml entity '{dataEntity.Name}' has {duplicate.Count()} records with id '{duplicate.Key}' ({content}). CMT imports each copy, but lookups to that id are skipped."));
         }
 
         var idField = schemaEntity.PrimaryIdField;
@@ -285,4 +287,22 @@ public sealed class CmtPackageValidator
 
     // Temporary: tolerates packages for the TALXIS importer; remove when that importer is retired.
     private static bool IsTemplate(string? value) => value != null && (value.Contains("{{") || value.Contains("{%"));
+
+    // Lets the repeated-id finding say what the copies disagree on: the environment keeps the last copy. A field one copy lacks
+    // differs; present fields are compared like package merging compares them.
+    private static List<string> DifferingFields(IReadOnlyList<CmtDataRecord> records)
+    {
+        var names = records.SelectMany(r => r.Fields.Select(f => f.Name)).Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal);
+        var differing = names.Where(name => Differs(records, name)).ToList();
+        if (records.Select(r => r.NewId).Distinct().Count() > 1) differing.Insert(0, "newId");
+        return differing;
+    }
+
+    private static bool Differs(IReadOnlyList<CmtDataRecord> records, string name)
+    {
+        var copies = records.Select(r => r.Fields.FirstOrDefault(f => f.Name == name)).ToList();
+        if (copies.Any(f => f == null)) return true;
+
+        return copies.Skip(1).Any(f => !CmtDataComparison.SameContent(copies[0]!, f!));
+    }
 }

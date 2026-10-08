@@ -7,15 +7,6 @@ namespace TALXIS.Platform.Metadata.Validation;
 
 public sealed class RelationshipValidator
 {
-    // System columns that back system relationships and live in the platform base,
-    // not the solution's Entity.xml, so their absence is never a defect.
-    private static readonly HashSet<string> SystemReferencingColumns = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ownerid", "owningbusinessunit", "owninguser", "owningteam", "organizationid",
-        "createdby", "createdonbehalfby", "modifiedby", "modifiedonbehalfby",
-        "transactioncurrencyid"
-    };
-
     // Attribute types that legitimately back a one-to-many relationship.
     private static readonly HashSet<AttributeType> RelationshipBackingTypes = new()
     {
@@ -132,7 +123,8 @@ public sealed class RelationshipValidator
         if (entity == null)
             return;
 
-        if (SystemReferencingColumns.Contains(columnName))
+        // System columns live in the platform base, not the solution's Entity.xml, so their absence is never a defect.
+        if (DataverseSystemColumns.Referencing.Contains(columnName))
             return;
 
         var attribute = entity.FindAttribute(columnName);

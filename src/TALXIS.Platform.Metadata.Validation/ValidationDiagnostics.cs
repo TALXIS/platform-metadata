@@ -83,4 +83,10 @@ public static class ValidationDiagnostics
 
     /// <summary>Two CMT data.xml records of one entity share the values CMT matches existing records on.</summary>
     public const string CmtDataDuplicateMatchKey = "TXM025";
+
+    /// <summary>
+    /// The CMT entityImportOrder imports an entity before an entity it looks up. CMT fills those lookups in its second pass, so this only
+    /// flags an order that disagrees with the lookups, usually on purpose.
+    /// </summary>
+    public const string CmtImportOrderChildBeforeParent = "TXM026";
 }

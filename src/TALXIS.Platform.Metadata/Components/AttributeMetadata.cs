@@ -12,6 +12,26 @@ public abstract class AttributeMetadata : MetadataBase, ILocalizedMetadata
     public bool IsAuditEnabled { get; set; }
     public bool IsSearchable { get; set; } = true;
     public bool IsSecured { get; set; }
+
+    /// <summary>
+    /// Whether the column can be set on create (<c>ValidForCreateApi</c>); <c>null</c> when the source does not say.
+    /// </summary>
+    public bool? IsValidForCreate { get; set; }
+
+    /// <summary>
+    /// Whether the column can be set on update (<c>ValidForUpdateApi</c>); <c>null</c> when the source does not say.
+    /// </summary>
+    public bool? IsValidForUpdate { get; set; }
+
+    /// <summary>
+    /// Whether the column can be read (<c>ValidForReadApi</c>); <c>null</c> when the source does not say.
+    /// </summary>
+    public bool? IsValidForRead { get; set; }
+
+    /// <summary>
+    /// Where the value comes from; <c>null</c> when the source does not say.
+    /// </summary>
+    public AttributeSourceType? SourceType { get; set; }
 }
 
 public enum RequiredLevel
