@@ -47,6 +47,7 @@ See [docs/roadmap.md](docs/roadmap.md) and [docs/runtime-architecture.md](docs/r
 | --- | --- |
 | `TALXIS.Platform.Metadata` | Core in-memory metadata model for entities, attributes, relationships, forms, views, apps, roles, workflows, solution manifests, component definitions, and solution layers. |
 | `TALXIS.Platform.Metadata.Serialization.Xml` | Roundtrip-safe reader/writer for unpacked SolutionPackager XML workspaces, including Power Automate flow JSON and generic component passthrough. |
+| `TALXIS.Platform.Metadata.DataMigration` | Configuration Migration tool (CMT) package model: roundtrip-safe reader/writer for `data_schema.xml` and `data.xml`, schema building from a workspace, package merge and import order. Tooling only; the runtime does not load it. |
 | `TALXIS.Platform.Metadata.Validation` | Workspace validation: XSD validation, JSON validation, duplicate GUID checks, typed model loading, and load diagnostics with file/line/column locations where available. |
 
 All packages target `netstandard2.0`.
@@ -55,6 +56,7 @@ All packages target `netstandard2.0`.
 dotnet add package TALXIS.Platform.Metadata
 dotnet add package TALXIS.Platform.Metadata.Serialization.Xml
 dotnet add package TALXIS.Platform.Metadata.Validation
+dotnet add package TALXIS.Platform.Metadata.DataMigration
 ```
 
 Add only the packages you need. The core model package has no Dataverse SDK, HTTP, SQL, or runtime service dependency.
@@ -93,7 +95,10 @@ The model separates concepts that Dataverse treats differently:
 - Loads single-solution and multi-solution workspaces.
 - Tracks source ownership so one solution can be exported from a combined workspace.
 - Handles generic components that do not yet have a dedicated typed model.
-- Loads, authors and patches Configuration Migration Tool packages ([docs](docs/configuration-migration.md)).
+
+### Data migration
+
+`TALXIS.Platform.Metadata.DataMigration` loads, authors and patches Configuration Migration Tool packages ([docs](docs/data-migration.md)).
 
 ### Validation
 
@@ -103,7 +108,7 @@ The model separates concepts that Dataverse treats differently:
 - JSON validation for flow definition payloads.
 - Duplicate GUID detection.
 - Reader/load diagnostics for malformed component files.
-- Structural rules for Configuration Migration Tool packages ([docs](docs/configuration-migration.md)).
+- Structural rules for Configuration Migration Tool packages ([docs](docs/data-migration.md)).
 - File, line, and column information where available.
 
 ## Core concepts

@@ -1,12 +1,13 @@
 # Configuration Migration packages
 
-A Configuration Migration Tool (CMT) package is a `data_schema.xml` that declares tables, columns and how records are matched, and a `data.xml` that holds the records. The library loads a package into a typed model, saves changes back without reformatting the files, and validates it. It does not connect to Dataverse or search for packages: the caller passes the paths.
+`TALXIS.Platform.Metadata.DataMigration` models the file format of Microsoft's [Configuration Migration tool (CMT)](https://learn.microsoft.com/power-platform/admin/manage-configuration-data), the `data_schema.xml` and `data.xml` pair that `pac data` and Package Deployer import and export. Reference that package (namespace `TALXIS.Platform.Metadata.DataMigration`) for the model, reader, writer and schema builders, and `TALXIS.Platform.Metadata.Validation` for the checks. The runtime does not load it.
+
+The `data_schema.xml` declares tables, columns and how records are matched; the `data.xml` holds the records. The library loads a package into a typed model, saves changes back without reformatting the files, and validates it. It does not connect to Dataverse or search for packages: the caller passes the paths.
 
 ## Load, change and save
 
 ```csharp
-using TALXIS.Platform.Metadata.ConfigurationMigration;
-using TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+using TALXIS.Platform.Metadata.DataMigration;
 using TALXIS.Platform.Metadata.Validation;
 
 var package = new CmtPackageXmlReader().LoadDirectory(@"C:\MyPackage");

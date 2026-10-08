@@ -1,7 +1,7 @@
 using System.Xml.Linq;
-using TALXIS.Platform.Metadata.ConfigurationMigration;
+using TALXIS.Platform.Metadata.Serialization.Xml;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Configuration Migration Tool package: data_schema.xml plus optional data.xml, loaded as one unit by

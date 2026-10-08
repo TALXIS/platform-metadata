@@ -1,7 +1,7 @@
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Maps Dataverse attribute types to the CMT field type vocabulary the way CMT's own schema generator does.

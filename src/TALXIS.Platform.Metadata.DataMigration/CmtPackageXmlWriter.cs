@@ -1,9 +1,8 @@
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-using TALXIS.Platform.Metadata.ConfigurationMigration;
 
-namespace TALXIS.Platform.Metadata.Serialization.Xml.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// Writes a CMT package back to data_schema.xml and data.xml, patching the documents it was read from so

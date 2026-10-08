@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// One <c>&lt;m2mrelationship&gt;</c> of data.xml: the targets a source record is associated with through

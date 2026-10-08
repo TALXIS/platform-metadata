@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="../TALXIS.Platform.Metadata/TALXIS.Platform.Metadata.csproj" />
     <ProjectReference Include="../TALXIS.Platform.Metadata.Serialization.Xml/TALXIS.Platform.Metadata.Serialization.Xml.csproj" />
+    <ProjectReference Include="../TALXIS.Platform.Metadata.DataMigration/TALXIS.Platform.Metadata.DataMigration.csproj" />
   </ItemGroup>
 
 </Project>

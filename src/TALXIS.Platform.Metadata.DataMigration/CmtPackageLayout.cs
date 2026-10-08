@@ -1,4 +1,4 @@
-namespace TALXIS.Platform.Metadata.ConfigurationMigration;
+namespace TALXIS.Platform.Metadata.DataMigration;
 
 /// <summary>
 /// File names a Configuration Migration Tool package consists of. CMT requires <see cref="SchemaFileName"/>
