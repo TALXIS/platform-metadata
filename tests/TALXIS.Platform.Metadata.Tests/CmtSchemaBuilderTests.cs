@@ -206,6 +206,38 @@ public class CmtSchemaBuilderTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => CmtWorkspaceSchemaBuilder.BuildEntity(workspace, "missing_entity", new CmtSchemaBuildOptions(), new List<string>()));
     }
 
+    // Image and multi-select columns are virtual in Dataverse too, but Entity.xml names them by their own types.
+    [Theory]
+    [InlineData("virtual", null)]
+    [InlineData("partylist", CmtFieldTypes.PartyList)]
+    [InlineData("image", CmtFieldTypes.ImageData)]
+    [InlineData("multiselectpicklist", CmtFieldTypes.OptionSetValueCollection)]
+    public void BuildEntity_FromWorkspace_MapsTheEntityXmlType(string xmlType, string? expectedType)
+    {
+        var entityDir = Directory.CreateDirectory(Path.Combine(_root, "Entities", "new_visit")).FullName;
+        File.WriteAllText(Path.Combine(entityDir, "Entity.xml"), $"""
+            <Entity>
+              <Name LocalizedName="Visit" OriginalName="Visit">new_visit</Name>
+              <EntityInfo>
+                <entity Name="new_visit">
+                  <attributes>
+                    <attribute PhysicalName="new_column">
+                      <Type>{xmlType}</Type>
+                      <LogicalName>new_column</LogicalName>
+                      <IsCustomField>1</IsCustomField>
+                      <ValidForReadApi>1</ValidForReadApi>
+                    </attribute>
+                  </attributes>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """);
+
+        var entity = CmtWorkspaceSchemaBuilder.BuildEntity(new XmlWorkspaceReader().Load(_root), "new_visit", new CmtSchemaBuildOptions(), new List<string>());
+
+        Assert.Equal(expectedType, entity.FindField("new_column")?.Type);
+    }
+
     // ---- Add, replace, merge, remove ----
 
     [Fact]

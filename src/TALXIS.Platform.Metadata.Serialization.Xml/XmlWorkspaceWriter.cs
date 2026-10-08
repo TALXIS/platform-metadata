@@ -584,6 +584,8 @@ public sealed class XmlWorkspaceWriter
             AttributeType.MultiSelectPicklist => "multiselectpicklist",
             AttributeType.Image => "image",
             AttributeType.File => "file",
+            AttributeType.PartyList => "partylist",
+            AttributeType.Virtual => "virtual",
             _ => "nvarchar"
         };
     }

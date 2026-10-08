@@ -460,8 +460,14 @@ public sealed class XmlWorkspaceReader
             case "uniqueidentifier":
                 return new UniqueIdentifierAttributeMetadata { LogicalName = logicalName };
 
-            case "entityname" or "virtual":
-                // EntityName and virtual types — use String as a reasonable fallback
+            case "virtual":
+                return new VirtualAttributeMetadata { LogicalName = logicalName };
+
+            case "partylist":
+                return new PartyListAttributeMetadata { LogicalName = logicalName };
+
+            case "entityname":
+                // EntityName — use String as a reasonable fallback
                 return new StringAttributeMetadata { LogicalName = logicalName };
 
             default:
