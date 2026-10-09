@@ -466,6 +466,21 @@ public class CmtMetadataValidatorTests
         Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
     }
 
+    [Fact]
+    public void MoreThanFiveUnknownChoiceValues_SaysHowManyAreNotListed()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_size", CmtFieldTypes.OptionSetValue);
+        var records = package.Data!.AddEntity("talxis_contract");
+        foreach (var value in new[] { "1", "2", "3", "4", "5", "6", "7" }) records.AddRecord(Guid.NewGuid()).Set("talxis_size", value);
+        var table = Table("talxis_contract");
+        table.AddAttribute(LocalChoice());
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(table)));
+
+        Assert.Contains("'1', '2', '3', '4', '5' and 2 more in 7 record(s)", finding.Message);
+    }
+
     private static PicklistAttributeMetadata LocalChoice()
     {
         var optionSet = new OptionSetMetadata { Name = "talxis_contract_talxis_size" };

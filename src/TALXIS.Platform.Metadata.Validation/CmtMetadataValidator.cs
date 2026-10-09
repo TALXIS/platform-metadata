@@ -235,7 +235,8 @@ public sealed class CmtMetadataValidator
             var unknown = group.Select(f => (field: f, values: OptionValues(f.Value!).Where(v => !options.Contains(v)).ToList())).Where(x => x.values.Count > 0).ToList();
             if (unknown.Count == 0) continue;
 
-            var values = string.Join(", ", unknown.SelectMany(x => x.values).Distinct().OrderBy(v => v).Take(5).Select(v => $"'{v}'"));
+            var distinct = unknown.SelectMany(x => x.values).Distinct().OrderBy(v => v).ToList();
+            var values = string.Join(", ", distinct.Take(5).Select(v => $"'{v}'")) + (distinct.Count > 5 ? $" and {distinct.Count - 5} more" : string.Empty);
             results.Add(CmtFindings.Warning(unknown[0].field, ValidationDiagnostics.CmtDataOptionValueUnknown,
                 $"CMT data.xml field '{dataEntity.Name}.{group.Key}' has option value(s) {values} in {unknown.Count} record(s) that the column's choice does not have in the metadata. "
                 + "Dataverse rejects those records."));
