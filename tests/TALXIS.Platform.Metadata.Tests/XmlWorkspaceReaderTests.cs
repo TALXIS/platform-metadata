@@ -597,10 +597,10 @@ public class XmlWorkspaceReaderTests
     [Fact]
     public void Load_ReadsTheOptionSetsOfChoiceColumns()
     {
-        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        CopyDirectory(SamplePath, root);
+        var root = Path.Combine(Path.GetTempPath(), $"pm-reader-{Guid.NewGuid():N}");
         try
         {
+            CopyDirectory(SamplePath, root);
             var entityPath = Directory.GetFiles(Path.Combine(root, "Entities"), "Entity.xml", SearchOption.AllDirectories)[0];
             var xml = File.ReadAllText(entityPath).Replace("</attributes>", """
                 <attribute PhysicalName="tp_size">
@@ -635,7 +635,7 @@ public class XmlWorkspaceReaderTests
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
 

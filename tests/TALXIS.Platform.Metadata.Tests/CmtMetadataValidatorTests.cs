@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.DataMigration;
@@ -364,6 +365,7 @@ public class CmtMetadataValidatorTests
     [InlineData(false, true, false)]
     [InlineData(null, false, false)]
     [InlineData(null, null, false)]
+    [InlineData(false, null, false)]
     public void ColumnClosedToCreateAndUpdate_IsAWarning(bool? validForCreate, bool? validForUpdate, bool reported)
     {
         var column = new StringAttributeMetadata { LogicalName = "talxis_note", IsValidForCreate = validForCreate, IsValidForUpdate = validForUpdate };
@@ -687,6 +689,54 @@ public class CmtMetadataValidatorTests
         var findings = ValidateField(column, CmtFieldTypes.Money);
 
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotWritable && r.Severity == ValidationSeverity.Warning));
+    }
+
+    [Fact]
+    public void FieldMissingFromAFullTable_StaysAnErrorWhenIncompleteMetadataIsAWarning()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_amount", CmtFieldTypes.Decimal);
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = ValidationSeverity.Warning };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(Table("talxis_contract")), options));
+
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.DoesNotContain("only partly in the metadata", finding.Message);
+    }
+
+    [Fact]
+    public void ManyToManyKnownOnlyToItsTable_IsFound()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddRelationship(new CmtSchemaRelationship { Name = "talxis_contract_account", IsManyToMany = true });
+        var table = Table("talxis_contract");
+        table.AddRelationship(new ManyToManyRelationshipMetadata
+        {
+            SchemaName = "talxis_contract_account_rel", Entity1LogicalName = "talxis_contract", Entity2LogicalName = "account", IntersectEntityName = "talxis_contract_account"
+        });
+
+        Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
+    }
+
+    [Fact]
+    public void Finding_PointsAtTheLineOfTheField()
+    {
+        const string schemaXml = """
+            <entities>
+              <entity name="talxis_contract" displayname="Contract" primaryidfield="talxis_contractid" primarynamefield="name">
+                <fields>
+                  <field displayname="Contract" name="talxis_contractid" type="guid" primaryKey="true" />
+                  <field displayname="Name" name="name" type="string" updateCompare="true" />
+                  <field displayname="Amount" name="talxis_amount" type="decimal" />
+                </fields>
+              </entity>
+            </entities>
+            """;
+        var package = new CmtPackageXmlReader().Read(XDocument.Parse(schemaXml, LoadOptions.SetLineInfo), null);
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(Table("talxis_contract"))));
+
+        Assert.Equal(6, finding.Line);
     }
 
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
