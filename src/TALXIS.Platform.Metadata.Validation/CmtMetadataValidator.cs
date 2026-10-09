@@ -152,9 +152,14 @@ public sealed class CmtMetadataValidator
         if (expected == null || string.IsNullOrEmpty(field.Type) || ImportedAs(field.Type!) == expected) return;
 
         results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeMismatch,
-            $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is declared as '{field.Type}', but the column is {column.AttributeType}, which CMT handles as '{expected}'. "
+            $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is declared as '{field.Type}', but the column is {Describe(column)}, which CMT handles as '{expected}'. "
             + "CMT rejects the package with 'Missing Fields'."));
     }
+
+    // Owner and customer columns are read as lookups, so their AttributeType alone would say "Lookup" next to a rejected 'lookup'.
+    private static string Describe(AttributeMetadata column) => column is LookupAttributeMetadata lookup
+        ? lookup.LookupKind switch { LookupKind.Owner => "an owner lookup", LookupKind.Customer => "a customer lookup", _ => "a lookup" }
+        : column.AttributeType.ToString();
 
     // Only a column closed to both create and update is reported: one open to either still takes the value on that path.
     private static void ValidateWritable(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)

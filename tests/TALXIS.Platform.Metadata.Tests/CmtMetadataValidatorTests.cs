@@ -138,6 +138,17 @@ public class CmtMetadataValidatorTests
     }
 
     [Theory]
+    [InlineData(LookupKind.Owner, "an owner lookup")]
+    [InlineData(LookupKind.Customer, "a customer lookup")]
+    [InlineData(LookupKind.Lookup, "a lookup")]
+    public void TypeMismatchOnALookup_NamesTheKindOfLookup(LookupKind kind, string described)
+    {
+        var finding = Assert.Single(ValidateField(new LookupAttributeMetadata { LogicalName = "talxis_note", LookupKind = kind }, "string"), r => r.Code == ValidationDiagnostics.CmtFieldTypeMismatch);
+
+        Assert.Contains($"the column is {described},", finding.Message);
+    }
+
+    [Theory]
     [InlineData("filedata")]
     [InlineData("file")]
     public void FileField_AcceptsTheTalxisSpelling(string declared)
