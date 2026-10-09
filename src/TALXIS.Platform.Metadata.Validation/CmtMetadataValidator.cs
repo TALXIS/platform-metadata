@@ -25,10 +25,11 @@ public sealed class CmtMetadataValidator
     {
         options ??= new CmtMetadataValidationOptions();
         var results = new List<ValidationResult>();
+        var tables = new CmtMetadataTables(metadata);
 
         foreach (var entity in package.Schema.Entities)
         {
-            var table = metadata.FindEntity(entity.Name);
+            var table = tables.Find(entity.Name);
             if (table == null)
             {
                 results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, entity, ValidationDiagnostics.CmtEntityNotInMetadata,
@@ -48,7 +49,7 @@ public sealed class CmtMetadataValidator
             ValidateLookupEntities(dataEntity, metadata, options, results);
 
             var entity = package.Schema.FindEntity(dataEntity.Name);
-            var table = metadata.FindEntity(dataEntity.Name);
+            var table = tables.Find(dataEntity.Name);
             if (entity == null || table == null || entity.RenderLiquid == true) continue;
 
             ValidateOptionValues(dataEntity, entity, table, metadata, results);
