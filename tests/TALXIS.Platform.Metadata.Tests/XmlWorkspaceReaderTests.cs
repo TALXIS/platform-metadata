@@ -639,6 +639,53 @@ public class XmlWorkspaceReaderTests
         }
     }
 
+    [Fact]
+    public void Load_ReadsTheStatesAndStatusesOfStateAndStatusColumns()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"pm-reader-{Guid.NewGuid():N}");
+        try
+        {
+            CopyDirectory(SamplePath, root);
+            var entityPath = Directory.GetFiles(Path.Combine(root, "Entities"), "Entity.xml", SearchOption.AllDirectories)[0];
+            var xml = File.ReadAllText(entityPath).Replace("</attributes>", """
+                <attribute PhysicalName="statecode">
+                  <Type>state</Type>
+                  <LogicalName>statecode</LogicalName>
+                  <optionset Name="tp_entity_statecode">
+                    <OptionSetType>state</OptionSetType>
+                    <states>
+                      <state value="0" defaultstatus="1" invariantname="Active" />
+                      <state value="1" defaultstatus="2" invariantname="Inactive" />
+                    </states>
+                  </optionset>
+                </attribute>
+                <attribute PhysicalName="statuscode">
+                  <Type>status</Type>
+                  <LogicalName>statuscode</LogicalName>
+                  <optionset Name="tp_entity_statuscode">
+                    <OptionSetType>status</OptionSetType>
+                    <statuses>
+                      <status value="1" state="0" />
+                      <status value="2" state="1" />
+                      <status value="961270000" state="1" />
+                    </statuses>
+                  </optionset>
+                </attribute>
+              </attributes>
+              """);
+            File.WriteAllText(entityPath, xml);
+
+            var entity = new XmlWorkspaceReader().Load(root).Entities[0];
+
+            Assert.Equal(new[] { 0, 1 }, Assert.IsType<StateAttributeMetadata>(entity.FindAttribute("statecode")).OptionSet!.Options.Select(o => o.Value));
+            Assert.Equal(new[] { 1, 2, 961270000 }, Assert.IsType<StatusAttributeMetadata>(entity.FindAttribute("statuscode")).OptionSet!.Options.Select(o => o.Value));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static void CopyDirectory(string source, string target)
     {
         foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories)) Directory.CreateDirectory(directory.Replace(source, target));

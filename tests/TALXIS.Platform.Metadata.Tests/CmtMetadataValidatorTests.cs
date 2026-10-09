@@ -255,6 +255,21 @@ public class CmtMetadataValidatorTests
         Assert.Equal(expected, findings.Count(r => r.Code == ValidationDiagnostics.CmtDataOptionValueUnknown));
     }
 
+    [Theory]
+    [InlineData("2", 0)]
+    [InlineData("987654", 1)]
+    public void StatusValueThatIsNotAStatus_IsAWarning(string value, int expected)
+    {
+        var statuses = new OptionSetMetadata { Name = "talxis_contract_statuscode" };
+        statuses.AddOption(new OptionMetadata { Value = 1 });
+        statuses.AddOption(new OptionMetadata { Value = 2 });
+        var column = new StatusAttributeMetadata { LogicalName = "statuscode", OptionSet = statuses };
+
+        var findings = ValidateOptionValue(column, CmtFieldTypes.Status, value);
+
+        Assert.Equal(expected, findings.Count(r => r.Code == ValidationDiagnostics.CmtDataOptionValueUnknown));
+    }
+
     [Fact]
     public void GlobalChoice_TakesItsOptionsFromTheGlobalOptionSet()
     {

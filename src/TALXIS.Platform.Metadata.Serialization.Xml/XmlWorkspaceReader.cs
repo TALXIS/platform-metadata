@@ -525,9 +525,14 @@ public sealed class XmlWorkspaceReader
         return (optionSet, doc);
     }
 
+    // State and status choices keep their values in <states> and <statuses> instead of <options>.
     private static void ReadOptions(XElement optionSetElement, OptionSetMetadata optionSet)
     {
-        foreach (var optEl in optionSetElement.Element("options")?.Elements("option") ?? Enumerable.Empty<XElement>())
+        var options = optionSetElement.Element("options")?.Elements("option")
+            ?? optionSetElement.Element("states")?.Elements("state")
+            ?? optionSetElement.Element("statuses")?.Elements("status")
+            ?? Enumerable.Empty<XElement>();
+        foreach (var optEl in options)
         {
             var valStr = optEl.Attribute("value")?.Value;
             if (!int.TryParse(valStr, out var value)) continue;
