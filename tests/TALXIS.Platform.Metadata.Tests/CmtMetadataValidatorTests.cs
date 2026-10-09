@@ -61,6 +61,17 @@ public class CmtMetadataValidatorTests
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtEntityNotInMetadata && r.Severity == ValidationSeverity.Error));
     }
 
+    [Fact]
+    public void TableThatDoesNotAcceptImports_GetsNoOtherFindings()
+    {
+        var package = Package("talxis_log");
+        package.Schema.FindEntity("talxis_log")!.AddField("talxis_amount", CmtFieldTypes.Decimal);
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(Table("talxis_log", isImportable: false))));
+
+        Assert.Equal(ValidationDiagnostics.CmtEntityNotInMetadata, finding.Code);
+    }
+
     [Theory]
     [InlineData("talxis_amount", true)]
     [InlineData("talxis_note", false)]

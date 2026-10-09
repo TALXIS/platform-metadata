@@ -47,7 +47,9 @@ public sealed class CmtMetadataValidator
                 continue;
             }
 
-            ValidateImportable(entity, table, results);
+            // CMT stops at a table it hides, so nothing else about it matters.
+            if (!IsImportable(entity, table, results)) continue;
+
             ValidatePrimaryFields(entity, table, results);
             ValidateFields(entity, table, metadata, options, results);
             ValidateManyToMany(entity, table, metadata, options, results);
@@ -350,11 +352,12 @@ public sealed class CmtMetadataValidator
 
     private static bool SameName(string? left, string? right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
-    private static void ValidateImportable(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
+    private static bool IsImportable(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {
-        if (table.IsImportable != false || ImportableExceptions.Contains(table.LogicalName)) return;
+        if (table.IsImportable != false || ImportableExceptions.Contains(Logical(table.LogicalName))) return true;
 
         results.Add(CmtFindings.Error(entity, ValidationDiagnostics.CmtEntityNotInMetadata,
             $"CMT data_schema.xml entity '{entity.Name}' is a table that does not accept data imports. CMT hides such tables and stops the import."));
+        return false;
     }
 }
