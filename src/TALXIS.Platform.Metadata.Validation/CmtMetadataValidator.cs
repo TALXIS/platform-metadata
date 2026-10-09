@@ -191,7 +191,7 @@ public sealed class CmtMetadataValidator
         // Targets read from the relationships are complete only when the solution holds the whole table; on a shell the owning solution's are missing.
         var complete = column is LookupAttributeMetadata { Targets.Length: > 0 } || !IsPartial(table);
         var known = string.Join(", ", allowed.Select(a => $"'{a}'"));
-        foreach (var target in field.LookupType!.Split('|').Where(t => t.Length > 0 && !allowed.Contains(t.ToLowerInvariant())))
+        foreach (var target in field.LookupType!.Split('|').Select(t => t.Trim()).Where(t => t.Length > 0 && !allowed.Contains(t.ToLowerInvariant())))
         {
             results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtLookupTargetNotAllowed, complete
                 ? $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the column can only point to {known}. Dataverse rejects a record whose lookup points there."

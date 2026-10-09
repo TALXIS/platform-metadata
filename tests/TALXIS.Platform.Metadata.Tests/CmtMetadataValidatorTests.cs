@@ -274,6 +274,7 @@ public class CmtMetadataValidatorTests
     [InlineData("account|contact", true, 0)]
     [InlineData("account", true, 0)]
     [InlineData("account|talxis_partner", true, 1)]
+    [InlineData(" account | contact ", true, 0)]
     [InlineData("*", true, 0)]
     [InlineData("talxis_partner", false, 0)]
     public void LookupTypeNamingATableTheColumnCannotPointTo_IsAWarning(string lookupType, bool relationshipsKnown, int expected)
