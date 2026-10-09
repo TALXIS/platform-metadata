@@ -342,6 +342,7 @@ public class CmtMetadataValidatorTests
     [InlineData("100000001", 0)]
     [InlineData("100000005", 1)]
     [InlineData("not-a-number", 0)]
+    [InlineData("-1", 1)]
     public void ChoiceValueThatIsNotAnOption_IsAWarning(string value, int expected)
     {
         var findings = ValidateOptionValue(LocalChoice(), CmtFieldTypes.OptionSetValue, value);

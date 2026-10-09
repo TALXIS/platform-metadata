@@ -265,10 +265,14 @@ public sealed class CmtMetadataValidator
     // A single value, or a list: CMT's "[-1,1,2,-1]", plain "1,2", or the TALXIS importer's ["1","2"].
     private static IEnumerable<int> OptionValues(string value)
     {
-        var list = value.Trim().TrimStart('[').TrimEnd(']');
-        foreach (var part in list.Split(','))
+        var trimmed = value.Trim();
+        // Only CMT's list form wraps the values in -1 sentinels; elsewhere -1 is a value like any other.
+        var sentinels = trimmed.StartsWith("[-1,", StringComparison.Ordinal) && trimmed.EndsWith(",-1]", StringComparison.Ordinal);
+        var parts = trimmed.TrimStart('[').TrimEnd(']').Split(',').ToList();
+        if (sentinels) parts = parts.Skip(1).Take(parts.Count - 2).ToList();
+        foreach (var part in parts)
         {
-            if (int.TryParse(part.Trim().Trim('"'), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var option) && option != -1) yield return option;
+            if (int.TryParse(part.Trim().Trim('"'), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var option)) yield return option;
         }
     }
 
