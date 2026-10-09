@@ -30,6 +30,14 @@ public class LookupTargetsTests
     }
 
     [Fact]
+    public void BlankTargetsOnTheColumn_FallBackToTheRelationships()
+    {
+        var customer = new LookupAttributeMetadata { LogicalName = "talxis_customerid", Targets = new[] { "", " " } };
+
+        Assert.Equal(new[] { "account", "contact" }, LookupTargets.Resolve(customer, "talxis_contract", CustomerRelationships));
+    }
+
+    [Fact]
     public void ColumnNoRelationshipBacks_HasNoTargets()
     {
         var owner = new LookupAttributeMetadata { LogicalName = "ownerid", LookupKind = LookupKind.Owner };

@@ -3,7 +3,7 @@ using TALXIS.Platform.Metadata.Components.Attributes;
 namespace TALXIS.Platform.Metadata.Components;
 
 /// <summary>
-/// The tables a lookup column can point to, shared by CMT schema generation and CMT metadata validation.
+/// The tables a lookup column can point to, whether the metadata lists them on the column or only through its relationships.
 /// </summary>
 public static class LookupTargets
 {
@@ -13,15 +13,17 @@ public static class LookupTargets
     /// </summary>
     public static IReadOnlyList<string> Resolve(AttributeMetadata attribute, string entityLogicalName, IEnumerable<RelationshipMetadata> relationships)
     {
-        // Unpacked solutions rarely list lookup targets on the column, and when they do it is by type code, so the relationships fill the gap.
-        var targets = attribute is LookupAttributeMetadata lookup && lookup.Targets.Length > 0
-            ? lookup.Targets
-            : relationships.OfType<OneToManyRelationshipMetadata>()
+        // Unpacked solutions rarely list lookup targets on the column, so the relationships fill the gap.
+        var own = attribute is LookupAttributeMetadata lookup ? Clean(lookup.Targets) : new List<string>();
+        return own.Count > 0
+            ? own
+            : Clean(relationships.OfType<OneToManyRelationshipMetadata>()
                 .Where(r => SameName(r.ReferencingEntity, entityLogicalName) && SameName(r.ReferencingAttribute, attribute.LogicalName))
-                .Select(r => r.ReferencedEntity);
-
-        return targets.Where(t => !string.IsNullOrEmpty(t)).Select(t => t.ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToList();
+                .Select(r => r.ReferencedEntity));
     }
+
+    private static List<string> Clean(IEnumerable<string> targets) =>
+        targets.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim().ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToList();
 
     private static bool SameName(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

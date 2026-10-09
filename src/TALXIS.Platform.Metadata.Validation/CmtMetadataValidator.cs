@@ -193,7 +193,7 @@ public sealed class CmtMetadataValidator
         if (allowed.Count == 0) return;
 
         // Targets read from the relationships are complete only when the solution holds the whole table; on a shell the owning solution's are missing.
-        var complete = column is LookupAttributeMetadata { Targets.Length: > 0 } || !IsPartial(table);
+        var complete = (column is LookupAttributeMetadata lookup && lookup.Targets.Any(t => !string.IsNullOrWhiteSpace(t))) || !IsPartial(table);
         var known = string.Join(", ", allowed.Select(a => $"'{a}'"));
         foreach (var target in field.LookupType!.Split('|').Select(t => t.Trim()).Where(t => t.Length > 0 && !allowed.Contains(t.ToLowerInvariant())))
         {
