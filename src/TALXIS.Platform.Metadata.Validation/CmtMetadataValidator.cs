@@ -267,6 +267,16 @@ public sealed class CmtMetadataValidator
             var matches = manyToMany.Where(m => SameName(m.IntersectEntityName, relationship.Name)).ToList();
             if (matches.Any(m => SameName(m.Entity1LogicalName, table.LogicalName))) continue;
 
+            // The relationship's own name often differs from its intersect table's, and it is the one people copy from the solution.
+            var named = matches.Count == 0 ? manyToMany.FirstOrDefault(m => SameName(m.SchemaName, relationship.Name)) : null;
+            if (named != null)
+            {
+                results.Add(CmtFindings.Error(relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
+                    $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' is named after the many-to-many relationship, but CMT finds it by its intersect table, "
+                    + $"'{named.IntersectEntityName}'. CMT stops the import."));
+                continue;
+            }
+
             var other = matches.FirstOrDefault(m => SameName(m.Entity2LogicalName, table.LogicalName));
             var reason = other == null
                 ? "is not a many-to-many relationship in the metadata"

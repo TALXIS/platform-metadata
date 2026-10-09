@@ -167,6 +167,28 @@ public class CmtMetadataValidatorTests
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata && r.Severity == ValidationSeverity.Error));
     }
 
+    [Fact]
+    public void ManyToManyEntryNamedAfterTheRelationshipInsteadOfItsIntersectTable_SaysWhichNameToUse()
+    {
+        var package = Package("talxis_pricelistheader");
+        package.Schema.FindEntity("talxis_pricelistheader")!.AddRelationship(new CmtSchemaRelationship
+        {
+            Name = "ntg_talxis_pricelistheader_talxis_contract", IsManyToMany = true, M2mTargetEntity = "talxis_contract", M2mTargetEntityPrimaryKey = "talxis_contractid"
+        });
+        var metadata = Metadata(new EntityMetadata { LogicalName = "talxis_pricelistheader" });
+        metadata.AddRelationship(new ManyToManyRelationshipMetadata
+        {
+            SchemaName = "ntg_talxis_pricelistheader_talxis_contract", Entity1LogicalName = "talxis_pricelistheader", Entity2LogicalName = "talxis_contract",
+            IntersectEntityName = "ntg_talxis_contract_talxis_pricelistheader"
+        });
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = ValidationSeverity.Warning };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, metadata, options), r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata);
+
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("'ntg_talxis_contract_talxis_pricelistheader'", finding.Message);
+    }
+
     [Theory]
     [InlineData("talxis_contractid", "name", 0)]
     [InlineData("talxis_title", "name", 1)]
