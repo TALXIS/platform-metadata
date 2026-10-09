@@ -184,7 +184,7 @@ public sealed class CmtMetadataValidator
             return;
         }
 
-        if (column.IsValidForCreate != false || column.IsValidForUpdate != false) return;
+        if (!ReadOnlyColumns.Contains(column)) return;
 
         results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldNotWritable,
             $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is a column Dataverse does not let anyone set on create or update. "

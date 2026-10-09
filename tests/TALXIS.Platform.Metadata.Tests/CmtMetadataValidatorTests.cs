@@ -676,6 +676,13 @@ public class CmtMetadataValidatorTests
         Assert.Contains("only partly in the metadata", finding.Message);
     }
 
+    [Fact]
+    public void FileAndImageColumns_AreNotReportedForBeingClosedToCreateAndUpdate()
+    {
+        Assert.Empty(ValidateField(new FileAttributeMetadata { LogicalName = "talxis_note", IsValidForCreate = false, IsValidForUpdate = false }, CmtFieldTypes.FileData));
+        Assert.Empty(ValidateField(new ImageAttributeMetadata { LogicalName = "talxis_note", IsValidForCreate = false, IsValidForUpdate = false }, CmtFieldTypes.ImageData));
+    }
+
     [Theory]
     [InlineData(AttributeSourceType.Calculated, "talxis_total", true)]
     [InlineData(AttributeSourceType.Rollup, "talxis_total", true)]
