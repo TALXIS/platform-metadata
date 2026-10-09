@@ -322,6 +322,8 @@ public sealed class CmtMetadataValidator
         if (match == null) return "is not a relationship in the metadata";
         if (!SameName(match.ReferencingEntity, table.LogicalName)) return $"belongs to table '{match.ReferencingEntity}', whose column '{match.ReferencingAttribute}' holds the lookup";
         if (SameName(match.ReferencingAttribute, relationship.ReferencingAttribute) && SameName(match.ReferencedEntity, relationship.ReferencedEntity)) return null;
+        if (string.IsNullOrEmpty(relationship.ReferencingAttribute) || string.IsNullOrEmpty(relationship.ReferencedEntity))
+            return $"does not say which column and table it links; in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
 
         return $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
     }

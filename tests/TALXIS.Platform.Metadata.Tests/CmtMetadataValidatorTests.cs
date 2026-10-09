@@ -568,6 +568,20 @@ public class CmtMetadataValidatorTests
     }
 
     [Fact]
+    public void ManyToOneEntryWithoutItsColumns_SaysWhatIsMissing()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddRelationship(new CmtSchemaRelationship { Name = "talxis_contract_talxis_regionid_talxis_region" });
+        var metadata = Metadata(Table("talxis_contract"));
+        metadata.AddRelationship(ManyToOne("talxis_contract", "talxis_regionid", "talxis_region"));
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, metadata), r => r.Code == ValidationDiagnostics.CmtRelationshipNotInMetadata);
+
+        Assert.DoesNotContain("''", finding.Message);
+        Assert.Contains("does not say which column and table", finding.Message);
+    }
+
+    [Fact]
     public void ManyToOneEntryOnAnotherTable_SaysWhereItBelongs()
     {
         var package = Package("account");
