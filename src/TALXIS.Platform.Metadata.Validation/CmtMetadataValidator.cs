@@ -159,6 +159,14 @@ public sealed class CmtMetadataValidator
     // Only a column closed to both create and update is reported: one open to either still takes the value on that path.
     private static void ValidateWritable(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)
     {
+        if (ComputedColumns.Contains(column))
+        {
+            results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldNotWritable,
+                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is a column whose value Dataverse computes itself. "
+                + "The import goes on, but its values are dropped or recomputed without an error."));
+            return;
+        }
+
         if (column.IsValidForCreate != false || column.IsValidForUpdate != false) return;
 
         results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldNotWritable,
@@ -166,7 +174,6 @@ public sealed class CmtMetadataValidator
             + "The import goes on, but its values are dropped without an error."));
     }
 
-    // lookupType="*" lets CMT take any table, and a column whose targets the metadata does not know cannot be checked.
     private static void ValidateLookupTargets(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, EntityMetadata table,
         IReadOnlyList<RelationshipMetadata> relationships, List<ValidationResult> results)
     {

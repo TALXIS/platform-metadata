@@ -325,8 +325,7 @@ public static class CmtSchemaBuilder
     {
         var name = attribute.LogicalName;
         if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name)) return false;
-        if (attribute.SourceType is AttributeSourceType.Calculated or AttributeSourceType.Rollup or AttributeSourceType.Formula) return false;
-        if (attribute.AttributeType == AttributeType.Money && name.EndsWith("_base", StringComparison.OrdinalIgnoreCase)) return false;
+        if (ComputedColumns.Contains(attribute)) return false;
 
         return attribute.AttributeType != AttributeType.Virtual;
     }

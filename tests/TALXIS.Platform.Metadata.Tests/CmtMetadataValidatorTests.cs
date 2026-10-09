@@ -557,6 +557,21 @@ public class CmtMetadataValidatorTests
         Assert.Contains("only partly in the metadata", finding.Message);
     }
 
+    [Theory]
+    [InlineData(AttributeSourceType.Calculated, "talxis_total", true)]
+    [InlineData(AttributeSourceType.Rollup, "talxis_total", true)]
+    [InlineData(AttributeSourceType.Formula, "talxis_total", true)]
+    [InlineData(AttributeSourceType.Simple, "talxis_total", false)]
+    [InlineData(AttributeSourceType.Simple, "talxis_total_base", true)]
+    public void ColumnWhoseValueDataverseComputes_IsAWarningEvenWhenItsFlagsAllowWriting(AttributeSourceType sourceType, string name, bool reported)
+    {
+        var column = new MoneyAttributeMetadata { LogicalName = name, SourceType = sourceType, IsValidForCreate = true, IsValidForUpdate = true };
+
+        var findings = ValidateField(column, CmtFieldTypes.Money);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotWritable && r.Severity == ValidationSeverity.Warning));
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");
