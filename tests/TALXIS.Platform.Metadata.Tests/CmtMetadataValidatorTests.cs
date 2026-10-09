@@ -149,7 +149,9 @@ public class CmtMetadataValidatorTests
     [Theory]
     [InlineData("string", false)]
     [InlineData("optionsetvalue", true)]
-    [InlineData("lookup", true)]
+    [InlineData("entityreference", true)]
+    [InlineData("text", false)]
+    [InlineData("String", false)]
     public void FieldDeclaredWithAnotherTypeThanItsColumn_IsAnError(string declared, bool reported)
     {
         var findings = ValidateField(new StringAttributeMetadata { LogicalName = "talxis_note" }, declared);
@@ -165,7 +167,7 @@ public class CmtMetadataValidatorTests
     [InlineData(LookupKind.Owner, "owner", false)]
     [InlineData(LookupKind.Owner, "entityreference", true)]
     [InlineData(LookupKind.Lookup, "string", true)]
-    public void LookupField_AcceptsTheImporterSynonyms(LookupKind kind, string declared, bool reported)
+    public void LookupField_LeavesTypesOutsideTheCmtVocabularyToTheStructuralRules(LookupKind kind, string declared, bool reported)
     {
         var findings = ValidateField(new LookupAttributeMetadata { LogicalName = "talxis_note", LookupKind = kind }, declared);
 
@@ -186,7 +188,7 @@ public class CmtMetadataValidatorTests
     [Theory]
     [InlineData("filedata")]
     [InlineData("file")]
-    public void FileField_AcceptsTheTalxisSpelling(string declared)
+    public void FileField_LeavesTheTalxisSpellingToTheStructuralRules(string declared)
     {
         Assert.Empty(ValidateField(new FileAttributeMetadata { LogicalName = "talxis_note" }, declared));
     }

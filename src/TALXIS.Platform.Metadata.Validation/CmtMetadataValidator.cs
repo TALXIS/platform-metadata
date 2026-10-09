@@ -151,8 +151,9 @@ public sealed class CmtMetadataValidator
 
     private static void ValidateFieldType(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)
     {
+        // A type outside what CMT imports (empty, capitalised, customer, lookup, the TALXIS file) is already reported by CmtDataSchemaValidator.
         var expected = CmtFieldTypeMapper.ToCmtType(column);
-        if (expected == null || string.IsNullOrEmpty(field.Type) || ImportedAs(field.Type!) == expected) return;
+        if (expected == null || field.Type == null || !CmtFieldTypes.Importable.Contains(field.Type) || field.Type == expected) return;
 
         results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldTypeMismatch,
             $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is declared as '{field.Type}', but the column is {Describe(column)}, which CMT handles as '{expected}'. "
@@ -200,14 +201,6 @@ public sealed class CmtMetadataValidator
                 : $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the metadata only knows the column to point to {known}." + PartialTableNote));
         }
     }
-
-    // The type the importer reads a declared type as: it takes lookup and customer for entityreference, and the TALXIS importer writes file for filedata.
-    private static string ImportedAs(string type) => type.ToLowerInvariant() switch
-    {
-        "lookup" or CmtFieldTypes.Customer => CmtFieldTypes.EntityReference,
-        CmtFieldTypes.File => CmtFieldTypes.FileData,
-        var lowercase => lowercase
-    };
 
     // One finding per field and missing table. A table the package imports itself is already reported as missing from the
     // metadata and will exist once the package runs; the system tables every export points to exist in every environment.
