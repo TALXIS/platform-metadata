@@ -296,12 +296,13 @@ public static class CmtSchemaBuilder
     {
         var name = attribute.LogicalName;
         if (name == entity.PrimaryIdAttribute || name == entity.PrimaryNameAttribute) return true;
+        if (selection == CmtFieldSelection.Full && FullSelectionAuditColumns.Contains(name)) return true;
         if (!CanMigrate(attribute)) return false;
 
         if (selection == CmtFieldSelection.Full)
         {
             return (attribute.IsValidForCreate != false && attribute.IsValidForUpdate != false)
-                || FullSelectionAuditColumns.Contains(name)
+                || attribute.AttributeType is AttributeType.File or AttributeType.Image
                 || StandardSystemColumns.Contains(name);
         }
 
@@ -324,7 +325,7 @@ public static class CmtSchemaBuilder
     private static bool CanMigrate(AttributeMetadata attribute)
     {
         var name = attribute.LogicalName;
-        if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name)) return false;
+        if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name) || ReadOnlyColumns.Contains(attribute)) return false;
         if (ComputedColumns.Contains(attribute)) return false;
 
         return attribute.AttributeType != AttributeType.Virtual;
