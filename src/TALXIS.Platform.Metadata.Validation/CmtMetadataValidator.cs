@@ -97,7 +97,7 @@ public sealed class CmtMetadataValidator
         var partial = IsPartial(table);
         var unknown = new List<string>();
         // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
-        foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
+        foreach (var field in entity.Fields.Where(f => !SameName(f.Name, "versionnumber")))
         {
             var column = table.FindAttribute(field.Name);
             if (column == null && IsHelperColumn(field.Name, table)) continue;

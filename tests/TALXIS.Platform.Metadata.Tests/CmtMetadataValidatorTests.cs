@@ -65,6 +65,7 @@ public class CmtMetadataValidatorTests
     [InlineData("talxis_amount", true)]
     [InlineData("talxis_note", false)]
     [InlineData("versionnumber", false)]
+    [InlineData("VersionNumber", false)]
     public void FieldThatIsNotAColumnOfTheTable_IsAnError(string field, bool reported)
     {
         var package = Package("talxis_contract");
