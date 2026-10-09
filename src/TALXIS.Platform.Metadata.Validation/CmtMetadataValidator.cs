@@ -94,16 +94,23 @@ public sealed class CmtMetadataValidator
     {
         var relationships = Relationships(table, metadata);
         var partial = IsPartial(table);
+        var unknown = new List<string>();
         // Letter case is left to CmtDataSchemaValidator's lowercase rule; versionnumber is on every table, solutions just leave it out.
         foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
         {
             var column = table.FindAttribute(field.Name);
             if (column == null && IsHelperColumn(field.Name, table)) continue;
+            if (column == null && partial)
+            {
+                // A shell lacks its primary id and the system columns by definition, so only the table's own columns are worth naming.
+                if (!SameName(field.Name, PrimaryId(table)) && !DataverseSystemColumns.Contains(field.Name)) unknown.Add(field.Name);
+                continue;
+            }
+
             if (column == null)
             {
-                results.Add(CmtFindings.Finding(partial ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, field, ValidationDiagnostics.CmtFieldNotInMetadata,
-                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."
-                    + (partial ? PartialTableNote : string.Empty)));
+                results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
+                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
                 continue;
             }
 
@@ -114,6 +121,15 @@ public sealed class CmtMetadataValidator
             ValidateLookupTargets(entity, field, column, table, relationships, results);
             ValidateWritable(entity, field, column, results);
         }
+
+        if (unknown.Count == 0) return;
+
+        results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, entity, ValidationDiagnostics.CmtFieldNotInMetadata,
+            unknown.Count == 1
+                ? $"CMT data_schema.xml field '{unknown[0]}' of table '{entity.Name}' is not a column in the metadata. "
+                    + "CMT rejects the package with 'Missing Fields' if it is missing in the target environment." + PartialTableNote
+                : $"CMT data_schema.xml fields {string.Join(", ", unknown.Select(n => $"'{n}'"))} of table '{entity.Name}' are not columns in the metadata. "
+                    + "CMT rejects the package with 'Missing Fields' if they are missing in the target environment." + PartialTableNote));
     }
 
     // Derived columns Dataverse adds and solutions leave out: a rollup's _state and _date, and a lookup's name, yomi name and type.
@@ -284,11 +300,10 @@ public sealed class CmtMetadataValidator
     private const string PartialTableNote = " The table is only partly in the metadata (its primary id column is missing), so the metadata may just leave this out.";
 
     // A table added to a solution without all its columns, typically one owned by another solution, lacks its primary id column.
-    private static bool IsPartial(EntityMetadata table)
-    {
-        var primaryId = !string.IsNullOrEmpty(table.PrimaryIdAttribute) ? table.PrimaryIdAttribute! : table.IsActivity ? "activityid" : $"{table.LogicalName}id";
-        return table.FindAttribute(primaryId) == null;
-    }
+    private static bool IsPartial(EntityMetadata table) => table.FindAttribute(PrimaryId(table)) == null;
+
+    private static string PrimaryId(EntityMetadata table) =>
+        !string.IsNullOrEmpty(table.PrimaryIdAttribute) ? table.PrimaryIdAttribute! : table.IsActivity ? "activityid" : $"{table.LogicalName.ToLowerInvariant()}id";
 
     // Relationships from another solution sit only on the workspace; ones filled in from a live environment may sit only on the table.
     private static IReadOnlyList<RelationshipMetadata> Relationships(EntityMetadata table, Workspace metadata) =>

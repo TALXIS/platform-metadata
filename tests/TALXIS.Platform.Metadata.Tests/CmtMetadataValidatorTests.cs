@@ -439,18 +439,32 @@ public class CmtMetadataValidatorTests
     [Theory]
     [InlineData(ValidationSeverity.Error)]
     [InlineData(ValidationSeverity.Warning)]
-    public void FieldOfATableOnlyPartlyInTheMetadata_TakesTheIncompleteMetadataSeverity(ValidationSeverity severity)
+    public void FieldsMissingFromATableOnlyPartlyInTheMetadata_AreReportedOnceForTheTable(ValidationSeverity severity)
     {
         var package = Package("talxis_contract");
+        var entity = package.Schema.FindEntity("talxis_contract")!;
+        entity.AddField("statecode", CmtFieldTypes.State);
+        entity.AddField("ownerid", CmtFieldTypes.Owner);
+        entity.AddField("talxis_amount", CmtFieldTypes.Decimal);
         var table = new EntityMetadata { LogicalName = "talxis_contract" };
         table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_note" });
         var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = severity };
 
-        var findings = new CmtMetadataValidator().Validate(package, Metadata(table), options).Where(r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata).ToList();
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(table), options), r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata);
 
-        Assert.Equal(2, findings.Count);
-        Assert.All(findings, r => Assert.Equal(severity, r.Severity));
-        Assert.All(findings, r => Assert.Contains("only partly in the metadata", r.Message));
+        Assert.Equal(severity, finding.Severity);
+        Assert.Contains("fields 'name', 'talxis_amount' of table 'talxis_contract'", finding.Message);
+        Assert.Contains("only partly in the metadata", finding.Message);
+    }
+
+    [Fact]
+    public void OneFieldMissingFromATableOnlyPartlyInTheMetadata_IsNamedInTheSingular()
+    {
+        var table = new EntityMetadata { LogicalName = "talxis_contract" };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(Package("talxis_contract"), Metadata(table)), r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata);
+
+        Assert.Contains("field 'name' of table 'talxis_contract' is not a column", finding.Message);
     }
 
     [Fact]
