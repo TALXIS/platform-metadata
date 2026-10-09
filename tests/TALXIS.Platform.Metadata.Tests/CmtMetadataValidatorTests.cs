@@ -25,6 +25,7 @@ public class CmtMetadataValidatorTests
         Assert.Equal(ValidationSeverity.Error, finding.Severity);
         Assert.Equal(ValidationStage.CmtData, finding.Stage);
         Assert.Contains("'talxis_contracts'", finding.Message);
+        Assert.Contains("if the target environment does not have it", finding.Message);
     }
 
     [Theory]

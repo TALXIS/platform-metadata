@@ -43,7 +43,7 @@ public sealed class CmtMetadataValidator
             if (table == null)
             {
                 results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, entity, ValidationDiagnostics.CmtEntityNotInMetadata,
-                    $"CMT data_schema.xml entity '{entity.Name}' is not a table in the metadata. CMT stops the import on a table the target environment does not have."));
+                    $"CMT data_schema.xml entity '{entity.Name}' is not a table in the metadata. CMT stops the import if the target environment does not have it."));
                 continue;
             }
 
