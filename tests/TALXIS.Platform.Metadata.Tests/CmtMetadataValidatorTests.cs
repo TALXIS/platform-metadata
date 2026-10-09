@@ -389,6 +389,42 @@ public class CmtMetadataValidatorTests
         Assert.Equal(ValidationSeverity.Warning, finding.Severity);
     }
 
+    [Fact]
+    public void LookupTypeOnATableOnlyPartlyInTheMetadata_SaysTheMetadataMayNotKnowEveryTarget()
+    {
+        var package = Package("talxis_warehouseitem");
+        package.Schema.FindEntity("talxis_warehouseitem")!.AddField("talxis_itemid", CmtFieldTypes.EntityReference, lookupType: "ntg_packagematerial|talxis_product");
+        var shell = new EntityMetadata { LogicalName = "talxis_warehouseitem" };
+        shell.AddAttribute(new StringAttributeMetadata { LogicalName = "name" });
+        shell.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_itemid" });
+        var metadata = Metadata(shell);
+        metadata.AddRelationship(ManyToOne("talxis_warehouseitem", "talxis_itemid", "ntg_packagematerial"));
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, metadata), r => r.Code == ValidationDiagnostics.CmtLookupTargetNotAllowed);
+
+        Assert.Equal(ValidationSeverity.Warning, finding.Severity);
+        Assert.Contains("'talxis_product'", finding.Message);
+        Assert.Contains("the metadata only knows", finding.Message);
+        Assert.Contains("only partly in the metadata", finding.Message);
+        Assert.DoesNotContain("Dataverse rejects", finding.Message);
+    }
+
+    [Fact]
+    public void ManyToOneEntryOnATableOnlyPartlyInTheMetadata_SaysTheMetadataMayLeaveItOut()
+    {
+        var package = Package("talxis_warehouseitem");
+        package.Schema.FindEntity("talxis_warehouseitem")!.AddRelationship(new CmtSchemaRelationship
+        {
+            Name = "talxis_product_talxis_warehouseitem_itemid", ReferencingEntity = "talxis_warehouseitem", ReferencingAttribute = "talxis_itemid",
+            ReferencedEntity = "talxis_product", ReferencedAttribute = "talxis_productid"
+        });
+        var shell = new EntityMetadata { LogicalName = "talxis_warehouseitem" };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(shell)), r => r.Code == ValidationDiagnostics.CmtRelationshipNotInMetadata);
+
+        Assert.Contains("only partly in the metadata", finding.Message);
+    }
+
     private static IReadOnlyList<ValidationResult> ValidateField(AttributeMetadata column, string declaredType)
     {
         var package = Package("talxis_contract");

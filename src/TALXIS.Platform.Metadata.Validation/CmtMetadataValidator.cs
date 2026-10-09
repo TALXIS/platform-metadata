@@ -129,11 +129,14 @@ public sealed class CmtMetadataValidator
         var allowed = LookupTargets.Resolve(column, table.LogicalName, relationships);
         if (allowed.Count == 0) return;
 
+        // Targets read from the relationships are complete only when the solution holds the whole table; on a shell the owning solution's are missing.
+        var complete = column is LookupAttributeMetadata { Targets.Length: > 0 } || !IsPartial(table);
+        var known = string.Join(", ", allowed.Select(a => $"'{a}'"));
         foreach (var target in field.LookupType!.Split('|').Where(t => t.Length > 0 && !allowed.Contains(t.ToLowerInvariant())))
         {
-            results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtLookupTargetNotAllowed,
-                $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the column can only point to {string.Join(", ", allowed.Select(a => $"'{a}'"))}. "
-                + "Dataverse rejects a record whose lookup points there."));
+            results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtLookupTargetNotAllowed, complete
+                ? $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the column can only point to {known}. Dataverse rejects a record whose lookup points there."
+                : $"CMT data_schema.xml field '{entity.Name}.{field.Name}' lists lookupType '{target}', but the metadata only knows the column to point to {known}." + PartialTableNote));
         }
     }
 
@@ -239,8 +242,9 @@ public sealed class CmtMetadataValidator
                     : $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
             if (problem == null) continue;
 
+            var note = match == null && IsPartial(table) ? PartialTableNote : string.Empty;
             results.Add(CmtFindings.Warning(relationship, ValidationDiagnostics.CmtRelationshipNotInMetadata,
-                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {problem}. CMT does not check N:1 entries, so the import goes on, but the entry is out of date."));
+                $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {problem}. CMT does not check N:1 entries, so the import goes on, but the entry may be out of date." + note));
         }
     }
 
