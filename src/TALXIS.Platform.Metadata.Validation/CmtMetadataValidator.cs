@@ -75,14 +75,14 @@ public sealed class CmtMetadataValidator
 
     private static void ValidatePrimaryFields(CmtSchemaEntity entity, EntityMetadata table, List<ValidationResult> results)
     {
-        if (Differs(entity.PrimaryIdField, table.PrimaryIdAttribute))
+        if (Differs(entity.PrimaryIdField, table.PrimaryIdAttribute, table))
         {
             results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryFieldMismatch,
                 $"CMT data_schema.xml entity '{entity.Name}' has primaryidfield '{entity.PrimaryIdField}', but the table's primary id column is '{table.PrimaryIdAttribute}'. "
                 + "CMT reads record ids from primaryidfield, so the records may not keep their ids and a re-import can create them again."));
         }
 
-        if (Differs(entity.PrimaryNameField, table.PrimaryNameAttribute))
+        if (Differs(entity.PrimaryNameField, table.PrimaryNameAttribute, table))
         {
             results.Add(CmtFindings.Warning(entity, ValidationDiagnostics.CmtPrimaryFieldMismatch,
                 $"CMT data_schema.xml entity '{entity.Name}' has primarynamefield '{entity.PrimaryNameField}', but the table's primary name column is '{table.PrimaryNameAttribute}'."));
@@ -90,8 +90,9 @@ public sealed class CmtMetadataValidator
     }
 
     // Missing values on either side are not a mismatch: CmtDataSchemaValidator reports an empty primary field, and the metadata may not say.
-    private static bool Differs(string? declared, string? inMetadata) =>
-        !string.IsNullOrEmpty(declared) && !string.IsNullOrEmpty(inMetadata) && !SameName(declared, inMetadata);
+    // A primary field that is not a column at all is a typo the missing-field rule already reports with its real consequence.
+    private static bool Differs(string? declared, string? inMetadata, EntityMetadata table) =>
+        !string.IsNullOrEmpty(declared) && !string.IsNullOrEmpty(inMetadata) && !SameName(declared, inMetadata) && table.FindAttribute(declared!) != null;
 
     private static void ValidateFields(CmtSchemaEntity entity, EntityMetadata table, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)
     {

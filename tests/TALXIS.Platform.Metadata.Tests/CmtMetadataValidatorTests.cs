@@ -267,11 +267,25 @@ public class CmtMetadataValidatorTests
         var entity = schema.AddEntity("talxis_contract", "talxis_contractid", primaryNameField);
         entity.PrimaryIdField = primaryIdField;
 
-        var findings = new CmtMetadataValidator().Validate(new CmtPackage(schema), Metadata(Table("talxis_contract")))
+        var table = Table("talxis_contract");
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_title" });
+
+        var findings = new CmtMetadataValidator().Validate(new CmtPackage(schema), Metadata(table))
             .Where(r => r.Code == ValidationDiagnostics.CmtPrimaryFieldMismatch).ToList();
 
         Assert.Equal(expected, findings.Count);
         Assert.All(findings, r => Assert.Equal(ValidationSeverity.Warning, r.Severity));
+    }
+
+    [Fact]
+    public void PrimaryIdFieldThatIsNotAColumn_IsLeftToTheMissingFieldRule()
+    {
+        var schema = new CmtDataSchema();
+        schema.AddEntity("talxis_contract", "talxis_contractidd", "name").AddField("name", CmtFieldTypes.String, updateCompare: true);
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(new CmtPackage(schema), Metadata(Table("talxis_contract"))));
+
+        Assert.Equal(ValidationDiagnostics.CmtFieldNotInMetadata, finding.Code);
     }
 
     [Fact]
