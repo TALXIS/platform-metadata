@@ -9,6 +9,13 @@ namespace TALXIS.Platform.Metadata.Tests;
 public class CmtMetadataValidatorTests
 {
     [Fact]
+    public void MissingPackageOrMetadata_IsRejected()
+    {
+        Assert.Throws<ArgumentNullException>("package", () => new CmtMetadataValidator().Validate(null!, Metadata()));
+        Assert.Throws<ArgumentNullException>("metadata", () => new CmtMetadataValidator().Validate(Package("account"), null!));
+    }
+
+    [Fact]
     public void PackageThatMatchesTheMetadata_HasNoFindings()
     {
         var metadata = Metadata(Table("account"), Table("talxis_contract"));

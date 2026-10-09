@@ -30,8 +30,15 @@ public sealed class CmtMetadataValidator
     /// <summary>
     /// Validates <paramref name="package"/> against <paramref name="metadata"/>.
     /// </summary>
+    /// <param name="package">The package to validate.</param>
+    /// <param name="metadata">The tables the package will be imported into.</param>
+    /// <param name="options">Severities for what the metadata may not cover; the defaults when <c>null</c>.</param>
+    /// <returns>The findings, in the CmtData stage.</returns>
     public IReadOnlyList<ValidationResult> Validate(CmtPackage package, Workspace metadata, CmtMetadataValidationOptions? options = null)
     {
+        if (package == null) throw new ArgumentNullException(nameof(package));
+        if (metadata == null) throw new ArgumentNullException(nameof(metadata));
+
         options ??= new CmtMetadataValidationOptions();
         var results = new List<ValidationResult>();
         var tables = new CmtMetadataTables(metadata);
