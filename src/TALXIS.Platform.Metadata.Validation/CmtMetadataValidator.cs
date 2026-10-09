@@ -55,7 +55,7 @@ public sealed class CmtMetadataValidator
 
         foreach (var dataEntity in package.Data?.Entities ?? Enumerable.Empty<CmtDataEntity>())
         {
-            ValidateLookupEntities(dataEntity, metadata, options, results);
+            ValidateLookupEntities(dataEntity, package.Schema, tables, options, results);
 
             var entity = package.Schema.FindEntity(dataEntity.Name);
             var table = tables.Find(dataEntity.Name);
@@ -175,11 +175,13 @@ public sealed class CmtMetadataValidator
         var lowercase => lowercase
     };
 
-    // One finding per field and missing table; the system tables every export points to exist in every environment.
-    private static void ValidateLookupEntities(CmtDataEntity dataEntity, Workspace metadata, CmtMetadataValidationOptions options, List<ValidationResult> results)
+    // One finding per field and missing table. A table the package imports itself is already reported as missing from the
+    // metadata and will exist once the package runs; the system tables every export points to exist in every environment.
+    private static void ValidateLookupEntities(CmtDataEntity dataEntity, CmtDataSchema schema, CmtMetadataTables tables, CmtMetadataValidationOptions options, List<ValidationResult> results)
     {
         var missing = dataEntity.Records.SelectMany(r => r.Fields)
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!) && metadata.FindEntity(f.LookupEntity!) == null)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!)
+                && schema.FindEntity(f.LookupEntity!) == null && tables.Find(f.LookupEntity!) == null)
             .GroupBy(f => (f.Name, f.LookupEntity));
         foreach (var group in missing)
         {

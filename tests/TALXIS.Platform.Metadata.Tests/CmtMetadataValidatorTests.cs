@@ -370,6 +370,21 @@ public class CmtMetadataValidatorTests
         Assert.All(findings, r => Assert.Contains("in 2 record(s)", r.Message));
     }
 
+    [Fact]
+    public void LookupToATableThePackageItselfImports_IsNotReportedAgain()
+    {
+        var package = Package("talxis_contract", "talxis_region");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_regionid", CmtFieldTypes.EntityReference);
+        package.Data!.AddEntity("talxis_contract").AddRecord(Guid.NewGuid()).Set("talxis_regionid", Guid.NewGuid().ToString(), "talxis_region");
+        var table = Table("talxis_contract");
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_regionid" });
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table));
+
+        Assert.Single(findings, r => r.Code == ValidationDiagnostics.CmtEntityNotInMetadata);
+        Assert.DoesNotContain(findings, r => r.Code == ValidationDiagnostics.CmtDataLookupEntityUnknown);
+    }
+
     private static PicklistAttributeMetadata LocalChoice()
     {
         var optionSet = new OptionSetMetadata { Name = "talxis_contract_talxis_size" };
