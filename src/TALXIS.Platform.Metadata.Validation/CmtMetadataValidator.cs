@@ -39,6 +39,7 @@ public sealed class CmtMetadataValidator
         foreach (var entity in package.Schema.Entities)
         {
             var table = tables.Find(entity.Name);
+            if (table == null && CmtSystemTables.Contains(entity.Name)) continue;
             if (table == null)
             {
                 results.Add(CmtFindings.Finding(options.IncompleteMetadataSeverity, entity, ValidationDiagnostics.CmtEntityNotInMetadata,
@@ -212,7 +213,7 @@ public sealed class CmtMetadataValidator
         CmtMetadataValidationOptions options, List<ValidationResult> results)
     {
         var missing = dataEntity.Records.SelectMany(r => r.Fields)
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && entity.FindField(f.Name) != null && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && entity.FindField(f.Name) != null && !CmtSystemTables.Contains(f.LookupEntity!)
                 && schema.FindEntity(f.LookupEntity!) == null && tables.Find(f.LookupEntity!) == null)
             .GroupBy(f => (f.Name, f.LookupEntity));
         foreach (var group in missing)

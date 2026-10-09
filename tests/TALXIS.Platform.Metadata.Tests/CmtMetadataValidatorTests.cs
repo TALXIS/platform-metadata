@@ -27,6 +27,15 @@ public class CmtMetadataValidatorTests
         Assert.Contains("'talxis_contracts'", finding.Message);
     }
 
+    [Theory]
+    [InlineData("businessunit")]
+    [InlineData("systemuser")]
+    [InlineData("SystemUser")]
+    public void SystemTableEveryEnvironmentHas_IsNotReportedAsMissing(string table)
+    {
+        Assert.Empty(new CmtMetadataValidator().Validate(Package(table), Metadata()));
+    }
+
     [Fact]
     public void TableMissingFromPartialMetadata_CanBeLoweredToAWarning()
     {

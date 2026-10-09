@@ -17,12 +17,6 @@ public sealed class CmtPackageValidator
         CmtFieldTypes.EntityReference, CmtFieldTypes.Owner
     };
 
-    // Lookup targets every CMT export references (owner, createdby, currency) and that exist in every environment.
-    internal static readonly HashSet<string> SystemLookupTargets = new(StringComparer.Ordinal)
-    {
-        "systemuser", "team", "businessunit", "transactioncurrency", "organization"
-    };
-
     /// <summary>Validates the data of a package against its schema; a package without data has nothing to check.</summary>
     /// <param name="package">The package to validate.</param>
     public IReadOnlyList<ValidationResult> Validate(CmtPackage package)
@@ -125,7 +119,7 @@ public sealed class CmtPackageValidator
     private static void ValidateLookupTargets(CmtDataSchema schema, CmtDataEntity dataEntity, List<ValidationResult> results)
     {
         var unknown = dataEntity.Records.SelectMany(r => r.Fields)
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) == null && !SystemLookupTargets.Contains(f.LookupEntity!));
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && schema.FindEntity(f.LookupEntity!) == null && !CmtSystemTables.Names.Contains(f.LookupEntity!));
 
         foreach (var group in unknown.GroupBy(f => (f.Name, f.LookupEntity)))
         {
