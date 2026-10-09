@@ -385,6 +385,35 @@ public class CmtMetadataValidatorTests
         Assert.DoesNotContain(findings, r => r.Code == ValidationDiagnostics.CmtDataLookupEntityUnknown);
     }
 
+    [Fact]
+    public void LookupsCmtDoesNotImport_AreNotChecked()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_regionid", CmtFieldTypes.EntityReference);
+        package.Data!.AddEntity("talxis_undeclared").AddRecord(Guid.NewGuid()).Set("talxis_regionid", Guid.NewGuid().ToString(), "talxis_region");
+        package.Data.AddEntity("talxis_contract").AddRecord(Guid.NewGuid()).Set("talxis_notdeclared", Guid.NewGuid().ToString(), "talxis_region");
+        var table = Table("talxis_contract");
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_regionid" });
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table));
+
+        Assert.DoesNotContain(findings, r => r.Code == ValidationDiagnostics.CmtDataLookupEntityUnknown);
+    }
+
+    [Fact]
+    public void LookupsOfALiquidTable_AreNotChecked()
+    {
+        var package = Package("talxis_contract");
+        var entity = package.Schema.FindEntity("talxis_contract")!;
+        entity.AddField("talxis_regionid", CmtFieldTypes.EntityReference);
+        entity.RenderLiquid = true;
+        package.Data!.AddEntity("talxis_contract").AddRecord(Guid.NewGuid()).Set("talxis_regionid", Guid.NewGuid().ToString(), "talxis_region");
+        var table = Table("talxis_contract");
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "talxis_regionid" });
+
+        Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
+    }
+
     private static PicklistAttributeMetadata LocalChoice()
     {
         var optionSet = new OptionSetMetadata { Name = "talxis_contract_talxis_size" };

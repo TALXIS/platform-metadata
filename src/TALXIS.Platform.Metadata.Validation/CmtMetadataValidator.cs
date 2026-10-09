@@ -55,11 +55,14 @@ public sealed class CmtMetadataValidator
 
         foreach (var dataEntity in package.Data?.Entities ?? Enumerable.Empty<CmtDataEntity>())
         {
-            ValidateLookupEntities(dataEntity, package.Schema, tables, options, results);
-
+            // CMT skips data the schema does not declare, and Liquid tables hold templates until the TALXIS importer renders them.
             var entity = package.Schema.FindEntity(dataEntity.Name);
+            if (entity == null || entity.RenderLiquid == true) continue;
+
+            ValidateLookupEntities(dataEntity, entity, package.Schema, tables, options, results);
+
             var table = tables.Find(dataEntity.Name);
-            if (entity == null || table == null || entity.RenderLiquid == true) continue;
+            if (table == null) continue;
 
             ValidateOptionValues(dataEntity, entity, table, metadata, results);
         }
@@ -177,10 +180,11 @@ public sealed class CmtMetadataValidator
 
     // One finding per field and missing table. A table the package imports itself is already reported as missing from the
     // metadata and will exist once the package runs; the system tables every export points to exist in every environment.
-    private static void ValidateLookupEntities(CmtDataEntity dataEntity, CmtDataSchema schema, CmtMetadataTables tables, CmtMetadataValidationOptions options, List<ValidationResult> results)
+    private static void ValidateLookupEntities(CmtDataEntity dataEntity, CmtSchemaEntity entity, CmtDataSchema schema, CmtMetadataTables tables,
+        CmtMetadataValidationOptions options, List<ValidationResult> results)
     {
         var missing = dataEntity.Records.SelectMany(r => r.Fields)
-            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!)
+            .Where(f => !string.IsNullOrEmpty(f.LookupEntity) && entity.FindField(f.Name) != null && !CmtPackageValidator.SystemLookupTargets.Contains(f.LookupEntity!)
                 && schema.FindEntity(f.LookupEntity!) == null && tables.Find(f.LookupEntity!) == null)
             .GroupBy(f => (f.Name, f.LookupEntity));
         foreach (var group in missing)
