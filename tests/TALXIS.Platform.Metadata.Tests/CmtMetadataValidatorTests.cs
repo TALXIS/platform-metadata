@@ -101,6 +101,19 @@ public class CmtMetadataValidatorTests
     }
 
     [Fact]
+    public void TableNamedWithCapitalsInTheMetadata_IsNamedInLowercase()
+    {
+        var package = Package("account");
+        package.Schema.FindEntity("account")!.AddField("talxis_amount", CmtFieldTypes.Decimal);
+        var table = Table("account");
+        table.LogicalName = "Account";
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, Metadata(table)), r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata);
+
+        Assert.DoesNotContain("'Account'", finding.Message);
+    }
+
+    [Fact]
     public void FieldWhoseNameDiffersOnlyByCase_IsLeftToTheLowercaseRule()
     {
         var package = Package("talxis_contract");

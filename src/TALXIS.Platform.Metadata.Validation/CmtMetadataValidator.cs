@@ -110,7 +110,7 @@ public sealed class CmtMetadataValidator
             if (column == null)
             {
                 results.Add(CmtFindings.Error(field, ValidationDiagnostics.CmtFieldNotInMetadata,
-                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{table.LogicalName}' in the metadata. CMT rejects the package with 'Missing Fields'."));
+                    $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is not a column of table '{entity.Name}' in the metadata. CMT rejects the package with 'Missing Fields'."));
                 continue;
             }
 
@@ -294,7 +294,7 @@ public sealed class CmtMetadataValidator
             var found = matches.FirstOrDefault();
             var reason = found == null
                 ? "is not a many-to-many relationship in the metadata"
-                : $"belongs to table '{found.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
+                : $"belongs to table '{Logical(found.Entity1LogicalName)}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
             var unknown = found == null && IsPartial(table);
             results.Add(CmtFindings.Finding(unknown ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import." + (unknown ? PartialTableNote : string.Empty)));
@@ -320,12 +320,12 @@ public sealed class CmtMetadataValidator
     private static string? ManyToOneProblem(CmtSchemaRelationship relationship, OneToManyRelationshipMetadata? match, EntityMetadata table)
     {
         if (match == null) return "is not a relationship in the metadata";
-        if (!SameName(match.ReferencingEntity, table.LogicalName)) return $"belongs to table '{match.ReferencingEntity}', whose column '{match.ReferencingAttribute}' holds the lookup";
+        if (!SameName(match.ReferencingEntity, table.LogicalName)) return $"belongs to table '{Logical(match.ReferencingEntity)}', whose column '{Logical(match.ReferencingAttribute)}' holds the lookup";
         if (SameName(match.ReferencingAttribute, relationship.ReferencingAttribute) && SameName(match.ReferencedEntity, relationship.ReferencedEntity)) return null;
         if (string.IsNullOrEmpty(relationship.ReferencingAttribute) || string.IsNullOrEmpty(relationship.ReferencedEntity))
-            return $"does not say which column and table it links; in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
+            return $"does not say which column and table it links; in the metadata it is column '{Logical(match.ReferencingAttribute)}' pointing to '{Logical(match.ReferencedEntity)}'";
 
-        return $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
+        return $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{Logical(match.ReferencingAttribute)}' pointing to '{Logical(match.ReferencedEntity)}'";
     }
 
     private const string PartialTableNote = " The table is only partly in the metadata (its primary id column is missing), so the metadata may just leave this out.";
@@ -339,6 +339,9 @@ public sealed class CmtMetadataValidator
     // Relationships from another solution sit only on the workspace; ones filled in from a live environment may sit only on the table.
     private static IReadOnlyList<RelationshipMetadata> Relationships(EntityMetadata table, Workspace metadata) =>
         metadata.Relationships.Concat(table.Relationships).Distinct().ToList();
+
+    // Metadata from solutions can carry a table's schema name, such as 'Account'; findings use logical names, as the package does.
+    private static string Logical(string? name) => (name ?? string.Empty).ToLowerInvariant();
 
     private static bool SameName(string? left, string? right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
