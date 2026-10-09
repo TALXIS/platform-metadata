@@ -568,6 +568,23 @@ public class CmtMetadataValidatorTests
     }
 
     [Fact]
+    public void ManyToOneEntryOnAnotherTable_SaysWhereItBelongs()
+    {
+        var package = Package("account");
+        package.Schema.FindEntity("account")!.AddRelationship(new CmtSchemaRelationship
+        {
+            Name = "talxis_contract_talxis_regionid_talxis_region", ReferencingEntity = "talxis_contract", ReferencingAttribute = "talxis_regionid",
+            ReferencedEntity = "talxis_region", ReferencedAttribute = "talxis_regionid"
+        });
+        var metadata = Metadata(Table("account"));
+        metadata.AddRelationship(ManyToOne("talxis_contract", "talxis_regionid", "talxis_region"));
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, metadata), r => r.Code == ValidationDiagnostics.CmtRelationshipNotInMetadata);
+
+        Assert.Contains("belongs to table 'talxis_contract'", finding.Message);
+    }
+
+    [Fact]
     public void ManyToOneEntryOnATableOnlyPartlyInTheMetadata_SaysTheMetadataMayLeaveItOut()
     {
         var package = Package("talxis_warehouseitem");

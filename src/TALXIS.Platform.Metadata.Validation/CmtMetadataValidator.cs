@@ -308,17 +308,22 @@ public sealed class CmtMetadataValidator
         foreach (var relationship in entity.Relationships.Where(r => !r.IsManyToMany && !string.IsNullOrEmpty(r.Name)))
         {
             var match = manyToOne.FirstOrDefault(m => SameName(m.SchemaName, relationship.Name));
-            var problem = match == null
-                ? "is not a relationship in the metadata"
-                : SameName(match.ReferencingAttribute, relationship.ReferencingAttribute) && SameName(match.ReferencedEntity, relationship.ReferencedEntity)
-                    ? null
-                    : $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
+            var problem = ManyToOneProblem(relationship, match, table);
             if (problem == null) continue;
 
             var note = match == null && IsPartial(table) ? PartialTableNote : string.Empty;
             results.Add(CmtFindings.Warning(relationship, ValidationDiagnostics.CmtRelationshipNotInMetadata,
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {problem}. CMT does not check N:1 entries, so the import goes on, but the entry may be out of date." + note));
         }
+    }
+
+    private static string? ManyToOneProblem(CmtSchemaRelationship relationship, OneToManyRelationshipMetadata? match, EntityMetadata table)
+    {
+        if (match == null) return "is not a relationship in the metadata";
+        if (!SameName(match.ReferencingEntity, table.LogicalName)) return $"belongs to table '{match.ReferencingEntity}', whose column '{match.ReferencingAttribute}' holds the lookup";
+        if (SameName(match.ReferencingAttribute, relationship.ReferencingAttribute) && SameName(match.ReferencedEntity, relationship.ReferencedEntity)) return null;
+
+        return $"says column '{relationship.ReferencingAttribute}' points to '{relationship.ReferencedEntity}', but in the metadata it is column '{match.ReferencingAttribute}' pointing to '{match.ReferencedEntity}'";
     }
 
     private const string PartialTableNote = " The table is only partly in the metadata (its primary id column is missing), so the metadata may just leave this out.";
