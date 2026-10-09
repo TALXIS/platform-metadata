@@ -277,11 +277,12 @@ public sealed class CmtMetadataValidator
                 continue;
             }
 
-            var other = matches.FirstOrDefault(m => SameName(m.Entity2LogicalName, table.LogicalName));
-            var reason = other == null
+            // An intersect table that exists makes the entry misplaced rather than unknown, whichever table holds it.
+            var found = matches.FirstOrDefault();
+            var reason = found == null
                 ? "is not a many-to-many relationship in the metadata"
-                : $"belongs to table '{other.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
-            var unknown = other == null && IsPartial(table);
+                : $"belongs to table '{found.Entity1LogicalName}', the first table (FirstEntityName) of that many-to-many relationship; CMT reads it only there";
+            var unknown = found == null && IsPartial(table);
             results.Add(CmtFindings.Finding(unknown ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, relationship, ValidationDiagnostics.CmtManyToManyNotInMetadata,
                 $"CMT data_schema.xml relationship '{entity.Name}.{relationship.Name}' {reason}. CMT stops the import." + (unknown ? PartialTableNote : string.Empty)));
         }

@@ -168,6 +168,25 @@ public class CmtMetadataValidatorTests
     }
 
     [Fact]
+    public void ManyToManyEntryOnATableOutsideTheRelationship_SaysWhereItBelongs()
+    {
+        var package = Package("contact");
+        package.Schema.FindEntity("contact")!.AddRelationship(new CmtSchemaRelationship { Name = "talxis_contract_account", IsManyToMany = true });
+        var metadata = Metadata(new EntityMetadata { LogicalName = "contact" });
+        metadata.AddRelationship(new ManyToManyRelationshipMetadata
+        {
+            SchemaName = "talxis_contract_account_rel", Entity1LogicalName = "talxis_contract", Entity2LogicalName = "account", IntersectEntityName = "talxis_contract_account"
+        });
+        var options = new CmtMetadataValidationOptions { IncompleteMetadataSeverity = ValidationSeverity.Warning };
+
+        var finding = Assert.Single(new CmtMetadataValidator().Validate(package, metadata, options), r => r.Code == ValidationDiagnostics.CmtManyToManyNotInMetadata);
+
+        Assert.Equal(ValidationSeverity.Error, finding.Severity);
+        Assert.Contains("belongs to table 'talxis_contract'", finding.Message);
+        Assert.DoesNotContain("only partly in the metadata", finding.Message);
+    }
+
+    [Fact]
     public void ManyToManyEntryNamedAfterTheRelationshipInsteadOfItsIntersectTable_SaysWhichNameToUse()
     {
         var package = Package("talxis_pricelistheader");
