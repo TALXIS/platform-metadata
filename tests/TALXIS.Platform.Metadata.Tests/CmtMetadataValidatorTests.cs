@@ -67,6 +67,39 @@ public class CmtMetadataValidatorTests
         Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata && r.Severity == ValidationSeverity.Error && r.Message.Contains($"'talxis_contract.{field}'")));
     }
 
+    [Theory]
+    [InlineData("talxis_totallength_state", false)]
+    [InlineData("talxis_totallength_date", false)]
+    [InlineData("owneridname", false)]
+    [InlineData("owneridtype", false)]
+    [InlineData("owneridyominame", false)]
+    [InlineData("talxis_notes_state", true)]
+    [InlineData("talxis_totallengthname", true)]
+    public void HelperColumnsSolutionsLeaveOut_AreNotReportedAsMissing(string field, bool reported)
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField(field, CmtFieldTypes.String);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new DecimalAttributeMetadata { LogicalName = "talxis_totallength", SourceType = AttributeSourceType.Rollup });
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_notes" });
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "ownerid", LookupKind = LookupKind.Owner });
+
+        var findings = new CmtMetadataValidator().Validate(package, Metadata(table));
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotInMetadata));
+    }
+
+    [Fact]
+    public void ColumnDerivedFromAnother_IsNotChecked()
+    {
+        var package = Package("talxis_contract");
+        package.Schema.FindEntity("talxis_contract")!.AddField("talxis_parentidname", CmtFieldTypes.Number);
+        var table = Table("talxis_contract");
+        table.AddAttribute(new StringAttributeMetadata { LogicalName = "talxis_parentidname", AttributeOf = "talxis_parentid", IsValidForCreate = false, IsValidForUpdate = false });
+
+        Assert.Empty(new CmtMetadataValidator().Validate(package, Metadata(table)));
+    }
+
     [Fact]
     public void FieldWhoseNameDiffersOnlyByCase_IsLeftToTheLowercaseRule()
     {

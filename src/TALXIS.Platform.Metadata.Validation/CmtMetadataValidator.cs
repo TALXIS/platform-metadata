@@ -18,6 +18,15 @@ public sealed class CmtMetadataValidator
         "activitymimeattachment", "duplicaterule", "duplicaterulecondition", "post", "postcomment", "postfollow", "postlike", "postregarding", "complexcontrol"
     };
 
+    private static readonly (string Suffix, Func<AttributeMetadata, bool> IsBase)[] HelperSuffixes =
+    {
+        ("_state", c => c.SourceType == AttributeSourceType.Rollup),
+        ("_date", c => c.SourceType == AttributeSourceType.Rollup),
+        ("yominame", c => c is LookupAttributeMetadata),
+        ("name", c => c is LookupAttributeMetadata),
+        ("type", c => c is LookupAttributeMetadata)
+    };
+
     /// <summary>
     /// Validates <paramref name="package"/> against <paramref name="metadata"/>.
     /// </summary>
@@ -86,6 +95,7 @@ public sealed class CmtMetadataValidator
         foreach (var field in entity.Fields.Where(f => f.Name != "versionnumber"))
         {
             var column = table.FindAttribute(field.Name);
+            if (column == null && IsHelperColumn(field.Name, table)) continue;
             if (column == null)
             {
                 results.Add(CmtFindings.Finding(partial ? options.IncompleteMetadataSeverity : ValidationSeverity.Error, field, ValidationDiagnostics.CmtFieldNotInMetadata,
@@ -94,10 +104,27 @@ public sealed class CmtMetadataValidator
                 continue;
             }
 
+            // CMT tolerates columns derived from another, the way it tolerates versionnumber.
+            if (column.AttributeOf != null) continue;
+
             ValidateFieldType(entity, field, column, results);
             ValidateLookupTargets(entity, field, column, table, relationships, results);
             ValidateWritable(entity, field, column, results);
         }
+    }
+
+    // Derived columns Dataverse adds and solutions leave out: a rollup's _state and _date, and a lookup's name, yomi name and type.
+    private static bool IsHelperColumn(string name, EntityMetadata table)
+    {
+        foreach (var (suffix, isBase) in HelperSuffixes)
+        {
+            if (!name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var baseColumn = table.FindAttribute(name.Substring(0, name.Length - suffix.Length));
+            if (baseColumn != null && isBase(baseColumn)) return true;
+        }
+
+        return false;
     }
 
     private static void ValidateFieldType(CmtSchemaEntity entity, CmtSchemaField field, AttributeMetadata column, List<ValidationResult> results)
