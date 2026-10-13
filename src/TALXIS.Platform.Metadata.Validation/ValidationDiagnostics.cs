@@ -89,4 +89,10 @@ public static class ValidationDiagnostics
     /// flags an order that disagrees with the lookups, usually on purpose.
     /// </summary>
     public const string CmtImportOrderChildBeforeParent = "TXM026";
+
+    /// <summary>
+    /// No embedded XSD declares the XML file's root element, so the file is not schema-validated. Usually a component type the
+    /// validator does not know yet; a misspelt root element of a known component also lands here.
+    /// </summary>
+    public const string SchemaNotFound = "TXM027";
 }

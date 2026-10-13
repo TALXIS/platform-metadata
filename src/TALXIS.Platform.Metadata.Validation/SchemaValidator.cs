@@ -30,7 +30,14 @@ public sealed class SchemaValidator
     /// Validates a file on disk. The file is loaded, nil-normalized, then
     /// validated against the schema set.
     /// </summary>
-    public IReadOnlyList<ValidationResult> ValidateFile(string filePath)
+    public IReadOnlyList<ValidationResult> ValidateFile(string filePath) => ValidateFile(filePath, null);
+
+    /// <summary>
+    /// Validates a file on disk, skipping it without a finding when no XSD declares its root element
+    /// and <paramref name="isComponentInstance"/> recognises the file as a solution component instance
+    /// (a solution-aware table record or SCF component), whose shape is defined by its table rather than an XSD.
+    /// </summary>
+    internal IReadOnlyList<ValidationResult> ValidateFile(string filePath, Func<XElement, bool>? isComponentInstance)
     {
         if (!File.Exists(filePath))
         {
@@ -43,6 +50,9 @@ public sealed class SchemaValidator
         try
         {
             var doc = XDocument.Load(filePath, LoadOptions.SetLineInfo);
+            if (doc.Root != null && !DeclaresRootElement(doc.Root.Name) && isComponentInstance?.Invoke(doc.Root) == true)
+                return Array.Empty<ValidationResult>();
+
             return ValidateXml(doc, filePath);
         }
         catch (XmlException ex)
@@ -60,6 +70,11 @@ public sealed class SchemaValidator
     /// </summary>
     public IReadOnlyList<ValidationResult> ValidateXml(XDocument document, string? sourcePath = null)
     {
+        // Without a declaration the reader reports the root as "not declared", an error that would fail
+        // every component type the schemas do not cover yet. Report it once, as a suppressible warning.
+        if (document.Root != null && !DeclaresRootElement(document.Root.Name))
+            return new[] { SchemaNotFound(document.Root, sourcePath) };
+
         XmlNormalizer.NormalizeNilElements(document);
 
         var results = new List<ValidationResult>();
@@ -99,5 +114,20 @@ public sealed class SchemaValidator
         }
 
         return results;
+    }
+
+    private bool DeclaresRootElement(XName name) =>
+        _schemas.GlobalElements.Contains(new XmlQualifiedName(name.LocalName, name.NamespaceName));
+
+    private static ValidationResult SchemaNotFound(XElement root, string? sourcePath)
+    {
+        var lineInfo = (IXmlLineInfo)root;
+        return new ValidationResult(
+            ValidationSeverity.Warning,
+            $"No schema declares the root element '{root.Name.LocalName}', so the file is not schema-validated. " +
+            "Expected for a component type the validator does not know yet; otherwise check the root element name.",
+            sourcePath,
+            lineInfo.HasLineInfo() ? lineInfo.LineNumber : null,
+            lineInfo.HasLineInfo() ? lineInfo.LinePosition : null) { Code = ValidationDiagnostics.SchemaNotFound };
     }
 }
