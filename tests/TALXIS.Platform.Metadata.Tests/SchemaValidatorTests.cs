@@ -802,4 +802,75 @@ public class SchemaValidatorTests
         var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void EntityKey_WithIsSynchronousAndIsExportKey_PassesValidation()
+    {
+        // Solution-aware tables export their export key with IsExportKey; IsSynchronous also
+        // appears on plain keys. Element order matches a Dataverse export.
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name OriginalName="test_widget" LocalizedName="Widget">test_widget</Name>
+              <EntityInfo>
+                <entity Name="test_widget">
+                  <attributes />
+                  <EntitySetName>test_widgets</EntitySetName>
+                  <EntityKeys>
+                    <EntityKey>
+                      <Name>test_unique_name</Name>
+                      <LogicalName>test_unique_name</LogicalName>
+                      <IntroducedVersion>1.0.0.0</IntroducedVersion>
+                      <IsSynchronous>1</IsSynchronous>
+                      <IsExportKey>1</IsExportKey>
+                      <IsCustomizable>1</IsCustomizable>
+                      <EntityKeyAttributes>
+                        <AttributeName>test_unique_name</AttributeName>
+                      </EntityKeyAttributes>
+                      <displaynames>
+                        <displayname description="Unique name" languagecode="1033" />
+                      </displaynames>
+                    </EntityKey>
+                  </EntityKeys>
+                  <IsSolutionAware>1</IsSolutionAware>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Entity.xml");
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void EntityKey_WithNonBooleanIsExportKey_FailsValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name OriginalName="test_widget" LocalizedName="Widget">test_widget</Name>
+              <EntityInfo>
+                <entity Name="test_widget">
+                  <attributes />
+                  <EntityKeys>
+                    <EntityKey>
+                      <Name>test_unique_name</Name>
+                      <IsExportKey>yes</IsExportKey>
+                      <EntityKeyAttributes>
+                        <AttributeName>test_unique_name</AttributeName>
+                      </EntityKeyAttributes>
+                    </EntityKey>
+                  </EntityKeys>
+                </entity>
+              </EntityInfo>
+            </Entity>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Entity.xml");
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error && r.Message.Contains("IsExportKey"));
+    }
 }
