@@ -107,7 +107,9 @@ public sealed class SolutionValidator
     internal void CollectSchemaAndJsonFindings(string directory, List<ValidationResult> results, Func<string, bool>? includeFile = null)
     {
         ValidateFiles(directory, "*.xml", ValidationStage.Schema,
-            file => WorkspaceFiles.IsWebResourcePayload(file) ? Array.Empty<ValidationResult>() : _schemaValidator.ValidateFile(file),
+            file => WorkspaceFiles.IsWebResourcePayload(file)
+                ? Array.Empty<ValidationResult>()
+                : _schemaValidator.ValidateFile(file, root => WorkspaceFiles.HasComponentInstanceShape(directory, file, root)),
             results, includeFile);
 
         ValidateFiles(directory, "*.json", ValidationStage.Json, _jsonValidator.ValidateFile, results, includeFile);

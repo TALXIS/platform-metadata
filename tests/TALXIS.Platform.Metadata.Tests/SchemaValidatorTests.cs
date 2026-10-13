@@ -802,4 +802,94 @@ public class SchemaValidatorTests
         var errors = results.Where(r => r.Severity == ValidationSeverity.Error).ToList();
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void UndeclaredRootElement_ReportsSingleNoSchemaWarning()
+    {
+        var doc = XDocument.Parse("""
+            <tst_unknown>
+              <tst_child>1</tst_child>
+            </tst_unknown>
+            """);
+
+        var results = _validator.ValidateXml(doc, "tst_unknown.xml");
+
+        var result = Assert.Single(results);
+        Assert.Equal(ValidationSeverity.Warning, result.Severity);
+        Assert.Equal(ValidationDiagnostics.SchemaNotFound, result.Code);
+        Assert.Contains("tst_unknown", result.Message);
+    }
+
+    private const string ValidSolutionComponentConfigurationsXml = """
+        <solutioncomponentconfigurations>
+          <solutioncomponentconfiguration entityid.logicalname="tst_widget">
+            <allowexportkeywithoutprefix>0</allowexportkeywithoutprefix>
+            <fileformat>0</fileformat>
+            <filescope>1</filescope>
+            <invokesubstitution>0</invokesubstitution>
+            <iscustomizable>0</iscustomizable>
+            <isdisplayable>1</isdisplayable>
+            <isonetoonechildcomponent>0</isonetoonechildcomponent>
+            <issoftdeleteenabled>0</issoftdeleteenabled>
+            <isversioningenabled>0</isversioningenabled>
+            <keepactivecustomizationafterconversion>0</keepactivecustomizationafterconversion>
+            <name>tst_widget</name>
+            <statecode>0</statecode>
+            <statuscode>1</statuscode>
+          </solutioncomponentconfiguration>
+          <solutioncomponentconfiguration entityid.logicalname="tst_gadget">
+            <fileformat>1</fileformat>
+            <filescope>2</filescope>
+            <iscustomizable>1</iscustomizable>
+            <name>tst_gadget</name>
+          </solutioncomponentconfiguration>
+        </solutioncomponentconfigurations>
+        """;
+
+    [Fact]
+    public void SolutionComponentConfigurations_ExportFormat_PassesValidation()
+    {
+        var doc = XDocument.Parse(ValidSolutionComponentConfigurationsXml);
+
+        var results = _validator.ValidateXml(doc, "solutioncomponentconfigurations.xml");
+
+        Assert.Empty(results);
+    }
+
+    [Theory]
+    [InlineData("<isdisplayble>1</isdisplayble>", "isdisplayble")]
+    [InlineData("<filescope>3</filescope>", "filescope")]
+    [InlineData("<fileformat>2</fileformat>", "fileformat")]
+    [InlineData("<issoftdeleteenabled>true</issoftdeleteenabled>", "issoftdeleteenabled")]
+    public void SolutionComponentConfigurations_InvalidColumn_FailsValidation(string column, string expectedInMessage)
+    {
+        var doc = XDocument.Parse($"""
+            <solutioncomponentconfigurations>
+              <solutioncomponentconfiguration entityid.logicalname="tst_widget">
+                {column}
+                <name>tst_widget</name>
+              </solutioncomponentconfiguration>
+            </solutioncomponentconfigurations>
+            """);
+
+        var results = _validator.ValidateXml(doc, "solutioncomponentconfigurations.xml");
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error && r.Message.Contains(expectedInMessage));
+    }
+
+    [Fact]
+    public void SolutionComponentConfigurations_MissingEntityReference_FailsValidation()
+    {
+        var doc = XDocument.Parse("""
+            <solutioncomponentconfigurations>
+              <solutioncomponentconfiguration>
+                <name>tst_widget</name>
+              </solutioncomponentconfiguration>
+            </solutioncomponentconfigurations>
+            """);
+
+        var results = _validator.ValidateXml(doc, "solutioncomponentconfigurations.xml");
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error && r.Message.Contains("entityid.logicalname"));
+    }
 }

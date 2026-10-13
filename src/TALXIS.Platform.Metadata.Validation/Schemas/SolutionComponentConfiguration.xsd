@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Assets/solutioncomponentconfigurations.xml: one solutioncomponentconfiguration row per solution-aware table.
+	Children are the writable columns of the solutioncomponentconfiguration table:
+	https://learn.microsoft.com/power-apps/developer/data-platform/reference/entities/solutioncomponentconfiguration
+	The sibling solutioncomponentattributeconfigurations and solutioncomponentrelationshipconfiguration files
+	have no schema yet: no export sample shows their shape.
+-->
+<xs:schema id="SolutionComponentConfiguration" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="solutioncomponentconfigurations">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="solutioncomponentconfiguration" minOccurs="0" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="allowexportkeywithoutprefix" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="dependencyremovaldisabledforcomponents" type="SolutionComponentConfigurationTextType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="fileformat" type="SolutionComponentFileFormatType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="filescope" type="SolutionComponentFileScopeType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="importsequencenumber" type="xs:int" minOccurs="0" maxOccurs="1" />
+							<xs:element name="invokesubstitution" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="isdisplayable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="isonetoonechildcomponent" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="issoftdeleteenabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="isversioningenabled" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="keepactivecustomizationafterconversion" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+							<xs:element name="name" type="SolutionComponentConfigurationNameType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="overriddencreatedon" type="xs:string" minOccurs="0" maxOccurs="1" />
+							<xs:element name="statecode" type="SolutionComponentConfigurationStateType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="statuscode" type="SolutionComponentConfigurationStatusType" minOccurs="0" maxOccurs="1" />
+							<xs:element name="timezoneruleversionnumber" type="xs:int" minOccurs="0" maxOccurs="1" />
+							<xs:element name="utcconversiontimezonecode" type="xs:int" minOccurs="0" maxOccurs="1" />
+						</xs:all>
+						<!-- Logical name of the configured table (the entityid lookup). -->
+						<xs:attribute name="entityid.logicalname" type="xs:string" use="required" />
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- 0 = xml, 1 = json -->
+	<xs:simpleType name="SolutionComponentFileFormatType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="0" />
+			<xs:enumeration value="1" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- 0 = None, 1 = Individual, 2 = Global -->
+	<xs:simpleType name="SolutionComponentFileScopeType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="0" />
+			<xs:enumeration value="1" />
+			<xs:enumeration value="2" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- 0 = Active, 1 = Inactive -->
+	<xs:simpleType name="SolutionComponentConfigurationStateType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="0" />
+			<xs:enumeration value="1" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- 1 = Active, 2 = Inactive -->
+	<xs:simpleType name="SolutionComponentConfigurationStatusType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="1" />
+			<xs:enumeration value="2" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="SolutionComponentConfigurationNameType">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="100" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="SolutionComponentConfigurationTextType">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="1024" />
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

@@ -102,4 +102,82 @@ public class SolutionValidatorTests
         Assert.DoesNotContain(results, r => r.Message.Contains("pba_missing"));
         Assert.DoesNotContain(results, r => r.Message.Contains("[Relationship]"));
     }
+
+    // Solution component instances (solution-aware table records with Individual file scope, SCF components)
+    // unpack to <folder>/<key>/<name>.xml. Root element and columns come from the table definition, not an XSD.
+    private const string WidgetRecordXml = """
+        <tst_widget tst_unique_name="tst_default_widget">
+          <tst_name>Default widget</tst_name>
+          <tst_widgetid>6f4d6c2e-0d1b-4f43-9a51-2a0c1b7e3c10</tst_widgetid>
+          <tst_parentid>
+            <tst_unique_name>tst_parent</tst_unique_name>
+          </tst_parentid>
+          <statecode>0</statecode>
+          <statuscode>1</statuscode>
+        </tst_widget>
+        """;
+
+    [Fact]
+    public void SolutionAwareRecordFile_IsNotSchemaValidated()
+    {
+        var results = ValidateFiles(("tst_widgets/tst_default_widget/tst_widget.xml", WidgetRecordXml));
+
+        Assert.DoesNotContain(results, r => r.FilePath != null && r.FilePath.EndsWith("tst_widget.xml"));
+    }
+
+    [Fact]
+    public void ScfComponentFile_WithExtraAttributesAndSiblingFiles_IsNotSchemaValidated()
+    {
+        var results = ValidateFiles(
+            ("bots/tst_assistant/bot.xml", """<bot schemaname="tst_assistant" componenttype="0"><name>Assistant</name></bot>"""),
+            ("bots/tst_assistant/configuration.json", "{}"));
+
+        Assert.DoesNotContain(results, r => r.FilePath != null && r.FilePath.Contains("tst_assistant"));
+    }
+
+    [Theory]
+    [InlineData("tst_widgets/tst_default_widget/tst_gadget.xml", "root element differs from the file name")]
+    [InlineData("tst_widgets/tst_other_widget/tst_widget.xml", "no root attribute matches the folder")]
+    [InlineData("tst_widgets/tst_widget.xml", "not in a <folder>/<key> subfolder")]
+    [InlineData("tst_more/tst_widgets/tst_default_widget/tst_widget.xml", "nested deeper than <folder>/<key>")]
+    public void UndeclaredRootOutsideComponentInstanceShape_ReportsNoSchemaWarning(string path, string because)
+    {
+        var results = ValidateFiles((path, WidgetRecordXml));
+
+        var finding = Assert.Single(results, r => r.FilePath != null && r.FilePath.EndsWith(Path.GetFileName(path)));
+        Assert.True(finding.Severity == ValidationSeverity.Warning, because);
+        Assert.Equal(ValidationDiagnostics.SchemaNotFound, finding.Code);
+    }
+
+    [Fact]
+    public void ComponentInstanceShapedFile_WithDeclaredRoot_IsStillSchemaValidated()
+    {
+        // The option set root is declared by OptionSet.xsd, so matching the component instance shape
+        // must not exempt it from validation.
+        var results = ValidateFiles(("tst_choices/tst_color/optionset.xml", """<optionset Name="tst_color"><tst_bogus /></optionset>"""));
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error && r.FilePath != null && r.FilePath.EndsWith("optionset.xml"));
+    }
+
+    private static IReadOnlyList<ValidationResult> ValidateFiles(params (string RelativePath, string Content)[] files)
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"sol-test-files-{Guid.NewGuid():N}");
+        try
+        {
+            foreach (var (relativePath, content) in files)
+            {
+                var fullPath = Path.Combine(tempDir, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+                File.WriteAllText(fullPath, content);
+            }
+
+            return new SolutionValidator().Validate(tempDir).Results
+                .Where(r => r.Stage == ValidationStage.Schema || r.Stage == ValidationStage.Json)
+                .ToList();
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
 }

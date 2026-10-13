@@ -55,6 +55,24 @@ The platform has two distinct component systems (see [blog post](https://blog.ne
 
 Both are first-class in our model. The `ComponentDefinition` registry handles both - platform types are pre-registered with known schemas, SCF types are discovered at runtime.
 
+### Schema validation of solution component instances
+
+Solution component instances (records of solution-aware tables, enabled per table by a row in `Assets/solutioncomponentconfigurations.xml` and an `IsExportKey` key, and SCF components) unpack to one file per instance. The root element is named after the table and the children are its columns, so the instance's schema is the table definition in `Entity.xml`, which an embedded XSD cannot express:
+
+```
+<solution root>/<folder>/<key>/<name>.xml       e.g. tst_widgets/tst_default/tst_widget.xml
+<tst_widget tst_unique_name="tst_default"> ... column values ... </tst_widget>
+```
+
+`SolutionValidator` skips XSD validation of such a file without a finding when no embedded XSD declares its root element, the root element equals `<name>`, and one of its attributes has the value `<key>`. Any other XML file whose root no XSD declares gets a single `TXM027` warning instead of a schema error, so a component type Microsoft introduces does not fail validation; consumers can raise or suppress `TXM027` by code. `solutioncomponentconfigurations.xml` itself is validated by `SolutionComponentConfiguration.xsd`.
+
+Not covered yet:
+- **Instance contents.** Instances are not checked against their table definition (columns exist, root attribute is the export key). The definition often ships in a different solution than the instances, and the instance format is undocumented.
+- **JSON instances.** Tables configured with `fileformat` 1 export JSON instances. `JsonValidator` leaves JSON files that match no embedded JSON schema untouched, so these instances are neither validated nor reported.
+- **Single-file record layout.** With `filescope` other than Individual, records of a table are exported as one `Assets/<entitysetname>.xml` file (root element is the entity set name, one child per record keyed by primary id). These files get `TXM027`.
+- **N:N associations between records.** Exports place intersect rows as `<{relationship}set>` elements in `Other/Customizations.xml`, which `Solution.xsd` does not allow.
+- **`solutioncomponentattributeconfigurations` and `solutioncomponentrelationshipconfiguration`.** No export sample shows their shape, so they have no schema and get `TXM027`.
+
 ## Solution Layering
 
 The platform uses a layering system for component state:
