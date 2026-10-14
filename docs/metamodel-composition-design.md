@@ -117,9 +117,9 @@ Names are proposed. Prefer extending an existing type when it already has the re
 | SourceStore (proposed logical facade) | Source descriptors, component snapshots, original documents, revisions; lookup by source and component | Retain original contributions for diagnostics and target-only write-back; reuse existing storage |
 | EffectiveMetadata (proposed read model) | Component lookup/enumeration, resolved values, provenance, coverage, session revision | Read-only materialized result of composition, distinct from editable source contributions |
 | MetadataSessionLoader (proposed orchestrator) | Load(request) -> MetadataSession | Coordinate dependency resolution, readers, baseline loading, planning, composition and validation |
-| MetadataLoadRequest | Entry point, configuration, mode, baseline selection, optional import order | Explicit reproducible loading inputs |
+| MetadataLoadRequest | Entry point, configuration, mode, baseline selection; import order only for a deployment package entry point | Explicit reproducible loading inputs. For project composition the order always comes from the dependency graph, never from the caller |
 | ISolutionDependencyResolver | Resolve(entry, configuration) -> ResolvedSolutionGraph | Evaluate project/package edges through build tooling; no component merging |
-| ResolvedSolutionGraph | Nodes, edges, resolved versions, source locations | Complete dependency closure with provenance |
+| ResolvedSolutionGraph | Nodes, edges with their declared reference order, resolved versions, source locations | Complete dependency closure with provenance. Edge order must survive resolution, because an earlier csproj reference wins conflicts for its whole branch |
 | MetadataSourceDescriptor | Source ID, source kind, revision/hash, read-only flag | Identify one resolved input independently of its machine path |
 | ISolutionMetadataReader | Read(descriptor) -> SolutionContribution | Adapt existing unpacked/archive readers to a common contract |
 | SolutionContribution | Solution identity/version, publisher, managed state, component contributions | Preserve one solution's input before composition |
@@ -127,11 +127,13 @@ Names are proposed. Prefer extending an existing type when it already has the re
 | IMetadataBaselineProvider | Capture(request) -> MetadataBaseline | External live adapter, saved snapshot adapter, or supplied offline baseline |
 | MetadataBaseline | Baseline ID, organization/version, capture time, coverage, effective definitions | Describe known starting metadata without fabricating solution-layer history |
 | CompositionPlanner | Build(graph, baseline, mode, import context) -> CompositionPlan | Check order, overlap, coverage and supported operation semantics |
-| CompositionPlan | Ordered contributions, baseline binding, diagnostics, fidelity | Explicit input to deterministic composition |
+| CompositionPlan | Ordered contributions, baseline binding, diagnostics, fidelity | Explicit input to deterministic composition. Each solution gets an `importOrder` (dependencies lowest, earlier csproj branches higher) that is passed to the existing `SolutionLayerManager` import methods |
 | MetadataComposer | Compose(plan, sources) -> EffectiveMetadata | Reuse component registry and existing layer engine |
 | MetadataSession | Sources, graph, baseline, effective view, diagnostics, revision | Session lifetime and one consistent published state |
 | EditSession | Target solution, base revision, pending ChangeSet | Isolated edits with explicit ownership |
 | ChangeSet | Target-owned additions/updates/removals with preconditions | Input for validation, preview and write-back |
+
+Slice B, local dependency loading and composition, needs every type above except four: EditSession and ChangeSet arrive with editing in slice C, and IMetadataBaselineProvider and MetadataBaseline arrive with environment capture in slice A.
 
 ### Component identity
 
@@ -179,7 +181,7 @@ Record each reference's order on its graph edge. Use the active evaluated refere
 
 Example for rule 3: UI may list DataModel before Security. Security depends on DataModel, so Security still composes above DataModel and no diagnostic is reported.
 
-These rules give every acyclic graph exactly one order, so ordering itself produces no diagnostics. Dependency cycles are still reported during resolution (section 6, step 3).
+These rules give every acyclic graph exactly one order, so ordering itself produces no diagnostics. Dependency cycles are still reported during dependency resolution.
 
 This is the local project composition policy. It does not assert that Dataverse reads project files, change managed/unmanaged semantics, or override known runtime import history. Environment inspection and import simulation retain their explicit modes and context.
 
@@ -193,7 +195,7 @@ These modes are proposed to make the local/remote contract explicit. They requir
 
 Inputs: a selected solution dependency closure, optionally a compatible baseline that precedes those contributions.
 
-Purpose: local editing and validation without an environment connection. Composition order follows the precedence rules in section 6.1.
+Purpose: local editing and validation without an environment connection. Dependencies compose below their consumers, and an earlier csproj reference wins conflicts for its whole branch.
 
 A supplied baseline must declare its scope. A captured environment containing the same customized solutions is not automatically a clean system baseline. A generic fresh-environment snapshot also depends on platform version and installed applications; it is not assumed universally compatible.
 
@@ -338,11 +340,11 @@ These slices are proposed sequencing for design review. They do not silently rep
 | The entry point is any selected solution, usually UI; a deployment package is a separate entry point | Only the entry's dependency closure is relevant, so Logic does not leak into UI validation | Loading every solution in the repository or package |
 | Dependencies are discovered transitively from each project's direct references | The dependency stays with the project that needs it; no duplicated reference lists | The entry project lists its flattened closure |
 | Explicit modes: project composition, environment inspection, local change preview | Replaying local files over a captured environment can lose or double-apply customizations | Always merging local sources over environment metadata |
-| An earlier reference wins for its whole branch; shared dependencies sit below all consumers; when parents disagree, the higher-precedence parent decides (section 6.1) | Conflicts resolve silently and reproducibly from what csproj files already declare, and never contradict prerequisites | Every conflict is an error; an explicit precedence attribute on references |
+| An earlier reference wins for its whole branch; shared dependencies sit below all consumers; when parents disagree, the higher-precedence parent decides | Conflicts resolve silently and reproducibly from what csproj files already declare, and never contradict prerequisites | Every conflict is an error; an explicit precedence attribute on references |
 | An environment capture is a baseline with declared coverage | An effective capture has no layer history; registering it as a solution layer would fake that evidence | Registering the capture as a managed or System layer |
 | The first environment capture covers published tables, columns and relationships | The smallest scope that proves the live-to-offline round-trip | A full environment dump |
 | Edits go through an EditSession with an explicit target, a detached ChangeSet and revision checks | Prevents writes into dependencies and overwrites of externally changed files | Editing the effective object and serializing the whole result |
-| An inherited component is written in Dataverse's unmanaged export shape: a table shell with only target-owned subcomponents, other types in full (section 10) | Follows platform behavior instead of a custom format; the target never takes ownership of dependency content | Copying the whole effective component into the target |
+| An inherited component is written in Dataverse's unmanaged export shape: a table shell with only target-owned subcomponents, other types in full | Follows platform behavior instead of a custom format; the target never takes ownership of dependency content | Copying the whole effective component into the target |
 | Local slices B and C come first | They need no environment access and directly serve build validation | Environment capture (slice A) first |
 
 ### Open questions

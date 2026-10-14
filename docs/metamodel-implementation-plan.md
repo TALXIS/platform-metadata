@@ -154,13 +154,13 @@ Acceptance: each supported component behavior has an executable example and expe
 
 - [ ] Feed dependency-derived order into existing source registration and layer resolution.
 - [ ] Preserve the shared active layer and source provenance for unmanaged contributions.
-- [ ] Order solutions by the precedence rules in design section 6.1: earlier references win for their whole branch, shared dependencies sit below all consumers, and the higher-precedence parent decides when parents disagree.
-- [ ] Cover both section 6.1 examples with tests that do not depend on traversal order.
+- [ ] Order solutions so that earlier csproj references win for their whole branch, shared dependencies sit below all consumers, and the higher-precedence parent decides when parents disagree.
+- [ ] Test the branch case (UI references Security then Reports; Security's extension wins) and the disagreeing-parents case (Security and Reports list ExtA and ExtB in opposite order; Security's order wins), independently of traversal order.
 - [ ] Keep EffectiveMetadata separate from importable layers.
 - [ ] Distinguish removing an input source from simulating solution uninstall.
 - [ ] Define the initial lifecycle operation scope; implement and test update, upgrade, patches, and uninstall separately where required.
 
-Acceptance: prerequisites precede extensions, active-layer behavior is preserved, and conflicts between independent inputs resolve by the design section 6.1 precedence rules.
+Acceptance: prerequisites precede extensions, active-layer behavior is preserved, and conflicts between independent inputs are won by the earlier csproj reference.
 
 ## 3. Loading a solution and its dependencies
 
