@@ -196,7 +196,7 @@ This is the smallest proposed vertical slice for proving live/offline support: c
 
 Inputs: an environment baseline plus explicitly targeted local changes.
 
-Purpose: show a proposed result without modifying the environment. This is distinct from claiming exact Dataverse import simulation.
+Purpose: show a proposed result without modifying the environment.
 
 If local sources overlap installed solutions, a preview must not replay all local files over the already composed environment. Two paths are possible:
 
@@ -219,7 +219,7 @@ CompositionPlanner supplies validated ordering to SolutionLayerManager. Metadata
 
 A materialized environment baseline needs an explicit composition path around the existing manager until its baseline contract is implemented. Do not force it into a System or Default layer and imply historical accuracy. Layer origin is known only where the input actually supplies it.
 
-Initial scope excludes exact patch, staged upgrade and uninstall simulation. Unsupported operations fail with a capability diagnostic. Duplicate-key diagnostics and broader component conformance remain separate tasks beyond the completed XML identity fix.
+Duplicate-key diagnostics and broader component conformance remain separate tasks beyond the completed XML identity fix.
 
 ## 9. Baseline acquisition and offline behavior
 
@@ -245,7 +245,7 @@ Without baseline coverage, local composition can still operate on known componen
 
 1. Begin EditSession with an editable target solution and the session revision.
 2. Read effective state to resolve references; modify a detached target-owned contribution.
-3. Record a ChangeSet. For an inherited component, derive a supported segmented contribution or change representation; reject unsupported edits rather than copying the whole effective object.
+3. Record a ChangeSet. For an inherited component, derive the target contribution described below; reject unsupported edits rather than copying the whole effective object.
 4. Recompose a preview and run validation using the same dependency/baseline context.
 5. Generate a target-only write preview using existing writer capabilities.
 6. Check that source hashes/revisions still match the loaded state. Report a conflict if external tools changed the files.
@@ -253,7 +253,29 @@ Without baseline coverage, local composition can still operate on known componen
 
 Existing TransactionalContext buffers writes but does not guarantee atomic multi-file filesystem commit: failures during Commit can leave partial changes. Initially validate before writing and define recovery/backups for affected files; do not advertise database-style rollback. Package archives and NuGet cache inputs remain read-only.
 
-Acceptance: no-op save has zero byte diff; editing UI leaves DataModel unchanged; discarded edits affect neither sources nor effective state; an external file change prevents stale overwrite. Saving local changes does not import anything into Dataverse.
+### Writing changes to inherited components
+
+The target writes an inherited component in the shape Dataverse itself uses when it exports that component from an unmanaged solution. The target never receives a copy of the effective object.
+
+Example: `account` comes from DataModel, and UI adds a `website` column. UI then contains:
+
+- in `Solution.xml`, one `<RootComponent type="1" schemaName="account" behavior="2" />` and no separate root components for columns;
+- in `Entities/Account/Entity.xml`, the `account` entity with exactly one attribute, `website`.
+
+Rules per component type:
+
+| Component | Target content |
+| --- | --- |
+| Table | Root component with `behavior="2"` (shell only) when only subcomponents change, `behavior="1"` when table-level properties change too. `Entity.xml` contains only target-owned subcomponents and changed table properties |
+| Column, relationship | The full definition of that one subcomponent inside the table shell |
+| Form, view, chart | The full component, as an unmanaged export contains it |
+| Any other type | Rejected with a capability diagnostic until its shape is verified against a reference export |
+
+Editing an inherited form therefore gives the target a full copy of that form. This matches Dataverse unmanaged behavior and is intended.
+
+The existing `RootComponentBehavior` model and the subcomponent stripping in `ExportNormalizer` are the starting point for this rule.
+
+Acceptance: no-op save has zero byte diff; adding `website` to an inherited `account` produces a shell with exactly one attribute; editing UI leaves DataModel unchanged; discarded edits affect neither sources nor effective state; an external file change prevents stale overwrite. Saving local changes does not import anything into Dataverse.
 
 ## 11. First vertical slices and acceptance checks
 
@@ -293,17 +315,28 @@ Checks: small import sequences produce expected EDMX; supported version updates 
 
 These slices are proposed sequencing for design review. They do not silently replace the broader implementation checklist or authorize environment access without configuration.
 
-## 12. Decisions to review
+## 12. Decisions
 
-| Decision | Proposed default | Remaining question |
+### Decided
+
+| Decision | Why | Rejected alternative |
 | --- | --- | --- |
-| Materialized representation | EffectiveMetadata | Final public API names can be chosen during implementation |
-| Local entry point | Selected solution, typically UI | Deployment package remains a separate entry point |
-| Live/local combination | Explicit modes, no automatic replay of overlapping sources | Required fidelity and available layer/source evidence for first preview |
-| Initial environment scope | Published tables, columns, relationships | Which additional components are needed first by EDS/portal? |
-| Offline fallback | Pinned captured baseline with declared coverage | Who produces/version-controls a distributable clean baseline? |
-| Direct sibling conflicts in local composition | Earlier parent reference has higher precedence, only between siblings not related by a dependency path | Reconcile constraints across several parents and transitive branches; preserve real import context in other modes |
-| Source editing | Explicit editable target, detached changes, revision checks | Per-component segmented write representation |
-| First milestone | Local slices B and C first, in the implementation plan's delivery order; environment capture later | None |
+| The composed result is a read-only EffectiveMetadata view | Callers must not be able to mutate dependency sources through the composed result | A mutable composed Workspace as the only model |
+| The entry point is any selected solution, usually UI; a deployment package is a separate entry point | Only the entry's dependency closure is relevant, so Logic does not leak into UI validation | Loading every solution in the repository or package |
+| Dependencies are discovered transitively from each project's direct references | The dependency stays with the project that needs it; no duplicated reference lists | The entry project lists its flattened closure |
+| Explicit modes: project composition, environment inspection, local change preview | Replaying local files over a captured environment can lose or double-apply customizations | Always merging local sources over environment metadata |
+| An earlier sibling reference wins, only between siblings not related by a dependency path (section 6.1) | A reproducible tie-breaker for independent siblings that never contradicts prerequisites | Every sibling conflict is an error; an explicit precedence attribute on references |
+| An environment capture is a baseline with declared coverage | An effective capture has no layer history; registering it as a solution layer would fake that evidence | Registering the capture as a managed or System layer |
+| The first environment capture covers published tables, columns and relationships | The smallest scope that proves the live-to-offline round-trip | A full environment dump |
+| Edits go through an EditSession with an explicit target, a detached ChangeSet and revision checks | Prevents writes into dependencies and overwrites of externally changed files | Editing the effective object and serializing the whole result |
+| An inherited component is written in Dataverse's unmanaged export shape: a table shell with only target-owned subcomponents, other types in full (section 10) | Follows platform behavior instead of a custom format; the target never takes ownership of dependency content | Copying the whole effective component into the target |
+| Local slices B and C come first | They need no environment access and directly serve build validation | Environment capture (slice A) first |
 
-No claim of exact Dataverse import simulation is made from an effective environment dump alone. The deliverable for this design is a reviewable contract that makes the required evidence and supported behavior explicit.
+### Open questions
+
+| Question | Why it matters | Blocks |
+| --- | --- | --- |
+| How are ordering constraints reconciled across several parents and transitive branches? | Section 6.1 only orders direct siblings of one parent | Slice B, multi-parent graphs |
+| What fidelity and evidence does the first local change preview require? | Decides whether a preview can be built from a capture plus a common source revision | Slice C previews |
+| Which components beyond tables, columns and relationships do EDS and the portal need first? | Defines the next readers for environment capture | Slices A and D |
+| Who produces and versions a distributable clean baseline? | Offline validation of standard components depends on it | Slice A offline mode |
