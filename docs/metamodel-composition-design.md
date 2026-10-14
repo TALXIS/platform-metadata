@@ -3,13 +3,38 @@
 Date: 2026-09-29
 Status: design proposal for review; proposed types and APIs are not implemented unless explicitly marked existing.
 
-## 1. Purpose
+## 1. Summary and scope
 
-Provide one reusable metadata composition engine for local development, build validation, EDS import processing, and future language-server and portal consumers. A consumer selects a solution, usually Solution.UI, and loads its declared dependencies into a queryable model. Environment metadata supplies components unavailable in source projects and can be saved for offline use.
+### Summary
 
-The materialized result is called **EffectiveMetadata**, not Default Solution. It is a view of the selected inputs. It is neither a solution archive nor an instruction to deploy into Dataverse.
+Today a consumer that needs metadata from several solutions passes them to `XmlWorkspaceReader.LoadMany` in an order it picks itself. Nothing discovers the dependency graph, nothing validates the order, and the composed result is not clearly separated from the source files it came from.
 
-This document specifies responsibilities, data contracts, processing order, persistence boundaries, and unresolved decisions. The implementation checklist remains in [the implementation plan](metamodel-implementation-plan.md). It refines the multi-source workflow in [Runtime Architecture](runtime-architecture.md); that document's broader runtime and uninstall APIs remain long-term goals.
+This design adds one composition engine on top of the existing layer, reader and writer infrastructure. A caller names an entry solution, usually Solution.UI. The engine resolves its project and package dependencies transitively, loads each one once, composes them with the existing layering rules and returns a read-only **EffectiveMetadata** view with diagnostics. Edits go to one explicitly chosen target solution and are written back only to its source files.
+
+The same engine serves build validation, editor tooling and EDS. Environment metadata can be added as a separately captured baseline for components that no source project contains. The first milestone is local: dependency loading and project composition without environment access.
+
+EffectiveMetadata is a view of the selected inputs. It is not a Default Solution, not a solution archive and not something that gets deployed.
+
+### Goals
+
+- Load an entry solution and its transitive dependencies. A shared dependency loads once; unrelated solutions are not loaded.
+- Compose components with the existing per-type rules in a deterministic, validated order.
+- Keep source contributions and the effective result separate. Reading a dependency never makes it editable.
+- Write changes only to the target solution. A save without edits produces zero byte differences.
+- Validate references across the whole dependency closure without requiring a shared deployment package.
+- Work offline. Environment metadata is optional, and its coverage is always explicit.
+
+### Non-goals
+
+- Exact simulation of a Dataverse import. An effective environment snapshot alone is not enough evidence for it.
+- Patch, staged upgrade and uninstall simulation. These operations fail with a capability diagnostic.
+- Importing or deploying anything into Dataverse.
+- Implicit network access. Queries never trigger restores or environment calls; every input comes from an explicit load request.
+- Unpublished customizations in the first environment capture.
+- Executing deployment code contained in packages.
+- Renaming the Workspace abstraction.
+
+The implementation checklist is in [the implementation plan](metamodel-implementation-plan.md). This design refines the multi-source workflow in [Runtime Architecture](runtime-architecture.md); the broader runtime and uninstall APIs described there remain long-term goals.
 
 ## 2. Example and expected behavior
 
@@ -141,11 +166,11 @@ When two dependencies of the same parent contribute conflicting definitions, the
 
 Record each reference's order on its graph edge. Use the active evaluated reference list for the selected build configuration, preserving declared order rather than sorting by name, path or package kind. Imported or generated references must expose a reproducible effective order through the build adapter. This rule applies equally to resolved project and package dependencies; the adapter must preserve their relative declaration order.
 
-Dependency prerequisites remain mandatory: a dependency is processed before its consumer. If reference precedence contradicts a prerequisite (for example A depends on B but B is declared to win over A), report inconsistent ordering constraints rather than silently reversing the dependency. At each parent, direct sibling order is defined; a shared transitive node is still loaded once. Conflicting ordering constraints from several parents and priority between different transitive branches require an explicit consistent graph policy and remain open; do not resolve them by incidental traversal order.
+Dependency prerequisites remain mandatory: a dependency is processed before its consumer. Reference-list precedence applies only between siblings that are not related by a dependency path. If one sibling transitively depends on the other, the dependency graph alone defines their order and the declaration order of those two references is ignored. For example, UI may list DataModel before Security; because Security depends on DataModel, Security still composes above DataModel and no diagnostic is reported. At each parent, direct sibling order is defined; a shared transitive node is still loaded once. Conflicting ordering constraints from several parents and priority between different transitive branches require an explicit consistent graph policy and remain open; do not resolve them by incidental traversal order.
 
 This is the local project composition policy. It does not assert that Dataverse reads project files, change managed/unmanaged semantics, or override known runtime import history. Environment inspection and import simulation retain their explicit modes and context.
 
-Acceptance: swapping two independent sibling references reverses the winning supported property; both retain non-conflicting components; the parent remains above its prerequisites; shared dependencies are not duplicated; contradictory constraints are diagnosed.
+Acceptance: swapping two independent sibling references reverses the winning supported property; swapping a sibling with its own transitive dependency changes nothing; both retain non-conflicting components; the parent remains above its prerequisites; shared dependencies are not duplicated; contradictory constraints between several parents are diagnosed.
 
 ## 7. Composition modes and environment overlap
 
@@ -232,7 +257,9 @@ Acceptance: no-op save has zero byte diff; editing UI leaves DataModel unchanged
 
 ## 11. First vertical slices and acceptance checks
 
-### Slice A: environment capture and offline materialization — proposed next architecture milestone
+Local slices B and C come first, following the delivery order in the implementation plan: they need no environment access and directly serve build validation. Slices D and A follow as separate stages.
+
+### Slice A: environment capture and offline materialization
 
 Problem: the model cannot rely on live access, but source repositories do not contain all standard metadata.
 
@@ -275,8 +302,8 @@ These slices are proposed sequencing for design review. They do not silently rep
 | Live/local combination | Explicit modes, no automatic replay of overlapping sources | Required fidelity and available layer/source evidence for first preview |
 | Initial environment scope | Published tables, columns, relationships | Which additional components are needed first by EDS/portal? |
 | Offline fallback | Pinned captured baseline with declared coverage | Who produces/version-controls a distributable clean baseline? |
-| Direct sibling conflicts in local composition | Earlier parent reference has higher precedence | Reconcile constraints across several parents and transitive branches; preserve real import context in other modes |
+| Direct sibling conflicts in local composition | Earlier parent reference has higher precedence, only between siblings not related by a dependency path | Reconcile constraints across several parents and transitive branches; preserve real import context in other modes |
 | Source editing | Explicit editable target, detached changes, revision checks | Per-component segmented write representation |
-| First milestone | Live capture -> effective inspection -> offline reload | Confirm prioritization relative to local dependency loading |
+| First milestone | Local slices B and C first, in the implementation plan's delivery order; environment capture later | None |
 
 No claim of exact Dataverse import simulation is made from an effective environment dump alone. The deliverable for this design is a reviewable contract that makes the required evidence and supported behavior explicit.

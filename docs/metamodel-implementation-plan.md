@@ -1,6 +1,6 @@
 # Metamodel implementation plan
 
-Updated: 2026-09-25
+Updated: 2026-10-14
 Status: proposed implementation plan
 
 Architecture proposal: [Metamodel composition design](metamodel-composition-design.md) defines proposed types, source/environment modes, workflows and review decisions. Its first vertical slice is a proposal, not an implemented change or a replacement for the task status below.
@@ -28,7 +28,7 @@ This plan covers improvements to an existing implementation. Checked items descr
 | EDS | Environment Data Service; a separate consumer that imports metadata and uses it to maintain its own schema. |
 | EDMX | The XML model representation used in the EDS schema-generation pipeline. |
 
-The effective model is analogous to a Default Solution view of the loaded components. It is not a new deployable solution and does not necessarily contain every component in an environment.
+The effective model is called EffectiveMetadata: a read-only view of the loaded components. It is not a new deployable solution and does not necessarily contain every component in an environment.
 
 ## 0. Existing foundations and architectural constraints
 
@@ -154,9 +154,9 @@ Acceptance: each supported component behavior has an executable example and expe
 
 - [ ] Feed dependency-derived order into existing source registration and layer resolution.
 - [ ] Preserve the shared active layer and source provenance for unmanaged contributions.
-- [ ] Preserve parent reference-list order: earlier direct references have higher conflict precedence in local composition. Apply lower-priority contributions first where the merger is later-wins; retain dependency prerequisites and diagnose inconsistent constraints.
+- [ ] Preserve parent reference-list order: earlier direct references have higher conflict precedence in local composition, only between siblings not related by a dependency path. Apply lower-priority contributions first where the merger is later-wins; retain dependency prerequisites and diagnose inconsistent constraints.
 - [ ] Diagnose unresolved ordering ambiguity rather than using incidental traversal order.
-- [ ] Keep the aggregate Default Solution-like view separate from importable layers.
+- [ ] Keep EffectiveMetadata separate from importable layers.
 - [ ] Distinguish removing an input source from simulating solution uninstall.
 - [ ] Define the initial lifecycle operation scope; implement and test update, upgrade, patches, and uninstall separately where required.
 
@@ -376,6 +376,7 @@ Implementation sequence:
 Acceptance: an operation targeting B never modifies or removes A; valid matching-ID operations and supported keyless behavior continue to work. Define missing-target behavior from the operation contract rather than inventing a match.
 
 This increment does not require dependency-loader, SDK, EDS, or environment deployment changes. The broader delivery sequence below remains the roadmap after this bounded fix.
+
 Verification results:
 
 - Before the fix, 10 of 18 new regression cases failed, including mismatched-ID operations on a Warehouse application form.
@@ -401,7 +402,7 @@ Each stage is complete when its declared operations are implemented, its accepta
 ## 11. Open design decisions
 
 - Precedence and freshness rules for live metadata, cached baselines, and local edits.
-- Reconciliation of ordering constraints across multiple parents and transitive branches; direct sibling precedence is defined by earlier parent references winning.
+- Reconciliation of ordering constraints across multiple parents and transitive branches; direct sibling precedence is defined by earlier parent references winning, only between siblings not related by a dependency path.
 - Initial lifecycle coverage: import, update, upgrade, patches, and uninstall.
 - Standard-component coverage of an offline baseline.
 - Active EDS hosting/import path and alignment with its technical design.
