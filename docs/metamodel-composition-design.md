@@ -107,16 +107,16 @@ The core metadata package remains format-independent and compatible with its exi
 
 The workspace orchestration layer coordinates reads and composition but has no implicit network access. A caller supplies adapters and an explicit load request. Queries never trigger background restores or environment requests.
 
-## 5. Proposed types and contracts
+## 5. Types and contracts
 
-Names are proposed. Prefer extending an existing type when it already has the required responsibility; do not create parallel layer stacks or source stores.
+Prefer extending an existing type when it already has the required responsibility; do not create parallel layer stacks or source stores.
 
 | Type | Main data or operations | Responsibility |
 | --- | --- | --- |
 | ComponentIdentity (existing) | Type and ObjectId | Stable component key, independent of solution membership and source path; nested identities must include owner context where required |
-| SourceStore (proposed logical facade) | Source descriptors, component snapshots, original documents, revisions; lookup by source and component | Retain original contributions for diagnostics and target-only write-back; reuse existing storage |
-| EffectiveMetadata (proposed read model) | Component lookup/enumeration, resolved values, provenance, coverage, session revision | Read-only materialized result of composition, distinct from editable source contributions |
-| MetadataSessionLoader (proposed orchestrator) | Load(request) -> MetadataSession | Coordinate dependency resolution, readers, baseline loading, planning, composition and validation |
+| SourceStore (logical facade) | Source descriptors, component snapshots, original documents, revisions; lookup by source and component | Retain original contributions for diagnostics and target-only write-back; reuse existing storage |
+| EffectiveMetadata (read model) | Component lookup/enumeration, resolved values, provenance, coverage, session revision | Read-only materialized result of composition, distinct from editable source contributions |
+| MetadataSessionLoader (orchestrator) | Load(request) -> MetadataSession | Coordinate dependency resolution, readers, baseline loading, planning, composition and validation |
 | MetadataLoadRequest | Entry point, configuration, mode, baseline selection; import order only for a deployment package entry point | Explicit reproducible loading inputs. For project composition the order always comes from the dependency graph, never from the caller |
 | ISolutionDependencyResolver | Resolve(entry, configuration) -> ResolvedSolutionGraph | Evaluate project/package edges through build tooling; no component merging |
 | ResolvedSolutionGraph | Nodes, edges with their declared reference order, resolved versions, source locations | Complete dependency closure with provenance. Edge order must survive resolution, because an earlier csproj reference wins conflicts for its whole branch |
@@ -158,7 +158,7 @@ An edit increments the session revision and invalidates affected projections. In
 7. Build a composition plan: prerequisite order, parent reference-list precedence, additional import context, managed/unmanaged semantics, payload kinds and baseline overlap checks.
 8. Compose components using registered rules. Compose table children independently so a partial table contribution cannot erase unrelated columns.
 9. Run existing validators against the resulting context. Distinguish missing components from unknown baseline coverage.
-10. Publish a MetadataSession with either a valid result or explicitly incomplete diagnostics. Fatal ordering/identity ambiguity prevents a result being labelled authoritative.
+10. Publish a MetadataSession with either a valid result or explicitly incomplete diagnostics. An identity ambiguity prevents the result from being labelled authoritative.
 
 MSBuild references and component relationships are separate graphs. References declare available sources; component relationships validate actual usage against those sources. Shared dependency loading does not imply automatic deployment.
 
@@ -175,21 +175,19 @@ Composition applies solutions from lowest to highest precedence, so with a later
 
 Example for rule 2: UI references Security, then Reports. Security references ExtA, Reports references ExtB, and both extensions change the display name of `account.name`. The order from bottom to top is ExtB, Reports, ExtA, Security, UI, so ExtA's value wins. Swapping the two references in UI makes ExtB's value win.
 
-Example for rule 4: UI references Security, then Reports. Security references ExtA, then ExtB; Reports references ExtB, then ExtA. ExtA and ExtB are shared, so both compose below Security and Reports. Security has higher precedence, so its order decides: ExtB, ExtA, Reports, Security, UI, and ExtA's value wins. A plain depth-first traversal that visits the lower-precedence branch first would fix ExtA and ExtB in Reports' order instead; the planner must not depend on traversal order.
-
-Record each reference's order on its graph edge. Use the active evaluated reference list for the selected build configuration, preserving declared order rather than sorting by name, path or package kind. Imported or generated references must expose a reproducible effective order through the build adapter. This rule applies equally to resolved project and package dependencies; the adapter must preserve their relative declaration order.
-
 Example for rule 3: UI may list DataModel before Security. Security depends on DataModel, so Security still composes above DataModel and no diagnostic is reported.
+
+Example for rule 4: UI references Security, then Reports. Security references ExtA, then ExtB; Reports references ExtB, then ExtA. ExtA and ExtB are shared, so both compose below Security and Reports. Security has higher precedence, so its order decides: ExtB, ExtA, Reports, Security, UI, and ExtA's value wins. A plain depth-first traversal that visits the lower-precedence branch first would fix ExtA and ExtB in Reports' order instead; the planner must not depend on traversal order.
 
 These rules give every acyclic graph exactly one order, so ordering itself produces no diagnostics. Dependency cycles are still reported during dependency resolution.
 
-This is the local project composition policy. It does not assert that Dataverse reads project files, change managed/unmanaged semantics, or override known runtime import history. Environment inspection and import simulation retain their explicit modes and context.
+Each graph edge records its reference's position in the evaluated reference list for the selected build configuration. The declared order is kept as is, never sorted by name, path or package kind, and project and package references keep their relative order. Imported or generated references must expose a reproducible order through the build adapter.
+
+This policy applies only to local project composition. It does not change managed/unmanaged semantics or override import history known from an environment.
 
 Acceptance: swapping two independent sibling references reverses the winning property, including for solutions deeper in their branches; swapping a sibling with its own transitive dependency changes nothing; the rule 4 example resolves to ExtA regardless of traversal order; distinct columns from both siblings are merged; the parent remains above its prerequisites; shared dependencies are loaded once.
 
 ## 7. Composition modes and environment overlap
-
-These modes are proposed to make the local/remote contract explicit. They require design review before implementation.
 
 ### 7.1. Project composition
 
@@ -205,7 +203,7 @@ Inputs: live capture or a saved capture of effective environment metadata.
 
 Purpose: inspect current known environment state. Local inputs may be shown alongside it for comparison, but are not replayed on top by default. An effective snapshot is stored as a baseline, not registered as a fictional managed solution or a complete layer stack.
 
-This is the smallest proposed vertical slice for proving live/offline support: capture supported table metadata, materialize it, save it, reopen it offline and compare supported properties.
+This is the smallest slice that proves live and offline support: capture supported table metadata, materialize it, save it, reopen it offline and compare supported properties.
 
 ### 7.3. Local change preview
 
@@ -213,14 +211,9 @@ Inputs: an environment baseline plus explicitly targeted local changes.
 
 Purpose: show a proposed result without modifying the environment.
 
-If local sources overlap installed solutions, a preview must not replay all local files over the already composed environment. Two paths are possible:
+If local sources overlap installed solutions, a preview must not replay all local files over the already composed environment. Instead it requires a recorded common source revision, computes explicit local changes relative to it, applies only supported changes and labels the output as a development preview. Without a common revision, it returns an overlap diagnostic and keeps the local and environment views separate; it never silently discards environment customizations or guesses an import result.
 
-- For an initial limited preview, require a recorded common source revision and compute explicit local changes relative to it. Apply only supported changes and label the output as a development preview.
-- For exact supported import simulation, require sufficient source-layer and import-operation information to replace/update the appropriate contributions. An effective metadata capture alone is insufficient.
-
-Without enough evidence, return an overlap diagnostic and preserve separate local and environment views. Do not silently discard environment customizations or guess an import result.
-
-### Worked overlap example
+#### Overlap example
 
 The captured environment already contains DataModel version 1 and a separately installed extension adding phone. The local project modifies a name property in DataModel version 2. Replaying an entire partial DataModel table could lose phone; replaying a form snapshot could apply existing changes twice.
 
@@ -228,11 +221,11 @@ With a known common source revision, a limited preview applies the explicit name
 
 ## 8. Layering contract
 
-Component-level rules must align with verified Dataverse behavior. Managed inputs and the shared active/unmanaged layer retain their distinct semantics; multiple local unmanaged projects remain separate source contributions to one active layer. Reference type does not determine layer strength. See [Microsoft's layer model](https://learn.microsoft.com/en-us/power-platform/alm/solution-layers-alm).
+Component-level rules must align with verified Dataverse behavior. Managed inputs and the shared active/unmanaged layer keep their distinct semantics. Whether local projects and package solutions enter as managed layers or as separate source contributions to one active layer is still open. Reference type (project or package) does not determine layer strength. See [Microsoft's layer model](https://learn.microsoft.com/en-us/power-platform/alm/solution-layers-alm).
 
 CompositionPlanner supplies validated ordering to SolutionLayerManager. MetadataComposer extends existing per-type rules rather than introducing another engine. Full, segmented and delta inputs have explicit contracts; omission from segmented input is not removal. Changes must preserve property presence, localization and agreement between typed properties and XML bodies.
 
-A materialized environment baseline needs an explicit composition path around the existing manager until its baseline contract is implemented. Do not force it into a System or Default layer and imply historical accuracy. Layer origin is known only where the input actually supplies it.
+An environment baseline does not enter `SolutionLayerManager` as a System or Default layer, because its layer history is unknown; it gets its own composition path. Layer origin is recorded only where the input actually supplies it.
 
 Duplicate-key diagnostics and broader component conformance remain separate tasks beyond the completed XML identity fix.
 
@@ -252,7 +245,7 @@ Do not store credentials, access tokens or business records in the metadata snap
 
 The caller chooses one of: a pinned saved capture, a versioned supplied baseline, or no baseline. Offline mode performs no network requests. If a requested live refresh fails, using an older snapshot requires an explicit fallback policy and emits a stale-baseline diagnostic.
 
-The default proposed snapshot format is versioned JSON through a serialization adapter, subject to the library's package constraints. Avoid a custom binary format in the first milestone. CDM is an optional coverage source to evaluate, not a substitute for a complete Dataverse baseline.
+Proposed snapshot format: versioned JSON through a serialization adapter, within the library's package constraints. The final choice is made with slice A; a custom binary format is out of scope for the first milestone. CDM is an optional coverage source to evaluate, not a substitute for a complete Dataverse baseline.
 
 Without baseline coverage, local composition can still operate on known components. Validation reports unknown external references as incomplete coverage rather than certifying a complete successful environment validation.
 
@@ -328,8 +321,6 @@ Solution: map the shared effective result into the existing EDS schema pipeline.
 
 Checks: small import sequences produce expected EDMX; supported version updates are repeatable; the library works without SQL or EDS hosting.
 
-These slices are proposed sequencing for design review. They do not silently replace the broader implementation checklist or authorize environment access without configuration.
-
 ## 12. Decisions
 
 ### Decided
@@ -351,6 +342,7 @@ These slices are proposed sequencing for design review. They do not silently rep
 
 | Question | Why it matters | Blocks |
 | --- | --- | --- |
+| Do local projects and NuGet package solutions compose as managed layers or as contributions to one active (unmanaged) layer? | Decides which `SolutionLayerManager` import method each source uses and whether managed-property restrictions are validated | Slice B |
 | What fidelity and evidence does the first local change preview require? | Decides whether a preview can be built from a capture plus a common source revision | Slice C previews |
 | Which components beyond tables, columns and relationships do EDS and the portal need first? | Defines the next readers for environment capture | Slices A and D |
 | Who produces and versions a distributable clean baseline? | Offline validation of standard components depends on it | Slice A offline mode |
