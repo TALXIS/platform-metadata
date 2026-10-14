@@ -154,13 +154,13 @@ Acceptance: each supported component behavior has an executable example and expe
 
 - [ ] Feed dependency-derived order into existing source registration and layer resolution.
 - [ ] Preserve the shared active layer and source provenance for unmanaged contributions.
-- [ ] Preserve parent reference-list order: earlier direct references have higher conflict precedence in local composition, only between siblings not related by a dependency path. Apply lower-priority contributions first where the merger is later-wins; retain dependency prerequisites and diagnose inconsistent constraints.
-- [ ] Diagnose unresolved ordering ambiguity rather than using incidental traversal order.
+- [ ] Order solutions by the precedence rules in design section 6.1: earlier references win for their whole branch, shared dependencies sit below all consumers, and the higher-precedence parent decides when parents disagree.
+- [ ] Cover both section 6.1 examples with tests that do not depend on traversal order.
 - [ ] Keep EffectiveMetadata separate from importable layers.
 - [ ] Distinguish removing an input source from simulating solution uninstall.
 - [ ] Define the initial lifecycle operation scope; implement and test update, upgrade, patches, and uninstall separately where required.
 
-Acceptance: prerequisites precede extensions, active-layer behavior is preserved, and unresolved conflicts between independent inputs are visible.
+Acceptance: prerequisites precede extensions, active-layer behavior is preserved, and conflicts between independent inputs resolve by the design section 6.1 precedence rules.
 
 ## 3. Loading a solution and its dependencies
 
@@ -402,7 +402,6 @@ Each stage is complete when its declared operations are implemented, its accepta
 ## 11. Open design decisions
 
 - Precedence and freshness rules for live metadata, cached baselines, and local edits.
-- Reconciliation of ordering constraints across multiple parents and transitive branches; direct sibling precedence is defined by earlier parent references winning, only between siblings not related by a dependency path.
 - Initial lifecycle coverage: import, update, upgrade, patches, and uninstall.
 - Standard-component coverage of an offline baseline.
 - Active EDS hosting/import path and alignment with its technical design.

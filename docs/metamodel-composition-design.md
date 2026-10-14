@@ -162,15 +162,28 @@ MSBuild references and component relationships are separate graphs. References d
 
 ### 6.1. Reference-list precedence for local composition
 
-When two dependencies of the same parent contribute conflicting definitions, the dependency listed earlier in the parent's project references has higher precedence. For references A followed by B, A wins a supported conflicting value. With a later-applied-wins merger, compose B before A, then apply the parent's own contribution. Non-conflicting components from both remain available; component-specific merge rules still apply.
+The whole dependency closure composes into one effective view. Order matters only when two solutions supply different values for the same property of the same component. Distinct contributions are merged: if ExtA adds a `website` column to `account` and ExtB adds `email`, the effective `account` has both columns in any order. If both change the display name of `account.name`, the solution with higher precedence wins. Component-specific merge rules still apply.
+
+Composition applies solutions from lowest to highest precedence, so with a later-applied-wins merger the highest-precedence solution is applied last. The order is defined by these rules:
+
+1. **Prerequisites.** A dependency composes below every solution that references it, directly or transitively. A shared dependency is loaded once and placed below all of its consumers.
+2. **Sibling precedence.** A reference listed earlier in a parent has higher precedence than a reference listed later. This applies to the whole branch: everything reachable only through the earlier reference composes above everything reachable only through the later one.
+3. **Related siblings.** If one sibling depends on the other, rule 1 decides and the declaration order of those two references is ignored.
+4. **Disagreeing parents.** If several parents order the same shared solutions differently, the parent with higher precedence decides.
+
+Example for rule 2: UI references Security, then Reports. Security references ExtA, Reports references ExtB, and both extensions change the display name of `account.name`. The order from bottom to top is ExtB, Reports, ExtA, Security, UI, so ExtA's value wins. Swapping the two references in UI makes ExtB's value win.
+
+Example for rule 4: UI references Security, then Reports. Security references ExtA, then ExtB; Reports references ExtB, then ExtA. ExtA and ExtB are shared, so both compose below Security and Reports. Security has higher precedence, so its order decides: ExtB, ExtA, Reports, Security, UI, and ExtA's value wins. A plain depth-first traversal that visits the lower-precedence branch first would fix ExtA and ExtB in Reports' order instead; the planner must not depend on traversal order.
 
 Record each reference's order on its graph edge. Use the active evaluated reference list for the selected build configuration, preserving declared order rather than sorting by name, path or package kind. Imported or generated references must expose a reproducible effective order through the build adapter. This rule applies equally to resolved project and package dependencies; the adapter must preserve their relative declaration order.
 
-Dependency prerequisites remain mandatory: a dependency is processed before its consumer. Reference-list precedence applies only between siblings that are not related by a dependency path. If one sibling transitively depends on the other, the dependency graph alone defines their order and the declaration order of those two references is ignored. For example, UI may list DataModel before Security; because Security depends on DataModel, Security still composes above DataModel and no diagnostic is reported. At each parent, direct sibling order is defined; a shared transitive node is still loaded once. Conflicting ordering constraints from several parents and priority between different transitive branches require an explicit consistent graph policy and remain open; do not resolve them by incidental traversal order.
+Example for rule 3: UI may list DataModel before Security. Security depends on DataModel, so Security still composes above DataModel and no diagnostic is reported.
+
+These rules give every acyclic graph exactly one order, so ordering itself produces no diagnostics. Dependency cycles are still reported during resolution (section 6, step 3).
 
 This is the local project composition policy. It does not assert that Dataverse reads project files, change managed/unmanaged semantics, or override known runtime import history. Environment inspection and import simulation retain their explicit modes and context.
 
-Acceptance: swapping two independent sibling references reverses the winning supported property; swapping a sibling with its own transitive dependency changes nothing; both retain non-conflicting components; the parent remains above its prerequisites; shared dependencies are not duplicated; contradictory constraints between several parents are diagnosed.
+Acceptance: swapping two independent sibling references reverses the winning property, including for solutions deeper in their branches; swapping a sibling with its own transitive dependency changes nothing; the rule 4 example resolves to ExtA regardless of traversal order; distinct columns from both siblings are merged; the parent remains above its prerequisites; shared dependencies are loaded once.
 
 ## 7. Composition modes and environment overlap
 
@@ -180,7 +193,7 @@ These modes are proposed to make the local/remote contract explicit. They requir
 
 Inputs: a selected solution dependency closure, optionally a compatible baseline that precedes those contributions.
 
-Purpose: local editing and validation without an environment connection. Dependency order determines prerequisites. Conflicting direct dependencies of one parent use reference-list precedence: earlier references have higher priority (section 6.1). More complex graph conflicts require consistent ordering constraints; arbitrary stable sorting does not resolve them.
+Purpose: local editing and validation without an environment connection. Composition order follows the precedence rules in section 6.1.
 
 A supplied baseline must declare its scope. A captured environment containing the same customized solutions is not automatically a clean system baseline. A generic fresh-environment snapshot also depends on platform version and installed applications; it is not assumed universally compatible.
 
@@ -325,7 +338,7 @@ These slices are proposed sequencing for design review. They do not silently rep
 | The entry point is any selected solution, usually UI; a deployment package is a separate entry point | Only the entry's dependency closure is relevant, so Logic does not leak into UI validation | Loading every solution in the repository or package |
 | Dependencies are discovered transitively from each project's direct references | The dependency stays with the project that needs it; no duplicated reference lists | The entry project lists its flattened closure |
 | Explicit modes: project composition, environment inspection, local change preview | Replaying local files over a captured environment can lose or double-apply customizations | Always merging local sources over environment metadata |
-| An earlier sibling reference wins, only between siblings not related by a dependency path (section 6.1) | A reproducible tie-breaker for independent siblings that never contradicts prerequisites | Every sibling conflict is an error; an explicit precedence attribute on references |
+| An earlier reference wins for its whole branch; shared dependencies sit below all consumers; when parents disagree, the higher-precedence parent decides (section 6.1) | Conflicts resolve silently and reproducibly from what csproj files already declare, and never contradict prerequisites | Every conflict is an error; an explicit precedence attribute on references |
 | An environment capture is a baseline with declared coverage | An effective capture has no layer history; registering it as a solution layer would fake that evidence | Registering the capture as a managed or System layer |
 | The first environment capture covers published tables, columns and relationships | The smallest scope that proves the live-to-offline round-trip | A full environment dump |
 | Edits go through an EditSession with an explicit target, a detached ChangeSet and revision checks | Prevents writes into dependencies and overwrites of externally changed files | Editing the effective object and serializing the whole result |
@@ -336,7 +349,6 @@ These slices are proposed sequencing for design review. They do not silently rep
 
 | Question | Why it matters | Blocks |
 | --- | --- | --- |
-| How are ordering constraints reconciled across several parents and transitive branches? | Section 6.1 only orders direct siblings of one parent | Slice B, multi-parent graphs |
 | What fidelity and evidence does the first local change preview require? | Decides whether a preview can be built from a capture plus a common source revision | Slice C previews |
 | Which components beyond tables, columns and relationships do EDS and the portal need first? | Defines the next readers for environment capture | Slices A and D |
 | Who produces and versions a distributable clean baseline? | Offline validation of standard components depends on it | Slice A offline mode |
