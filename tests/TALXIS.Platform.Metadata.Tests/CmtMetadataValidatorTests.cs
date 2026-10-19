@@ -676,6 +676,19 @@ public class CmtMetadataValidatorTests
         Assert.Contains("only partly in the metadata", finding.Message);
     }
 
+    [Theory]
+    [InlineData("createdby", false)]
+    [InlineData("modifiedby", false)]
+    [InlineData("createdonbehalfby", true)]
+    public void AuditUsers_AreNotReportedForBeingClosedToCreateAndUpdate(string name, bool reported)
+    {
+        var column = new LookupAttributeMetadata { LogicalName = name, IsValidForCreate = false, IsValidForUpdate = false };
+
+        var findings = ValidateField(column, CmtFieldTypes.EntityReference);
+
+        Assert.Equal(reported, findings.Any(r => r.Code == ValidationDiagnostics.CmtFieldNotWritable));
+    }
+
     [Fact]
     public void FileAndImageColumns_AreNotReportedForBeingClosedToCreateAndUpdate()
     {

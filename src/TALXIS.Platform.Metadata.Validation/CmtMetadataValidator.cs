@@ -18,6 +18,9 @@ public sealed class CmtMetadataValidator
         "activitymimeattachment", "duplicaterule", "duplicaterulecondition", "post", "postcomment", "postfollow", "postlike", "postregarding", "complexcontrol"
     };
 
+    // The importers set the audit users themselves, so their closed API flags don't mean the values are lost; CmtSchemaBuilder's Full selection keeps them.
+    private static readonly HashSet<string> AuditUsers = new(StringComparer.OrdinalIgnoreCase) { "createdby", "modifiedby" };
+
     private static readonly (string Suffix, Func<AttributeMetadata, bool> IsBase)[] HelperSuffixes =
     {
         ("_state", c => c.SourceType == AttributeSourceType.Rollup),
@@ -184,7 +187,7 @@ public sealed class CmtMetadataValidator
             return;
         }
 
-        if (!ReadOnlyColumns.Contains(column)) return;
+        if (!ReadOnlyColumns.Contains(column) || AuditUsers.Contains(column.LogicalName)) return;
 
         results.Add(CmtFindings.Warning(field, ValidationDiagnostics.CmtFieldNotWritable,
             $"CMT data_schema.xml field '{entity.Name}.{field.Name}' is a column Dataverse does not let anyone set on create or update. "

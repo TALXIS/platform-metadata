@@ -106,6 +106,6 @@ var findings = new CmtMetadataValidator().Validate(package, metadata, options);
 | `CmtPrimaryFieldMismatch` | `Warning` | `primaryidfield` or `primarynamefield` naming another column than the table's primary ones |
 | `CmtLookupTargetNotAllowed` | `Warning` | a `lookupType` table the lookup column cannot point to |
 | `CmtRelationshipNotInMetadata` | `Warning` | an N:1 entry the metadata does not have, on another table, or with other columns or tables |
-| `CmtFieldNotWritable` | `Warning` | a column whose values are dropped: valid neither for create nor for update, or computed by Dataverse (calculated, rollup, formula, `_base`) |
+| `CmtFieldNotWritable` | `Warning` | a column whose values are dropped: valid neither for create nor for update (except `createdby` and `modifiedby`, which the importers set), or computed by Dataverse (calculated, rollup, formula, `_base`) |
 | `CmtDataOptionValueUnknown` | `Warning` | a choice, state or status value in `data.xml` that is not an option of the column |
 | `CmtDataLookupEntityUnknown` | incomplete metadata | a `data.xml` lookup to a table that is neither in the metadata nor in the package |
