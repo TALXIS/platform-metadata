@@ -54,8 +54,11 @@ public class EntityFormScaffoldTests : IDisposable
     private XElement SingleRootComponent() =>
         XDocument.Load(_solutionXmlPath).Descendants("RootComponent").Single();
 
+    private bool HasRootComponents() =>
+        XDocument.Load(_solutionXmlPath).Descendants("RootComponent").Any();
+
     [Fact]
-    public void Apply_MainForm_StampsIdRenamesAndRegisters()
+    public void Apply_MainForm_StampsIdRenamesAndSkipsRootComponent()
     {
         var formPath = CreateMainForm();
 
@@ -71,10 +74,7 @@ public class EntityFormScaffoldTests : IDisposable
         Assert.True(File.Exists(renamed));
         Assert.False(File.Exists(formPath));
         Assert.Equal("{" + FormId + "}", XDocument.Load(renamed).Descendants("formid").Single().Value);
-
-        var rootComponent = SingleRootComponent();
-        Assert.Equal("60", rootComponent.Attribute("type")?.Value);
-        Assert.Equal("0", rootComponent.Attribute("behavior")?.Value);
+        Assert.False(HasRootComponents());
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class EntityFormScaffoldTests : IDisposable
         var file = Directory.GetFiles(Path.GetDirectoryName(formPath)!).Single();
         var id = Path.GetFileNameWithoutExtension(file).Trim('{', '}');
         Assert.True(Guid.TryParse(id, out _));
-        Assert.Equal("{" + id + "}", SingleRootComponent().Attribute("id")?.Value);
+        Assert.Equal("{" + id + "}", XDocument.Load(file).Descendants("formid").Single().Value);
     }
 
     [Fact]
@@ -117,6 +117,7 @@ public class EntityFormScaffoldTests : IDisposable
 
         var rootComponent = SingleRootComponent();
         Assert.Equal("60", rootComponent.Attribute("type")?.Value);
+        Assert.Equal("{" + FormId + "}", rootComponent.Attribute("id")?.Value);
         Assert.Null(rootComponent.Attribute("behavior"));
     }
 
