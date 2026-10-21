@@ -1,8 +1,7 @@
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Input for <see cref="EntityScaffold"/>: the rendered entity to register
-/// and the ids of its rendered forms.
+/// Input for <see cref="EntityScaffold"/>: the rendered entity to register.
 /// </summary>
 public sealed class EntityScaffoldRequest
 {
@@ -20,24 +19,4 @@ public sealed class EntityScaffoldRequest
     /// RootComponent behavior: 0 includes metadata, 2 references an existing entity.
     /// </summary>
     public int Behavior { get; set; }
-
-    /// <summary>
-    /// GUID of the rendered quick create form, without braces; null when not rendered.
-    /// </summary>
-    public string? QuickCreateFormId { get; set; }
-
-    /// <summary>
-    /// GUID of the rendered main form, without braces; null when not rendered.
-    /// </summary>
-    public string? MainFormId { get; set; }
-
-    /// <summary>
-    /// GUID of the rendered card form, without braces; null when not rendered.
-    /// </summary>
-    public string? CardFormId { get; set; }
-
-    /// <summary>
-    /// GUID of the rendered quick view form, without braces; null when not rendered.
-    /// </summary>
-    public string? QuickFormId { get; set; }
 }

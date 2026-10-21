@@ -7,8 +7,8 @@ namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 /// <summary>
 /// Stamps the form id into the rendered file, renames it to {id}.xml, and fills
 /// the dialog unique name, deriving it from the entity prefix and form name when
-/// omitted. Registers the form in Solution.xml (type 60, by id); dialog registrations
-/// omit the behavior attribute.
+/// omitted. Registers only dialogs in Solution.xml (type 60, by id, no behavior);
+/// entity forms stay out of root components, like in standard exports.
 /// </summary>
 public static class EntityFormScaffold
 {
@@ -43,12 +43,14 @@ public static class EntityFormScaffold
         if (!string.Equals(Path.GetFullPath(targetPath), Path.GetFullPath(request.FormFilePath), StringComparison.OrdinalIgnoreCase))
             File.Delete(request.FormFilePath);
 
-        SolutionRootComponentPatcher.EnsureRootComponent(request.SolutionRootPath, new RootComponent
+        if (isDialog)
         {
-            Type = ComponentType.SystemForm,
-            Id = Guid.Parse(formId),
-            Behavior = isDialog ? null : 0,
-        });
+            SolutionRootComponentPatcher.EnsureRootComponent(request.SolutionRootPath, new RootComponent
+            {
+                Type = ComponentType.SystemForm,
+                Id = Guid.Parse(formId),
+            });
+        }
 
         return result;
     }

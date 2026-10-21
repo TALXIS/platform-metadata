@@ -6,10 +6,6 @@ namespace TALXIS.Platform.Metadata.Tests;
 public class EntityScaffoldTests : IDisposable
 {
     private const string EntityName = "udpp_warehouseitem";
-    private const string QuickCreateFormId = "0a111111-1111-4111-8111-111111111111";
-    private const string MainFormId = "0b222222-2222-4222-8222-222222222222";
-    private const string CardFormId = "0c333333-3333-4333-8333-333333333333";
-    private const string QuickFormId = "0d444444-4444-4444-8444-444444444444";
 
     private readonly string _root = Directory.CreateTempSubdirectory("metadata-entity-scaffold").FullName;
 
@@ -67,28 +63,14 @@ public class EntityScaffoldTests : IDisposable
             .Descendants("RootComponent").ToList();
 
     [Fact]
-    public void Apply_RegistersEntityAndFormComponentsInOldOrder()
+    public void Apply_NewEntity_RegistersOnlyEntityWithBehavior0()
     {
-        var request = Request();
-        request.QuickCreateFormId = QuickCreateFormId;
-        request.MainFormId = MainFormId;
-        request.CardFormId = CardFormId;
-        request.QuickFormId = QuickFormId;
+        EntityScaffold.Apply(Request());
 
-        EntityScaffold.Apply(request);
-
-        var components = RootComponents();
-        Assert.Equal(5, components.Count);
-        Assert.Equal("1", components[0].Attribute("type")?.Value);
-        Assert.Equal(EntityName, components[0].Attribute("schemaName")?.Value);
-        Assert.Equal("0", components[0].Attribute("behavior")?.Value);
-        var formIds = new[] { QuickCreateFormId, MainFormId, CardFormId, QuickFormId };
-        for (var i = 0; i < formIds.Length; i++)
-        {
-            Assert.Equal("60", components[i + 1].Attribute("type")?.Value);
-            Assert.Equal("{" + formIds[i] + "}", components[i + 1].Attribute("id")?.Value);
-            Assert.Equal("0", components[i + 1].Attribute("behavior")?.Value);
-        }
+        var component = Assert.Single(RootComponents());
+        Assert.Equal("1", component.Attribute("type")?.Value);
+        Assert.Equal(EntityName, component.Attribute("schemaName")?.Value);
+        Assert.Equal("0", component.Attribute("behavior")?.Value);
     }
 
     [Fact]
@@ -124,12 +106,9 @@ public class EntityScaffoldTests : IDisposable
     [Fact]
     public void Apply_IsIdempotent()
     {
-        var request = Request();
-        request.MainFormId = MainFormId;
+        EntityScaffold.Apply(Request());
+        EntityScaffold.Apply(Request());
 
-        EntityScaffold.Apply(request);
-        EntityScaffold.Apply(request);
-
-        Assert.Equal(2, RootComponents().Count);
+        Assert.Single(RootComponents());
     }
 }
