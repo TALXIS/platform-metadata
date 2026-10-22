@@ -20,7 +20,7 @@ public class PackedFormRootComponentFilterTests
             var result = PackedFormRootComponentFilter.Apply(new SolutionPackagerResult([], [warning]), zipPath);
 
             Assert.False(result.HasMissingRootComponents);
-            Assert.Contains(warning, result.Warnings);
+            Assert.DoesNotContain(warning, result.Warnings);
         }
         finally
         {
@@ -64,6 +64,67 @@ public class PackedFormRootComponentFilterTests
             Assert.DoesNotContain(PackedFormId, remaining);
             Assert.Contains(MissingStepId, remaining);
             Assert.Contains(MissingFormId, remaining);
+            Assert.Equal(remaining, Assert.Single(result.Warnings));
+        }
+        finally
+        {
+            File.Delete(zipPath);
+        }
+    }
+
+    [Fact]
+    public void Apply_KeyWithQuoteNextToPackedForm_StaysMissing()
+    {
+        const string webResourceKey = "WebResource-new_/it's.js";
+        var zipPath = CreateZipWithForm(PackedFormId);
+        var warning = MissingRootWarning(("SystemForm", PackedFormId), ("WebResource", webResourceKey));
+
+        try
+        {
+            var result = PackedFormRootComponentFilter.Apply(new SolutionPackagerResult([], [warning]), zipPath);
+
+            var remaining = Assert.Single(result.MissingRootComponentWarnings);
+            Assert.DoesNotContain(PackedFormId, remaining);
+            Assert.Contains(webResourceKey, remaining);
+        }
+        finally
+        {
+            File.Delete(zipPath);
+        }
+    }
+
+    [Fact]
+    public void Apply_UnrecognizedRowNextToPackedForm_KeepsWarningUnchanged()
+    {
+        var zipPath = CreateZipWithForm(PackedFormId);
+        var warning = MissingRootWarning(("SystemForm", PackedFormId)) + "  Some row in another format\r\n";
+
+        try
+        {
+            var result = PackedFormRootComponentFilter.Apply(new SolutionPackagerResult([], [warning]), zipPath);
+
+            Assert.Equal(warning, Assert.Single(result.MissingRootComponentWarnings));
+            Assert.Equal(warning, Assert.Single(result.Warnings));
+        }
+        finally
+        {
+            File.Delete(zipPath);
+        }
+    }
+
+    [Fact]
+    public void Apply_OtherWarnings_AreKept()
+    {
+        const string otherWarning = "Some unrelated packager warning";
+        var zipPath = CreateZipWithForm(PackedFormId);
+        var warning = MissingRootWarning(("SystemForm", PackedFormId));
+
+        try
+        {
+            var result = PackedFormRootComponentFilter.Apply(new SolutionPackagerResult([], [otherWarning, warning]), zipPath);
+
+            Assert.Equal(otherWarning, Assert.Single(result.Warnings));
+            Assert.False(result.HasMissingRootComponents);
         }
         finally
         {

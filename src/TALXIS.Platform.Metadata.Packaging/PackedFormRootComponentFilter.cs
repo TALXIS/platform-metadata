@@ -10,8 +10,9 @@ internal static class PackedFormRootComponentFilter
 {
     private const string SystemFormType = "SystemForm";
 
+    // One row of the packager's PrintComponentInfos output. The key may contain quotes (schema names are not validated).
     private static readonly Regex ComponentPattern =
-        new(@"Type='(?<type>[^']+)',\s*Id \(or schema name\)='(?<key>[^']+)'\.", RegexOptions.Compiled);
+        new(@"^Type='(?<type>[^']+)', Id \(or schema name\)='(?<key>.*)'\.$", RegexOptions.Compiled);
 
     public static SolutionPackagerResult Apply(SolutionPackagerResult result, string zipPath)
     {
@@ -20,25 +21,34 @@ internal static class PackedFormRootComponentFilter
         var packedFormIds = ReadPackedFormIds(zipPath);
         if (packedFormIds.Count == 0) return result;
 
-        var realMissingWarnings = result.MissingRootComponentWarnings
-            .Select(warning => RemovePackedForms(warning, packedFormIds))
+        // Rewrite the warning in Warnings itself, so MissingRootComponentWarnings is still derived from (and a subset of) it.
+        var warnings = result.Warnings
+            .Select(warning => warning.StartsWith(SolutionPackagerResult.MissingRootComponentsWarningPrefix, StringComparison.OrdinalIgnoreCase)
+                ? RemovePackedForms(warning, packedFormIds)
+                : warning)
             .OfType<string>()
             .ToArray();
 
-        return new SolutionPackagerResult(result.Errors, result.Warnings, realMissingWarnings);
+        return new SolutionPackagerResult(result.Errors, warnings);
     }
 
     private static string? RemovePackedForms(string warning, IReadOnlySet<string> packedFormIds)
     {
-        var components = ComponentPattern.Matches(warning);
-        if (components.Count == 0) return warning;
+        // The first line is the header. If any row is not in the expected format, keep the warning as is rather than lose it.
+        var components = warning.Split('\n')
+            .Skip(1)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Select(line => ComponentPattern.Match(line))
+            .ToArray();
+        if (components.Length == 0 || components.Any(component => !component.Success)) return warning;
 
         var stillMissing = components
             .Where(component => !IsPackedForm(component, packedFormIds))
             .Select(component => "  " + component.Value)
             .ToArray();
 
-        if (stillMissing.Length == components.Count) return warning;
+        if (stillMissing.Length == components.Length) return warning;
         if (stillMissing.Length == 0) return null;
 
         return SolutionPackagerResult.MissingRootComponentsWarningPrefix + ":" + Environment.NewLine
