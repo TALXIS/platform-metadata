@@ -14,7 +14,7 @@ internal static class PackedFormRootComponentFilter
 
     public static SolutionPackagerResult Apply(SolutionPackagerResult result, string zipPath)
     {
-        if (!result.HasMissingRootComponents || !File.Exists(zipPath)) return result;
+        if (!result.HasMissingRootComponents) return result;
 
         IReadOnlySet<string> packedFormIds;
         try
@@ -69,8 +69,8 @@ internal static class PackedFormRootComponentFilter
 
         using var archive = ZipFile.OpenRead(zipPath);
         var customizations = archive.Entries.FirstOrDefault(entry =>
-            entry.FullName.Equals("customizations.xml", StringComparison.OrdinalIgnoreCase));
-        if (customizations == null) return formIds;
+            entry.FullName.Equals("customizations.xml", StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidDataException("The solution ZIP has no customizations.xml.");
 
         // customizations.xml can be hundreds of MB, so stream it and only descend into elements on FormIdPath.
         using var stream = customizations.Open();
