@@ -1,6 +1,5 @@
 using System.IO.Compression;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
+using System.Xml;
 
 namespace TALXIS.Platform.Metadata.Packaging;
 
@@ -10,20 +9,29 @@ internal static class PackedFormRootComponentFilter
 {
     private const string SystemFormType = "SystemForm";
 
-    // One row of the packager's PrintComponentInfos output. The key may contain quotes (schema names are not validated).
-    private static readonly Regex ComponentPattern =
-        new(@"^Type='(?<type>[^']+)', Id \(or schema name\)='(?<key>.*)'\.$", RegexOptions.Compiled);
+    // Element path of an entity form id in customizations.xml.
+    private static readonly string[] FormIdPath = ["ImportExportXml", "Entities", "Entity", "FormXml", "forms", "systemform", "formid"];
 
     public static SolutionPackagerResult Apply(SolutionPackagerResult result, string zipPath)
     {
         if (!result.HasMissingRootComponents || !File.Exists(zipPath)) return result;
 
-        var packedFormIds = ReadPackedFormIds(zipPath);
+        IReadOnlySet<string> packedFormIds;
+        try
+        {
+            packedFormIds = ReadPackedFormIds(zipPath);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or XmlException or UnauthorizedAccessException)
+        {
+            // We can't tell which forms were packed, so keep the packager's warnings as they are.
+            return result;
+        }
+
         if (packedFormIds.Count == 0) return result;
 
         // Rewrite the warning in Warnings itself, so MissingRootComponentWarnings is still derived from (and a subset of) it.
         var warnings = result.Warnings
-            .Select(warning => warning.StartsWith(SolutionPackagerResult.MissingRootComponentsWarningPrefix, StringComparison.OrdinalIgnoreCase)
+            .Select(warning => SolutionPackagerResult.IsMissingRootComponentsWarning(warning)
                 ? RemovePackedForms(warning, packedFormIds)
                 : warning)
             .OfType<string>()
@@ -34,46 +42,64 @@ internal static class PackedFormRootComponentFilter
 
     private static string? RemovePackedForms(string warning, IReadOnlySet<string> packedFormIds)
     {
-        // The first line is the header. If any row is not in the expected format, keep the warning as is rather than lose it.
-        var components = warning.Split('\n')
-            .Skip(1)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .Select(line => ComponentPattern.Match(line))
-            .ToArray();
-        if (components.Length == 0 || components.Any(component => !component.Success)) return warning;
+        // If any row is not in the expected format, keep the warning as is rather than lose it.
+        if (!MissingRootComponent.TryParseWarning(warning, out var components)) return warning;
 
         var stillMissing = components
             .Where(component => !IsPackedForm(component, packedFormIds))
-            .Select(component => "  " + component.Value)
             .ToArray();
 
-        if (stillMissing.Length == components.Length) return warning;
+        if (stillMissing.Length == components.Count) return warning;
         if (stillMissing.Length == 0) return null;
 
-        return SolutionPackagerResult.MissingRootComponentsWarningPrefix + ":" + Environment.NewLine
-            + string.Join(Environment.NewLine, stillMissing);
+        return MissingRootComponent.FormatWarning(stillMissing);
     }
 
-    private static bool IsPackedForm(Match component, IReadOnlySet<string> packedFormIds)
+    private static bool IsPackedForm(MissingRootComponent component, IReadOnlySet<string> packedFormIds)
     {
-        return component.Groups["type"].Value == SystemFormType
-            && packedFormIds.Contains(NormalizeId(component.Groups["key"].Value));
+        return component.Type == SystemFormType
+            && packedFormIds.Contains(NormalizeId(component.Key));
     }
 
     private static IReadOnlySet<string> ReadPackedFormIds(string zipPath)
     {
+        var formIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         using var archive = ZipFile.OpenRead(zipPath);
         var customizations = archive.Entries.FirstOrDefault(entry =>
             entry.FullName.Equals("customizations.xml", StringComparison.OrdinalIgnoreCase));
-        if (customizations == null) return new HashSet<string>();
+        if (customizations == null) return formIds;
 
+        // customizations.xml can be hundreds of MB, so stream it and only descend into elements on FormIdPath.
         using var stream = customizations.Open();
-        return XDocument.Load(stream)
-            .Descendants("systemform")
-            .Select(form => NormalizeId((string?)form.Element("formid")))
-            .Where(id => id.Length > 0)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        using var reader = XmlReader.Create(stream, new XmlReaderSettings { IgnoreComments = true, IgnoreWhitespace = true });
+        reader.MoveToContent();
+        while (!reader.EOF)
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+                continue;
+            }
+
+            var depth = reader.Depth;
+            if (depth >= FormIdPath.Length || reader.LocalName != FormIdPath[depth])
+            {
+                reader.Skip();
+                continue;
+            }
+
+            if (depth == FormIdPath.Length - 1)
+            {
+                var id = NormalizeId(reader.ReadElementContentAsString());
+                if (id.Length > 0) formIds.Add(id);
+                continue;
+            }
+
+            reader.Read();
+        }
+
+        return formIds;
     }
 
     private static string NormalizeId(string? value)
