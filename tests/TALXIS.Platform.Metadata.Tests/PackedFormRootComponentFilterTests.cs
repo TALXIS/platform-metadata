@@ -95,6 +95,7 @@ public class PackedFormRootComponentFilterTests
         var result = ApplyWithZip(EntityForms(PackedFormId)[..^40], warning);
 
         Assert.Equal([warning], result.MissingRootComponentWarnings);
+        Assert.StartsWith("Could not read customizations.xml", result.Warnings[^1]);
     }
 
     private static SolutionPackagerResult ApplyWithZip(string customizationsXml, params string[] warnings)

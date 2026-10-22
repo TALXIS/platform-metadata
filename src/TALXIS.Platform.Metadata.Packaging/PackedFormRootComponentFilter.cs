@@ -23,8 +23,10 @@ internal static class PackedFormRootComponentFilter
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or XmlException or UnauthorizedAccessException)
         {
-            // We can't tell which forms were packed, so keep the packager's warnings as they are.
-            return result;
+            // We can't tell which forms were packed, so keep the packager's warnings and say why packed forms may still be listed.
+            return new SolutionPackagerResult(
+                result.Errors,
+                [.. result.Warnings, $"Could not read customizations.xml from '{zipPath}' to check packed entity forms: {ex.Message}"]);
         }
 
         if (packedFormIds.Count == 0) return result;

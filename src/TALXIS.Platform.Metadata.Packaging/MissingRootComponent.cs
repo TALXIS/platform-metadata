@@ -37,7 +37,8 @@ public sealed record MissingRootComponent(string Type, string Key)
 
     internal static string FormatWarning(IEnumerable<MissingRootComponent> components)
     {
-        return SolutionPackagerResult.MissingRootComponentsWarningPrefix + ":" + Environment.NewLine
-            + string.Join(Environment.NewLine, components.Select(component => $"  Type='{component.Type}', Id (or schema name)='{component.Key}'."));
+        // Same line endings as the packager: its header resource ends in \r\n, and AppendLine ends each row with Environment.NewLine.
+        return SolutionPackagerResult.MissingRootComponentsWarningPrefix + ":\r\n"
+            + string.Concat(components.Select(component => $"  Type='{component.Type}', Id (or schema name)='{component.Key}'.{Environment.NewLine}"));
     }
 }
