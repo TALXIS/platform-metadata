@@ -62,7 +62,7 @@ public sealed class SolutionPackagerService : ISolutionPackagerService
 
         ApplyCommonOptions(arguments, options);
 
-        return RunAndCollect(new SolutionPackager(arguments));
+        return PackedFormRootComponentFilter.Apply(RunAndCollect(new SolutionPackager(arguments)), zipPath);
     }
 
     // Run() is void; the only per-run signal is what it appends to the static Logger collections.

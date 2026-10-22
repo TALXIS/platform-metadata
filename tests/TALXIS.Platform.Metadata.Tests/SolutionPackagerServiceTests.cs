@@ -1,5 +1,7 @@
+using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Packaging;
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Solutions;
 using System.Xml.Linq;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -67,6 +69,62 @@ public class SolutionPackagerServiceTests
             var warning = Assert.Single(result.MissingRootComponentWarnings);
             Assert.Contains(missingStepId, warning);
             Assert.Contains(warning, result.Warnings);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Pack_WithEntityFormRootComponents_ReportsOnlyFormsNotPacked()
+    {
+        var service = new SolutionPackagerService();
+        var root = Path.Combine(Path.GetTempPath(), $"packager-forms-{Guid.NewGuid():N}");
+        var inputPath = Path.Combine(root, "input");
+        var zipPath = Path.Combine(root, "packed", "solution.zip");
+        var packedFormId = Guid.NewGuid();
+        var ghostFormId = Guid.NewGuid();
+
+        var solution = new Solution
+        {
+            UniqueName = "FormSolution",
+            DisplayName = new Label("Form Solution"),
+            Publisher = new Publisher { UniqueName = "test", Prefix = "test" }
+        };
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.Entity, SchemaName = "test_contact" });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.SystemForm, Id = packedFormId });
+        solution.AddRootComponent(new RootComponent { Type = ComponentType.SystemForm, Id = ghostFormId });
+        var workspace = new Workspace("in-memory");
+        workspace.AddSolution(solution);
+        workspace.AddEntity(new EntityMetadata
+        {
+            LogicalName = "test_contact",
+            SchemaName = "test_contact",
+            DisplayName = new Label("Test Contact"),
+            PluralName = new Label("Test Contacts"),
+            EntitySetName = "test_contacts",
+            Ownership = OwnershipType.UserOwned,
+            IsCustomEntity = true
+        });
+
+        try
+        {
+            new XmlWorkspaceWriter().Write(workspace, inputPath);
+            // The writer emits neither Customizations.xml nor forms without an original document.
+            File.Copy(Path.Combine(SamplePath, "Other", "Customizations.xml"), Path.Combine(inputPath, "Other", "Customizations.xml"));
+            var formFolder = Path.Combine(inputPath, "Entities", "test_contact", "FormXml", "main");
+            Directory.CreateDirectory(formFolder);
+            File.WriteAllText(
+                Path.Combine(formFolder, $"{packedFormId:B}.xml"),
+                $"<forms><systemform><formid>{packedFormId:B}</formid><form /></systemform></forms>");
+
+            var result = service.Pack(inputPath, zipPath, managed: false);
+
+            Assert.False(result.HasErrors);
+            Assert.Equal(new MissingRootComponent("SystemForm", ghostFormId.ToString("B")), Assert.Single(result.MissingRootComponents));
+            Assert.Contains(Assert.Single(result.MissingRootComponentWarnings), result.Warnings);
         }
         finally
         {
