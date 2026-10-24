@@ -393,7 +393,28 @@
                 <xs:element name="connectionreferences" minOccurs="0" maxOccurs="1">
                     <xs:complexType>
                         <xs:sequence>
-                            <xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+                            <xs:element name="connectionreference" minOccurs="0" maxOccurs="unbounded">
+                                <!-- Unordered, all-optional children so reordered and minimal exports validate without schema-info warnings. -->
+                                <xs:complexType>
+                                    <xs:all>
+                                        <xs:element name="connectionreferencedisplayname" type="xs:string" minOccurs="0" />
+                                        <xs:element name="connectorid" type="xs:string" minOccurs="0" />
+                                        <xs:element name="customconnectorid" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="connectorid" type="GuidType" />
+                                                </xs:sequence>
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="description" type="xs:string" minOccurs="0" />
+                                        <xs:element name="iscustomizable" type="TrueFalse01Type" minOccurs="0" />
+                                        <xs:element name="promptingbehavior" type="xs:nonNegativeInteger" minOccurs="0" />
+                                        <xs:element name="statecode" type="xs:nonNegativeInteger" minOccurs="0" />
+                                        <xs:element name="statuscode" type="xs:nonNegativeInteger" minOccurs="0" />
+                                    </xs:all>
+                                    <xs:attribute name="connectionreferencelogicalname" type="xs:string" use="required" />
+                                </xs:complexType>
+                            </xs:element>
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>

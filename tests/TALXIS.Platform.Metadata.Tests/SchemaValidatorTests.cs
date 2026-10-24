@@ -193,6 +193,65 @@ public class SchemaValidatorTests
     }
 
     [Fact]
+    public void CustomizationsXml_WithConnectionReferences_ProducesNoErrorsOrWarnings()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <connectionreferences>
+                <connectionreference connectionreferencelogicalname="ntg_sharedcommondataserviceforapps_dataverse">
+                  <connectionreferencedisplayname>Common Data Service (current environment)</connectionreferencedisplayname>
+                  <connectorid>/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps</connectorid>
+                  <iscustomizable>1</iscustomizable>
+                  <statecode>0</statecode>
+                  <statuscode>1</statuscode>
+                </connectionreference>
+                <connectionreference connectionreferencelogicalname="ntg_sharedcustomconnector_execution">
+                  <connectionreferencedisplayname>Custom connector</connectionreferencedisplayname>
+                  <connectorid>/providers/Microsoft.PowerApps/apis/shared_ntg-5fcustom-5fconnector</connectorid>
+                  <customconnectorid>
+                    <connectorid>459eb939-4dec-4a58-9959-3595796a1ea9</connectorid>
+                  </customconnectorid>
+                  <description>Used by the execution flows</description>
+                  <iscustomizable>1</iscustomizable>
+                  <promptingbehavior>0</promptingbehavior>
+                  <statecode>0</statecode>
+                  <statuscode>1</statuscode>
+                </connectionreference>
+              </connectionreferences>
+              <Languages>
+                <Language>1033</Language>
+              </Languages>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void CustomizationsXml_ConnectionReferenceWithoutLogicalName_FailsValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <connectionreferences>
+                <connectionreference>
+                  <connectorid>/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps</connectorid>
+                </connectionreference>
+              </connectionreferences>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error && r.Message.Contains("connectionreferencelogicalname"));
+    }
+
+    [Fact]
     public void SkeletalRelationshipXml_PassesValidation()
     {
         var xml = """
