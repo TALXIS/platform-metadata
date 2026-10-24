@@ -252,6 +252,39 @@ public class SchemaValidatorTests
     }
 
     [Fact]
+    public void CustomControlDataXml_PassesValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <CustomControl xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <Name>fx_Fx.SampleControl</Name>
+              <FileName>/Controls/fx_Fx.SampleControl/ControlManifest.xml</FileName>
+            </CustomControl>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Controls/fx_Fx.SampleControl/ControlManifest.xml.data.xml");
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void CustomControlDataXml_WithoutName_FailsValidation()
+    {
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <CustomControl>
+              <FileName>/Controls/fx_Fx.SampleControl/ControlManifest.xml</FileName>
+            </CustomControl>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Controls/fx_Fx.SampleControl/ControlManifest.xml.data.xml");
+
+        Assert.Contains(results, r => r.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
     public void SkeletalRelationshipXml_PassesValidation()
     {
         var xml = """

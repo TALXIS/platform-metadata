@@ -182,6 +182,8 @@
         <xs:attribute name="Name" use="optional" type="xs:string" />
         <xs:attribute name="unmodified" use="optional" type="TrueFalse01Type" />
     </xs:complexType>
+    <!-- Root of Controls/<name>/ControlManifest.xml.data.xml, which SolutionPackager and the PCF project reference build write. -->
+    <xs:element name="CustomControl" type="customcontroltype" />
     <xs:complexType name="customcontrolstype">
         <xs:sequence>
             <xs:element name="CustomControl" type="customcontroltype" minOccurs="0" maxOccurs="unbounded" />
