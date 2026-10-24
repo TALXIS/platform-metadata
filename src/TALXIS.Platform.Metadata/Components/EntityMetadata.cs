@@ -57,6 +57,11 @@ public sealed class EntityMetadata : MetadataBase, ILocalizedMetadata
     public bool IsActivity { get; set; }
 
     /// <summary>
+    /// Whether the table accepts data imports (<c>IsImportable</c>); <c>null</c> when the source does not say, as unpacked solutions never do.
+    /// </summary>
+    public bool? IsImportable { get; set; }
+
+    /// <summary>
     /// Gets or sets whether notes are enabled.
     /// </summary>
     public bool HasNotes { get; set; }

@@ -70,6 +70,8 @@ public class CmtValidationTests
         { "bool 1", (s, d) => Value(d, "cmtl_child", "cmtl_bool").SetAttributeValue("value", "1"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
         { "money with currency symbol", (s, d) => Value(d, "cmtl_child", "cmtl_money").SetAttributeValue("value", "$12.50"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
         { "choice not an integer", (s, d) => Value(d, "cmtl_child", "cmtl_choice").SetAttributeValue("value", "71000000.5"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
+        { "state not an integer", (s, d) => Value(d, "cmtl_parent", "statecode").SetAttributeValue("value", "Active"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
+        { "status not an integer", (s, d) => Value(d, "cmtl_parent", "statuscode").SetAttributeValue("value", "abc"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
         { "multichoice brackets without sentinels", (s, d) => Value(d, "cmtl_child", "cmtl_multichoice").SetAttributeValue("value", "[71000010,71000012]"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
         { "datetime not parseable", (s, d) => Value(d, "cmtl_child", "cmtl_dateonly").SetAttributeValue("value", "next monday"), ValidationDiagnostics.CmtDataValueInvalid, ValidationSeverity.Warning },
     };
