@@ -127,8 +127,25 @@ public sealed class CmtPackageXmlWriter
         SetString(element, "displayname", entity.DisplayName);
         CmtOtherAttributes.Write(element, entity.OtherAttributes, CmtOtherAttributes.DataEntity);
         SyncChildren(Container(element, "records", isNew || entity.Records.Count > 0), "record", entity.Records, r => GuidKey(r.Id), ApplyRecord);
-        SyncChildren(Container(element, "m2mrelationships", isNew || entity.ManyToManyRelationships.Count > 0), "m2mrelationship",
+        SyncChildren(ManyToManyContainer(element, isNew || entity.ManyToManyRelationships.Count > 0), "m2mrelationship",
             entity.ManyToManyRelationships, m => ManyToManyKey(m.RelationshipName, m.SourceId), ApplyManyToMany);
+    }
+
+    private static XElement? ManyToManyContainer(XElement entity, bool create)
+    {
+        var bare = entity.Elements("m2mrelationship").ToList();
+        var wrapper = entity.Element("m2mrelationships");
+        // Associations written straight under <entity> stay there, so a file keeps its shape and nothing is written twice.
+        if (wrapper == null && bare.Count > 0) return entity;
+
+        // An entity with both shapes keeps a single list: the bare associations join the wrapper.
+        foreach (var m2m in bare)
+        {
+            XmlPatch.Remove(m2m);
+            XmlPatch.Append(wrapper!, m2m);
+        }
+
+        return Container(entity, "m2mrelationships", create);
     }
 
     private static void ApplyRecord(CmtDataRecord record, XElement element)
