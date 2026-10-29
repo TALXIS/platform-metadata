@@ -43,6 +43,7 @@ public static class ComponentScaffold
             ["RibbonCommandParameter"] = ApplyRibbonCommandParameter,
             ["Entity"] = ApplyEntity,
             ["AppCodeData"] = ApplyAppCodeData,
+            ["AppCodeFlow"] = ApplyAppCodeFlow,
             ["PluginAssembly"] = ApplyPluginAssembly,
             ["SdkMessageProcessingStep"] = ApplyPluginAssemblyStep,
         };
@@ -52,6 +53,7 @@ public static class ComponentScaffold
     private static readonly HashSet<string> CwdScopedAppliers = new(StringComparer.OrdinalIgnoreCase)
     {
         "AppCodeData",
+        "AppCodeFlow",
     };
 
     public static IReadOnlyCollection<string> SupportedComponentTypes => Appliers.Keys;
@@ -437,6 +439,18 @@ public static class ComponentScaffold
             EntityLogicalName = RequiredParameter(request, "entity"),
             ModelSolutionRootPath = RequiredParameter(request, "model-solution-root"),
             ServiceFilePath = RequiredFile(request, "service"),
+            IndexTemplateFilePath = RequiredFile(request, "index-template"),
+            CommonModelsFilePath = RequiredFile(request, "common-models"),
+        });
+
+    // Files: index-template, common-models (both required).
+    // Parameters: flow-solution, flow-name (both required).
+    private static ScaffoldResult ApplyAppCodeFlow(ComponentScaffoldRequest request) =>
+        AppCodeFlowScaffold.Apply(new AppCodeFlowScaffoldRequest
+        {
+            AppProjectPath = request.SolutionRootPath,
+            FlowSolutionPath = RequiredParameter(request, "flow-solution"),
+            FlowName = RequiredParameter(request, "flow-name"),
             IndexTemplateFilePath = RequiredFile(request, "index-template"),
             CommonModelsFilePath = RequiredFile(request, "common-models"),
         });
