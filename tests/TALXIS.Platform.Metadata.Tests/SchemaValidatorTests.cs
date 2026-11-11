@@ -232,6 +232,42 @@ public class SchemaValidatorTests
     }
 
     [Fact]
+    public void CustomizationsXml_WithAIModels_ProducesNoErrors()
+    {
+        // Dataverse exports AI Builder prompts inline in customizations.xml, between EntityDataProviders and Languages.
+        var xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <EntityDataProviders />
+              <AIModels>
+                <AIModel>
+                  <msdyn_aimodelid>{185d6793-8d6a-423c-b3f9-c7ee32fce974}</msdyn_aimodelid>
+                  <msdyn_name>Classifier - Email case needed</msdyn_name>
+                  <msdyn_templateid>{edfdb190-3791-45d8-9a6c-8f90a37c278a}</msdyn_templateid>
+                  <statecode>1</statecode>
+                  <statuscode>1</statuscode>
+                  <IsCustomizable>1</IsCustomizable>
+                  <AIConfigurations>
+                    <AIConfiguration>
+                      <msdyn_aiconfigurationid>{70a72ace-bc3d-45dd-9e66-0d35ec81aa25}</msdyn_aiconfigurationid>
+                      <msdyn_majoriterationnumber>2</msdyn_majoriterationnumber>
+                    </AIConfiguration>
+                  </AIConfigurations>
+                </AIModel>
+              </AIModels>
+              <Languages>
+                <Language>1033</Language>
+              </Languages>
+            </ImportExportXml>
+            """;
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Customizations.xml");
+
+        Assert.DoesNotContain(results, r => r.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
     public void CustomizationsXml_ConnectionReferenceWithoutLogicalName_FailsValidation()
     {
         var xml = """
