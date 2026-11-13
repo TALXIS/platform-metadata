@@ -32,6 +32,11 @@ public abstract class AttributeMetadata : MetadataBase, ILocalizedMetadata
     /// Where the value comes from; <c>null</c> when the source does not say.
     /// </summary>
     public AttributeSourceType? SourceType { get; set; }
+
+    /// <summary>
+    /// The column this one is derived from (<c>AttributeOf</c>), such as a lookup's name or a rollup's state; <c>null</c> when the source does not say, as unpacked solutions never do.
+    /// </summary>
+    public string? AttributeOf { get; set; }
 }
 
 public enum RequiredLevel

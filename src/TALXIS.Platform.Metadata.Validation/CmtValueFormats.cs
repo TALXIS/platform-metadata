@@ -17,7 +17,7 @@ internal static class CmtValueFormats
     {
         // XmlSerializer would also take 1/0, but CMT's data import reads them (and yes, t, f) as false.
         CmtFieldTypes.Bool => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "false", StringComparison.OrdinalIgnoreCase),
-        CmtFieldTypes.Number or CmtFieldTypes.OptionSetValue => IsInteger(value),
+        CmtFieldTypes.Number or CmtFieldTypes.OptionSetValue or CmtFieldTypes.State or CmtFieldTypes.Status => IsInteger(value),
         // No currency symbols and no comma decimals: CMT strips or misreads both.
         CmtFieldTypes.Decimal or CmtFieldTypes.Money => decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _),
         CmtFieldTypes.Float => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _),

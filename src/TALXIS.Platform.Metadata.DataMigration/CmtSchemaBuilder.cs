@@ -287,7 +287,7 @@ public static class CmtSchemaBuilder
                 Type = type,
                 IsPrimaryKey = attribute.LogicalName == entity.PrimaryIdAttribute,
                 IsCustomField = attribute.IsCustomAttribute,
-                LookupType = type == CmtFieldTypes.EntityReference ? LookupTargets(attribute, entity, relationships) : null,
+                LookupType = type == CmtFieldTypes.EntityReference ? LookupType(attribute, entity, relationships) : null,
             });
         }
     }
@@ -296,12 +296,13 @@ public static class CmtSchemaBuilder
     {
         var name = attribute.LogicalName;
         if (name == entity.PrimaryIdAttribute || name == entity.PrimaryNameAttribute) return true;
+        if (selection == CmtFieldSelection.Full && FullSelectionAuditColumns.Contains(name)) return true;
         if (!CanMigrate(attribute)) return false;
 
         if (selection == CmtFieldSelection.Full)
         {
             return (attribute.IsValidForCreate != false && attribute.IsValidForUpdate != false)
-                || FullSelectionAuditColumns.Contains(name)
+                || attribute.AttributeType is AttributeType.File or AttributeType.Image
                 || StandardSystemColumns.Contains(name);
         }
 
@@ -324,9 +325,8 @@ public static class CmtSchemaBuilder
     private static bool CanMigrate(AttributeMetadata attribute)
     {
         var name = attribute.LogicalName;
-        if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name)) return false;
-        if (attribute.SourceType is AttributeSourceType.Calculated or AttributeSourceType.Rollup or AttributeSourceType.Formula) return false;
-        if (attribute.AttributeType == AttributeType.Money && name.EndsWith("_base", StringComparison.OrdinalIgnoreCase)) return false;
+        if (attribute.IsValidForRead == false || DataverseSystemColumns.NotWritable.Contains(name) || ReadOnlyColumns.Contains(attribute)) return false;
+        if (ComputedColumns.Contains(attribute)) return false;
 
         return attribute.AttributeType != AttributeType.Virtual;
     }
@@ -353,18 +353,10 @@ public static class CmtSchemaBuilder
         return type;
     }
 
-    // Unpacked solutions rarely list lookup targets on the column, so the N:1 relationships fill the gap.
-    private static string? LookupTargets(AttributeMetadata attribute, EntityMetadata entity, IReadOnlyList<RelationshipMetadata> relationships)
+    private static string? LookupType(AttributeMetadata attribute, EntityMetadata entity, IReadOnlyList<RelationshipMetadata> relationships)
     {
-        var targets = attribute is LookupAttributeMetadata lookup && lookup.Targets.Length > 0
-            ? lookup.Targets
-            : relationships.OfType<OneToManyRelationshipMetadata>()
-                .Where(r => SameName(r.ReferencingEntity, entity.LogicalName) && SameName(r.ReferencingAttribute, attribute.LogicalName))
-                .Select(r => r.ReferencedEntity)
-                .ToArray();
-
-        var distinct = targets.Select(Logical).Distinct(StringComparer.Ordinal).ToArray();
-        return distinct.Length == 0 ? null : string.Join("|", distinct);
+        var targets = LookupTargets.Resolve(attribute, entity.LogicalName, relationships);
+        return targets.Count == 0 ? null : string.Join("|", targets);
     }
 
     // Our policy, not CMT's (its generator's defaults are not recoverable): match on the primary name, else on the primary id.

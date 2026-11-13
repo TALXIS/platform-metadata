@@ -437,16 +437,19 @@ public sealed class XmlWorkspaceReader
                 return new BooleanAttributeMetadata { LogicalName = logicalName };
 
             case "picklist":
-                return new PicklistAttributeMetadata { LogicalName = logicalName };
+                return WithOptionSet(new PicklistAttributeMetadata { LogicalName = logicalName }, attrEl);
 
             case "state":
-                return new StateAttributeMetadata { LogicalName = logicalName };
+                return WithOptionSet(new StateAttributeMetadata { LogicalName = logicalName }, attrEl);
 
             case "status":
-                return new StatusAttributeMetadata { LogicalName = logicalName };
+                return WithOptionSet(new StatusAttributeMetadata { LogicalName = logicalName }, attrEl);
 
             case "multiselectpicklist":
-                return new MultiSelectPicklistAttributeMetadata { LogicalName = logicalName };
+            {
+                var optionSet = ReadAttributeOptionSet(attrEl);
+                return new MultiSelectPicklistAttributeMetadata { LogicalName = logicalName, OptionSet = optionSet, IsGlobal = optionSet?.IsGlobal == true };
+            }
 
             case "bigint":
                 return new BigIntAttributeMetadata { LogicalName = logicalName };
@@ -517,28 +520,58 @@ public sealed class XmlWorkspaceReader
         var osDescLabel = ReadLabel(root.Element("Descriptions"), "Description");
         if (osDescLabel != null) optionSet.Description = osDescLabel;
 
-        // Options
-        var options = root.Element("options");
-        if (options != null)
-        {
-            foreach (var optEl in options.Elements("option"))
-            {
-                var valStr = optEl.Attribute("value")?.Value;
-                if (!int.TryParse(valStr, out var value)) continue;
-
-                var option = new OptionMetadata { Value = value };
-
-                var optionLabel = ReadLabel(optEl.Element("labels"), "label");
-                if (optionLabel != null) option.Label = optionLabel;
-
-                var optionDescLabel = ReadLabel(optEl.Element("Descriptions"), "Description");
-                if (optionDescLabel != null) option.Description = optionDescLabel;
-
-                optionSet.AddOption(option);
-            }
-        }
+        ReadOptions(root, optionSet);
 
         return (optionSet, doc);
+    }
+
+    // State and status choices keep their values in <states> and <statuses> instead of <options>.
+    private static void ReadOptions(XElement optionSetElement, OptionSetMetadata optionSet)
+    {
+        var options = optionSetElement.Element("options")?.Elements("option")
+            ?? optionSetElement.Element("states")?.Elements("state")
+            ?? optionSetElement.Element("statuses")?.Elements("status")
+            ?? Enumerable.Empty<XElement>();
+        foreach (var optEl in options)
+        {
+            var valStr = optEl.Attribute("value")?.Value;
+            if (!int.TryParse(valStr, out var value)) continue;
+
+            var option = new OptionMetadata { Value = value };
+
+            var optionLabel = ReadLabel(optEl.Element("labels"), "label");
+            if (optionLabel != null) option.Label = optionLabel;
+
+            var optionDescLabel = ReadLabel(optEl.Element("Descriptions"), "Description");
+            if (optionDescLabel != null) option.Description = optionDescLabel;
+
+            optionSet.AddOption(option);
+        }
+    }
+
+    private static PicklistAttributeMetadata WithOptionSet(PicklistAttributeMetadata attribute, XElement attrEl)
+    {
+        attribute.OptionSet = ReadAttributeOptionSet(attrEl);
+        attribute.IsGlobal = attribute.OptionSet?.IsGlobal == true;
+        return attribute;
+    }
+
+    // A local choice carries its options inline; a global one only names the set, whose options are in OptionSets/<name>.xml.
+    private static OptionSetMetadata? ReadAttributeOptionSet(XElement attrEl)
+    {
+        var inline = attrEl.Element("optionset");
+        if (inline != null)
+        {
+            var name = inline.Attribute("Name")?.Value;
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var local = new OptionSetMetadata { Name = name!, IsGlobal = false };
+            ReadOptions(inline, local);
+            return local;
+        }
+
+        var globalName = attrEl.Element("OptionSetName")?.Value;
+        return string.IsNullOrEmpty(globalName) ? null : new OptionSetMetadata { Name = globalName!, IsGlobal = true };
     }
 
     private static void LoadRelationships(Workspace workspace, string rootPath)

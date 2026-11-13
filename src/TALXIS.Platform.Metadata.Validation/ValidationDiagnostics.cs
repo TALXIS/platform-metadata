@@ -89,4 +89,54 @@ public static class ValidationDiagnostics
     /// flags an order that disagrees with the lookups, usually on purpose.
     /// </summary>
     public const string CmtImportOrderChildBeforeParent = "TXM026";
+
+    /// <summary>
+    /// A CMT data_schema.xml entity is not a table in the metadata, or is a table that does not accept data imports.
+    /// </summary>
+    public const string CmtEntityNotInMetadata = "TXM027";
+
+    /// <summary>
+    /// A CMT data_schema.xml field is not a column of its table in the metadata.
+    /// </summary>
+    public const string CmtFieldNotInMetadata = "TXM028";
+
+    /// <summary>
+    /// A CMT data_schema.xml field's type is not the type CMT uses for its column in the metadata.
+    /// </summary>
+    public const string CmtFieldTypeMismatch = "TXM029";
+
+    /// <summary>
+    /// A CMT data_schema.xml many-to-many entry does not name the intersect table of a many-to-many relationship whose first table (FirstEntityName) is its entity.
+    /// </summary>
+    public const string CmtManyToManyNotInMetadata = "TXM030";
+
+    /// <summary>
+    /// A CMT data_schema.xml entity's primaryidfield or primarynamefield is not the table's primary id or primary name column in the metadata.
+    /// </summary>
+    public const string CmtPrimaryFieldMismatch = "TXM031";
+
+    /// <summary>
+    /// A CMT data_schema.xml field's lookupType names a table its lookup column cannot point to in the metadata.
+    /// </summary>
+    public const string CmtLookupTargetNotAllowed = "TXM032";
+
+    /// <summary>
+    /// A CMT data_schema.xml N:1 relationship entry is not a relationship in the metadata, or names other columns or tables than it does.
+    /// </summary>
+    public const string CmtRelationshipNotInMetadata = "TXM033";
+
+    /// <summary>
+    /// A CMT data_schema.xml field is a column that is valid neither for create nor for update, so its values are not imported.
+    /// </summary>
+    public const string CmtFieldNotWritable = "TXM034";
+
+    /// <summary>
+    /// A CMT data.xml choice value is not an option of the column's choice in the metadata.
+    /// </summary>
+    public const string CmtDataOptionValueUnknown = "TXM035";
+
+    /// <summary>
+    /// A CMT data.xml lookup points to a table that is not in the metadata.
+    /// </summary>
+    public const string CmtDataLookupEntityUnknown = "TXM036";
 }
