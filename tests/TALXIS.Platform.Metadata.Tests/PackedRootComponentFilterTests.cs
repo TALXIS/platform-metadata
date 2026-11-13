@@ -4,12 +4,14 @@ using TALXIS.Platform.Metadata.Packaging;
 namespace TALXIS.Platform.Metadata.Tests;
 
 // Warnings are written in SolutionPackagerLib's exact text format, since that is what the filter parses.
-public class PackedFormRootComponentFilterTests
+public class PackedRootComponentFilterTests
 {
     private const string PackedFormId = "{21f0d212-90a2-43a2-8520-7f3d59c6be1d}";
     private const string QuickFormId = "{0b5e3a0c-58d3-4c65-9e5c-2a3f5b8f6d11}";
     private const string MissingFormId = "{7f1cbebe-4ae9-4e9a-9be4-44c6ec55addc}";
     private const string MissingStepId = "{35c5f395-d4b2-45b5-8c26-1d250f6d0b72}";
+    private const string PackedAIModelId = "{185d6793-8d6a-423c-b3f9-c7ee32fce974}";
+    private const string MissingAIModelId = "{70a72ace-bc3d-45dd-9e66-0d35ec81aa25}";
 
     [Fact]
     public void Apply_OnlyPackedForms_RemovesWarning()
@@ -98,6 +100,87 @@ public class PackedFormRootComponentFilterTests
         Assert.StartsWith("Could not read customizations.xml", result.Warnings[^1]);
     }
 
+    [Fact]
+    public void Apply_PackedAIModel_RemovesWarning()
+    {
+        // An AI Builder prompt is exported inline under AIModels; the packager packs it but still lists its root component.
+        var warning = MissingRootWarning(("AIModel", PackedAIModelId));
+
+        var result = ApplyWithZip(AIModels(PackedAIModelId.Trim('{', '}').ToUpperInvariant()), warning);
+
+        Assert.False(result.HasMissingRootComponents);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void Apply_PackedFormAndAIModel_KeepsOnlyMissingAIModel()
+    {
+        var warning = MissingRootWarning(("SystemForm", PackedFormId), ("AIModel", PackedAIModelId), ("AIModel", MissingAIModelId));
+        var customizations = $"""
+            <ImportExportXml>
+              <Entities>
+                <Entity>
+                  <FormXml>
+                    <forms type="main"><systemform><formid>{PackedFormId}</formid></systemform></forms>
+                  </FormXml>
+                </Entity>
+              </Entities>
+              <AIModels>
+                <AIModel>
+                  <msdyn_aimodelid>{PackedAIModelId}</msdyn_aimodelid>
+                  <msdyn_name>Classifier</msdyn_name>
+                  <AIConfigurations>
+                    <AIConfiguration><msdyn_aiconfigurationid>{MissingAIModelId}</msdyn_aiconfigurationid></AIConfiguration>
+                  </AIConfigurations>
+                </AIModel>
+              </AIModels>
+            </ImportExportXml>
+            """;
+
+        var result = ApplyWithZip(customizations, warning);
+
+        // The configuration id nested in the model must not count as a packed model.
+        Assert.Equal([new MissingRootComponent("AIModel", MissingAIModelId)], result.MissingRootComponents);
+    }
+
+    [Fact]
+    public void Apply_IdMatchesOtherType_KeepsWarning()
+    {
+        // A packed form id must not hide an AI model with the same id, and the other way round.
+        var warning = MissingRootWarning(("AIModel", PackedFormId), ("SystemForm", PackedAIModelId));
+        var customizations = $"""
+            <ImportExportXml>
+              <Entities>
+                <Entity>
+                  <FormXml>
+                    <forms type="main"><systemform><formid>{PackedFormId}</formid></systemform></forms>
+                  </FormXml>
+                </Entity>
+              </Entities>
+              <AIModels>
+                <AIModel><msdyn_aimodelid>{PackedAIModelId}</msdyn_aimodelid></AIModel>
+              </AIModels>
+            </ImportExportXml>
+            """;
+
+        var result = ApplyWithZip(customizations, warning);
+
+        Assert.Equal([warning], result.MissingRootComponentWarnings);
+    }
+
+    private static string AIModels(string modelId)
+    {
+        return $"""
+            <ImportExportXml>
+              <AIModels>
+                <AIModel>
+                  <msdyn_aimodelid>{modelId}</msdyn_aimodelid>
+                </AIModel>
+              </AIModels>
+            </ImportExportXml>
+            """;
+    }
+
     private static SolutionPackagerResult ApplyWithZip(string customizationsXml, params string[] warnings)
     {
         var zipPath = Path.Combine(Path.GetTempPath(), $"packed-form-{Guid.NewGuid():N}.zip");
@@ -109,7 +192,7 @@ public class PackedFormRootComponentFilterTests
 
         try
         {
-            return PackedFormRootComponentFilter.Apply(new SolutionPackagerResult([], warnings), zipPath);
+            return PackedRootComponentFilter.Apply(new SolutionPackagerResult([], warnings), zipPath);
         }
         finally
         {
