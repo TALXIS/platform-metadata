@@ -108,7 +108,7 @@ The model separates concepts that Dataverse treats differently:
 - JSON validation for flow definition payloads.
 - Duplicate GUID detection.
 - Reader/load diagnostics for malformed component files.
-- Structural rules for Configuration Migration Tool packages ([docs](docs/data-migration.md)).
+- Structural rules for Configuration Migration Tool packages, and checks against workspace or live metadata ([docs](docs/data-migration.md)).
 - File, line, and column information where available.
 
 ## Core concepts
@@ -272,11 +272,10 @@ Implemented:
 - Source-owned snapshots and solution/component membership tracking.
 - Explicit single-solution export from multi-solution workspaces.
 - XSD, JSON, duplicate GUID, and model-load validation.
-- Configuration Migration package model, roundtrip-safe reader/writer and structural validation.
+- Configuration Migration package model, roundtrip-safe reader/writer, schema building from metadata, and validation against metadata.
 
 Tracked follow-up work:
 
-- Configuration Migration packages validated against workspace or live metadata, and schema entities built from metadata.
 - Complete dependency graph and uninstall-safety simulation.
 - Package Deployer import-order discovery.
 - Patch, holding, and staged upgrade semantics.

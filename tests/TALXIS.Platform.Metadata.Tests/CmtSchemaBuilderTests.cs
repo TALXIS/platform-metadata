@@ -38,6 +38,25 @@ public class CmtSchemaBuilderTests : IDisposable
     };
 
     // CMT reads etc only for a batch-mode probe and type codes differ per environment, so the builder never writes one.
+    [Theory]
+    [InlineData(CmtFieldSelection.Minimal)]
+    [InlineData(CmtFieldSelection.Standard)]
+    [InlineData(CmtFieldSelection.Full)]
+    public void BuildEntity_LeavesOutColumnsClosedToCreateAndUpdate(CmtFieldSelection selection)
+    {
+        var table = new EntityMetadata { LogicalName = "new_bundle", PrimaryIdAttribute = "new_bundleid" };
+        table.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "new_bundleid" });
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "new_ownerprincipalid", IsCustomAttribute = true, IsValidForCreate = false, IsValidForUpdate = false });
+        table.AddAttribute(new FileAttributeMetadata { LogicalName = "new_document", IsCustomAttribute = true, IsValidForCreate = false, IsValidForUpdate = false });
+        table.AddAttribute(new LookupAttributeMetadata { LogicalName = "statecodeid", IsCustomAttribute = true, IsValidForCreate = false, IsValidForUpdate = true });
+
+        var entity = CmtSchemaBuilder.BuildEntity(table, Array.Empty<RelationshipMetadata>(), new CmtSchemaBuildOptions { FieldSelection = selection }, new List<string>());
+
+        Assert.Null(entity.FindField("new_ownerprincipalid"));
+        Assert.NotNull(entity.FindField("new_document"));
+        Assert.Equal(selection != CmtFieldSelection.Full, entity.FindField("statecodeid") != null);
+    }
+
     [Fact]
     public void BuildEntity_WritesNoEtc()
     {
