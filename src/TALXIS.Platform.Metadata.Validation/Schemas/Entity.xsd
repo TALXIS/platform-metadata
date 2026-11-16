@@ -126,6 +126,8 @@
 												<xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1" />
 												<xs:element name="LogicalName" type="EntityAttributeNameBaseType" minOccurs="0" maxOccurs="1" />
 												<xs:element name="IntroducedVersion" type="VersionType" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsSynchronous" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
+												<xs:element name="IsExportKey" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 												<xs:element name="IsCustomizable" type="TrueFalse01Type" minOccurs="0" maxOccurs="1" />
 												<xs:element name="displaynames" type="displaynamestype" minOccurs="0" maxOccurs="1" />
 												<xs:element name="EntityKeyAttributes" minOccurs="1" maxOccurs="1">
