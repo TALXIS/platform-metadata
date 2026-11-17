@@ -178,7 +178,8 @@ public sealed class CmtPackageXmlReader
             var record = ReadRecord(recordElement, sourcePath, errors);
             if (record != null) entity.Records.Add(record);
         }
-        foreach (var m2mElement in element.Elements("m2mrelationships").Elements("m2mrelationship"))
+        // CmtData.xsd also allows <m2mrelationship> straight under <entity>, without the <m2mrelationships> wrapper.
+        foreach (var m2mElement in element.Elements("m2mrelationships").Elements("m2mrelationship").Concat(element.Elements("m2mrelationship")))
         {
             var m2m = ReadManyToMany(m2mElement, sourcePath, errors);
             if (m2m != null) entity.ManyToManyRelationships.Add(m2m);
