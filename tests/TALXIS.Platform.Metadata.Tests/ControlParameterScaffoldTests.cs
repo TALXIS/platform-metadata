@@ -35,6 +35,17 @@ public class ControlParameterScaffoldTests : IDisposable
                             <row>
                               <cell id="{00000000-0000-0000-0000-000000000011}" />
                             </row>
+                            <row>
+                              <cell id="{00000000-0000-0000-0000-000000000012}">
+                                <control id="okbutton" classid="{00AD73DA-BD4D-49C6-88A8-2F4F4CAD4A20}" />
+                              </cell>
+                              <cell id="{00000000-0000-0000-0000-000000000013}">
+                                <control id="cancelbutton" classid="{00AD73DA-BD4D-49C6-88A8-2F4F4CAD4A20}" />
+                              </cell>
+                              <cell id="{00000000-0000-0000-0000-000000000014}" solutionaction="Removed">
+                                <control id="removedbutton" classid="{00AD73DA-BD4D-49C6-88A8-2F4F4CAD4A20}" />
+                              </cell>
+                            </row>
                           </rows>
                         </section>
                       </sections>
@@ -78,11 +89,22 @@ public class ControlParameterScaffoldTests : IDisposable
 
         Assert.Empty(result.Warnings);
         var doc = XDocument.Load(_formFilePath);
-        var parameters = doc.Descendants("control").Single().Element("parameters")!;
+        var parameters = doc.Descendants("control").Single(c => c.Attribute("id")?.Value == "udpp_locationid").Element("parameters")!;
         Assert.Equal("udpp_location_items", parameters.Element("FilterRelationshipName")?.Value);
         Assert.Equal("true", parameters.Element("AutoResolve")?.Value);
         Assert.Null(parameters.Element("DependentAttributeName"));
         Assert.Null(parameters.Element("DefaultViewId"));
+    }
+
+    [Fact]
+    public void Apply_MultiCellRow_TargetsLastPlacedControlSkippingRemovedCells()
+    {
+        var request = Request();
+        request.Placement.RowIndex = "3";
+        ControlParameterScaffold.Apply(request);
+
+        var withParameters = XDocument.Load(_formFilePath).Descendants("control").Where(c => c.Element("parameters") != null);
+        Assert.Equal("cancelbutton", withParameters.Single().Attribute("id")?.Value);
     }
 
     [Fact]
