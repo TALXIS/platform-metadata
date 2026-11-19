@@ -26,6 +26,10 @@ public static class FormEventHandlerScaffold
     // FormXml stores the field (onchange) or the button control id (onclick) in the event's attribute.
     private static bool IsKeyedByAttribute(string eventName) => eventName is "onchange" or "onclick";
 
+    // Compares values in code instead of building XPath literals, so ids with quotes can't break the query.
+    private static IEnumerable<XmlElement> ChildElements(XmlNode parent, string name) =>
+        parent.ChildNodes.OfType<XmlElement>().Where(e => e.Name == name);
+
     private static void AddLibrary(FormEventHandlerScaffoldRequest request, string formFilePath)
     {
         var formDoc = ScaffoldXmlFile.Load(formFilePath);
@@ -36,7 +40,7 @@ public static class FormEventHandlerScaffold
             librariesNode = formDoc.SelectSingleNode("//formLibraries")!;
         }
 
-        if (librariesNode.SelectSingleNode($"Library[@name='{request.LibraryName}']") == null)
+        if (!ChildElements(librariesNode, "Library").Any(l => l.GetAttribute("name") == request.LibraryName))
         {
             var library = formDoc.CreateElement("Library");
             library.SetAttribute("name", request.LibraryName);
@@ -58,10 +62,9 @@ public static class FormEventHandlerScaffold
         }
 
         var keyedByAttribute = IsKeyedByAttribute(request.EventName);
-        var eventXPath = keyedByAttribute
-            ? $"event[@name='{request.EventName}' and @attribute='{request.AttributeName}']"
-            : $"event[@name='{request.EventName}']";
-        var eventNode = eventsNode.SelectSingleNode(eventXPath);
+        XmlNode? eventNode = ChildElements(eventsNode, "event").FirstOrDefault(e =>
+            e.GetAttribute("name") == request.EventName
+            && (!keyedByAttribute || e.GetAttribute("attribute") == request.AttributeName));
         if (eventNode == null)
         {
             var created = formDoc.CreateElement("event");

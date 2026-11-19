@@ -132,6 +132,24 @@ public class FormEventHandlerScaffoldTests : IDisposable
         Assert.All(events, e => Assert.Single(e.Descendants("Handler")));
     }
 
+    [Fact]
+    public void Apply_QuotesInIds_DoNotBreakLookupsOrDuplicate()
+    {
+        foreach (var function in new[] { "first", "second" })
+        {
+            var request = Request("onclick");
+            request.LibraryName = "udpp_owner's.js";
+            request.AttributeName = "owner's_button";
+            request.FunctionName = function;
+            FormEventHandlerScaffold.Apply(request);
+        }
+
+        var doc = XDocument.Load(_formFilePath);
+        Assert.Single(doc.Descendants("Library"));
+        Assert.Equal("owner's_button", doc.Descendants("event").Single().Attribute("attribute")?.Value);
+        Assert.Equal(2, doc.Descendants("Handler").Count());
+    }
+
     [Theory]
     [InlineData("onclick", null)]
     [InlineData("onchange", null)]
