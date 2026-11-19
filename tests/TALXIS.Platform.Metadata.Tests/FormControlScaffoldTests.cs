@@ -90,12 +90,27 @@ public class FormControlScaffoldTests : IDisposable
     }
 
     [Fact]
-    public void Apply_RowWithMultipleCells_Throws()
+    public void Apply_RowWithMultipleCells_FillsEmptyCellsInOrder()
     {
         var request = Request();
         request.Placement.RowIndex = "2";
+        FormControlScaffold.Apply(request);
+        FormControlScaffold.Apply(request);
+
+        var row = XDocument.Load(_formFilePath).Descendants("row").Single(r => r.Attribute("name")?.Value == "crowded");
+        Assert.All(row.Elements("cell"), c => Assert.Single(c.Elements("control")));
+    }
+
+    [Fact]
+    public void Apply_RowWithMultipleFullCells_Throws()
+    {
+        var request = Request();
+        request.Placement.RowIndex = "2";
+        FormControlScaffold.Apply(request);
+        FormControlScaffold.Apply(request);
+
         var ex = Assert.Throws<InvalidOperationException>(() => FormControlScaffold.Apply(request));
-        Assert.Contains("Multiple cells", ex.Message);
+        Assert.Contains("already holds a control", ex.Message);
     }
 
     [Fact]
