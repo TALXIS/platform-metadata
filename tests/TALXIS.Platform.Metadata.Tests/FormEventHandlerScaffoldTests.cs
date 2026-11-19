@@ -133,13 +133,17 @@ public class FormEventHandlerScaffoldTests : IDisposable
     }
 
     [Theory]
-    [InlineData("onclick")]
-    [InlineData("onchange")]
-    public void Apply_AttributeKeyedEventWithoutAttribute_ThrowsBeforeWriting(string eventName)
+    [InlineData("onclick", null)]
+    [InlineData("onchange", null)]
+    [InlineData("onclick", "   ")]
+    [InlineData("onchange", "   ")]
+    public void Apply_AttributeKeyedEventWithoutAttribute_ThrowsBeforeWriting(string eventName, string? attributeName)
     {
         var before = File.ReadAllText(_formFilePath);
+        var request = Request(eventName);
+        request.AttributeName = attributeName;
 
-        var ex = Assert.Throws<ArgumentException>(() => FormEventHandlerScaffold.Apply(Request(eventName)));
+        var ex = Assert.Throws<ArgumentException>(() => FormEventHandlerScaffold.Apply(request));
 
         Assert.Contains("AttributeName", ex.Message);
         Assert.Equal(before, File.ReadAllText(_formFilePath));

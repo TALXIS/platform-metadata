@@ -10,7 +10,7 @@ public static class FormEventHandlerScaffold
 {
     public static ScaffoldResult Apply(FormEventHandlerScaffoldRequest request)
     {
-        if (IsKeyedByAttribute(request.EventName) && string.IsNullOrEmpty(request.AttributeName))
+        if (IsKeyedByAttribute(request.EventName) && string.IsNullOrWhiteSpace(request.AttributeName))
         {
             throw new ArgumentException($"'{request.EventName}' needs AttributeName: the field logical name for onchange, the button control id for onclick.");
         }
