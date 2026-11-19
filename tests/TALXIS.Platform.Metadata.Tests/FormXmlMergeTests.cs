@@ -407,6 +407,40 @@ public class FormXmlMergeTests
     }
 
     [Fact]
+    public void Merge_Roundtrip_ChangingEventAttributeKeepsItsHandlers()
+    {
+        var baseForm = XDocument.Parse(EventsFormXml);
+        var modified = XDocument.Parse(EventsFormXml);
+        modified.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "cancelbutton")
+            .SetAttributeValue("attribute", "closebutton");
+
+        var result = FormXmlMerge.Merge(baseForm, FormXmlMerge.ComputeDiff(baseForm, modified));
+
+        Assert.Equal(new[] { "okbutton", "closebutton" }, OnClickTargets(result));
+        var close = result.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "closebutton");
+        Assert.Equal("onCancel", close.Descendants("Handler").Single().Attribute("functionName")?.Value);
+    }
+
+    [Fact]
+    public void Merge_Roundtrip_AddedTabKeepsItsSections()
+    {
+        var baseForm = XDocument.Parse(BaseFormXml);
+        var modified = XDocument.Parse(BaseFormXml.Replace(
+            "</tabs>",
+            @"<tab id=""{00000000-0000-0000-0000-000000000002}"" name=""newtab"">
+                <columns><column width=""100%""><sections>
+                  <section id=""{00000000-0000-0000-0000-000000000030}"" name=""newsection"" />
+                </sections></column></columns>
+              </tab>
+            </tabs>"));
+
+        var result = FormXmlMerge.Merge(baseForm, FormXmlMerge.ComputeDiff(baseForm, modified));
+
+        var newTab = result.Descendants("tab").Single(t => t.Attribute("name")?.Value == "newtab");
+        Assert.Equal("newsection", newTab.Descendants("section").Single().Attribute("name")?.Value);
+    }
+
+    [Fact]
     public void Merge_Roundtrip_RemovingOneButtonEventKeepsTheOther()
     {
         var baseForm = XDocument.Parse(EventsFormXml);

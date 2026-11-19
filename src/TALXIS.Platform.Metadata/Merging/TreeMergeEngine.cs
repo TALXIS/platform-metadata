@@ -385,6 +385,9 @@ public static class TreeMergeEngine
     /// </summary>
     private static void CleanUnchangedLeaves(MergeableNode node)
     {
+        // An added node carries its whole subtree; its children have no action of their own.
+        if (node.Action == MergeAction.Added) return;
+
         // Process bottom-up
         for (int i = node.Children.Count - 1; i >= 0; i--)
         {
