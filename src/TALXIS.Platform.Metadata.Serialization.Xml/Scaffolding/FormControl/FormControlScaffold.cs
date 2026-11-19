@@ -3,8 +3,7 @@ using System.Xml;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Appends the rendered control into the resolved row (its single cell, or the first
-/// empty cell of a multi-cell row), marking
+/// Appends the rendered control into the first empty cell of the resolved row, marking
 /// the cell with subgrid spans when the control is a subgrid.
 /// </summary>
 public static class FormControlScaffold
@@ -37,13 +36,11 @@ public static class FormControlScaffold
 
     private const string LiveCells = "./cell[not(@solutionaction='Removed')]";
 
-    // A single cell keeps the old behavior; in a multi-cell row (e.g. OK + Cancel in a tab footer)
-    // each new control fills the next cell that has no control yet. Cells a layer marks as removed don't count.
+    // Each control goes into the next empty cell (e.g. OK then Cancel in a tab footer). A cell holds at most
+    // one control (Form.xsd), and cells a layer marks as removed don't count.
     private static XmlElement PickCell(XmlNode row)
     {
-        var cells = row.SelectNodes(LiveCells)!;
-        if (cells.Count == 0) throw new InvalidOperationException("No cells found in the target row.");
-        if (cells.Count == 1) return (XmlElement)cells[0]!;
+        if (row.SelectSingleNode(LiveCells) == null) throw new InvalidOperationException("No cells found in the target row.");
         return (XmlElement?)row.SelectSingleNode($"{LiveCells}[not(control)]")
             ?? throw new InvalidOperationException("Every cell in the target row already holds a control. Add a cell or target another row.");
     }

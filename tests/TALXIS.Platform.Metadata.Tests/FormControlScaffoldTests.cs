@@ -38,6 +38,10 @@ public class FormControlScaffoldTests : IDisposable
                               <cell id="{00000000-0000-0000-0000-000000000015}" />
                               <cell id="{00000000-0000-0000-0000-000000000016}" />
                             </row>
+                            <row name="lonely">
+                              <cell id="{00000000-0000-0000-0000-000000000017}" solutionaction="Removed" />
+                              <cell id="{00000000-0000-0000-0000-000000000018}" />
+                            </row>
                             <row>
                               <cell id="{00000000-0000-0000-0000-000000000013}" />
                             </row>
@@ -116,6 +120,21 @@ public class FormControlScaffoldTests : IDisposable
         var row = XDocument.Load(_formFilePath).Descendants("row").Single(r => r.Attribute("name")?.Value == "layered");
         var filled = row.Elements("cell").Where(c => c.Element("control") != null).Select(c => c.Attribute("id")?.Value);
         Assert.Equal(new[] { "{00000000-0000-0000-0000-000000000015}" }, filled);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("4")]
+    public void Apply_OccupiedOnlyLiveCell_ThrowsInsteadOfSecondControl(string rowIndex)
+    {
+        var request = Request();
+        request.Placement.RowIndex = rowIndex;
+        FormControlScaffold.Apply(request);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => FormControlScaffold.Apply(request));
+
+        Assert.Contains("already holds a control", ex.Message);
+        Assert.All(XDocument.Load(_formFilePath).Descendants("cell"), c => Assert.True(c.Elements("control").Count() <= 1));
     }
 
     [Fact]
