@@ -101,6 +101,51 @@ public class FormEventHandlerScaffoldTests : IDisposable
     }
 
     [Fact]
+    public void Apply_OnChangeOnSecondField_DoesNotJoinFirstFieldEvent()
+    {
+        var first = Request("onchange");
+        first.AttributeName = "udpp_name";
+        FormEventHandlerScaffold.Apply(first);
+        var second = Request("onchange");
+        second.AttributeName = "udpp_sku";
+        second.FunctionName = "onSkuChange";
+        FormEventHandlerScaffold.Apply(second);
+
+        var nameEvent = XDocument.Load(_formFilePath).Descendants("event").Single(e => e.Attribute("attribute")?.Value == "udpp_name");
+        Assert.Equal("onLoadHandler", nameEvent.Descendants("Handler").Single().Attribute("functionName")?.Value);
+    }
+
+    [Fact]
+    public void Apply_OnClick_BindsEachButtonToItsOwnEvent()
+    {
+        foreach (var button in new[] { "okbutton", "cancelbutton" })
+        {
+            var request = Request("onclick");
+            request.FormType = "Dialog";
+            request.FormId = DialogFormId;
+            request.AttributeName = button;
+            FormEventHandlerScaffold.Apply(request);
+        }
+
+        var events = XDocument.Load(_dialogFilePath).Descendants("event").ToList();
+        Assert.Equal(new[] { "okbutton", "cancelbutton" }, events.Select(e => e.Attribute("attribute")?.Value));
+        Assert.All(events, e => Assert.Single(e.Descendants("Handler")));
+    }
+
+    [Theory]
+    [InlineData("onclick")]
+    [InlineData("onchange")]
+    public void Apply_AttributeKeyedEventWithoutAttribute_ThrowsBeforeWriting(string eventName)
+    {
+        var before = File.ReadAllText(_formFilePath);
+
+        var ex = Assert.Throws<ArgumentException>(() => FormEventHandlerScaffold.Apply(Request(eventName)));
+
+        Assert.Contains("AttributeName", ex.Message);
+        Assert.Equal(before, File.ReadAllText(_formFilePath));
+    }
+
+    [Fact]
     public void Apply_DialogForm_SkipsLibraryButAddsHandler()
     {
         var request = Request();

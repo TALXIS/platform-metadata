@@ -10,6 +10,11 @@ public static class FormEventHandlerScaffold
 {
     public static ScaffoldResult Apply(FormEventHandlerScaffoldRequest request)
     {
+        if (IsKeyedByAttribute(request.EventName) && string.IsNullOrEmpty(request.AttributeName))
+        {
+            throw new ArgumentException($"'{request.EventName}' needs AttributeName: the field logical name for onchange, the button control id for onclick.");
+        }
+
         var formFilePath = FormXmlLocator.Locate(request.SolutionRootPath, request.EntityLogicalName, request.FormType, request.FormId);
 
         // Registers the library and attaches the event handler.
@@ -17,6 +22,9 @@ public static class FormEventHandlerScaffold
         AddEvent(request, formFilePath);
         return new ScaffoldResult();
     }
+
+    // FormXml stores the field (onchange) or the button control id (onclick) in the event's attribute.
+    private static bool IsKeyedByAttribute(string eventName) => eventName is "onchange" or "onclick";
 
     private static void AddLibrary(FormEventHandlerScaffoldRequest request, string formFilePath)
     {
@@ -52,8 +60,8 @@ public static class FormEventHandlerScaffold
             eventsNode = formDoc.SelectSingleNode("//events")!;
         }
 
-        // onchange events are keyed by name + attribute; the rest by name only.
-        var eventXPath = request.EventName == "onchange"
+        var keyedByAttribute = IsKeyedByAttribute(request.EventName);
+        var eventXPath = keyedByAttribute
             ? $"event[@name='{request.EventName}' and @attribute='{request.AttributeName}']"
             : $"event[@name='{request.EventName}']";
         var eventNode = eventsNode.SelectSingleNode(eventXPath);
@@ -63,7 +71,7 @@ public static class FormEventHandlerScaffold
             created.SetAttribute("name", request.EventName);
             created.SetAttribute("application", "false");
             created.SetAttribute("active", "true");
-            if (request.EventName == "onchange") created.SetAttribute("attribute", request.AttributeName ?? "");
+            if (keyedByAttribute) created.SetAttribute("attribute", request.AttributeName!);
             created.AppendChild(formDoc.CreateElement("Handlers"));
             eventsNode.AppendChild(created);
             eventNode = created;
