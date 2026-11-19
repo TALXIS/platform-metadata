@@ -3,7 +3,7 @@ using System.Xml;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Appends the rendered control into the single cell of the resolved row, marking
+/// Appends the rendered control into the first empty cell of the resolved row, marking
 /// the cell with subgrid spans when the control is a subgrid.
 /// </summary>
 public static class FormControlScaffold
@@ -17,10 +17,7 @@ public static class FormControlScaffold
         var section = FormPlacementResolver.ResolveTargetSection(formDoc, request.Placement);
         var row = FormPlacementResolver.ResolveTargetRow(section, request.Placement.RowIndex);
 
-        var cells = row.SelectNodes("./cell")!;
-        if (cells.Count == 0) throw new InvalidOperationException("No cells found in the target row.");
-        if (cells.Count > 1) throw new InvalidOperationException("Multiple cells found in the target row. Expected only one cell.");
-        var cell = (XmlElement)cells[0]!;
+        var cell = PickCell(row);
 
         if (request.RowSpan != null || request.ColumnSpan != null)
         {
@@ -35,5 +32,16 @@ public static class FormControlScaffold
 
         ScaffoldXmlFile.Save(formDoc, formFilePath);
         return new ScaffoldResult();
+    }
+
+    private const string LiveCells = "./cell[not(@solutionaction='Removed')]";
+
+    // Each control goes into the next empty cell (e.g. OK then Cancel in a tab footer). A cell holds at most
+    // one control (Form.xsd), and cells a layer marks as removed don't count.
+    private static XmlElement PickCell(XmlNode row)
+    {
+        if (row.SelectSingleNode(LiveCells) == null) throw new InvalidOperationException("No cells found in the target row.");
+        return (XmlElement?)row.SelectSingleNode($"{LiveCells}[not(control)]")
+            ?? throw new InvalidOperationException("Every cell in the target row already holds a control. Add a cell or target another row.");
     }
 }

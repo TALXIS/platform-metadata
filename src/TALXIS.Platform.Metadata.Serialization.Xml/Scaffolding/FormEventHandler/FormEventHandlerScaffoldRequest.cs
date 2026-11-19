@@ -42,7 +42,7 @@ public sealed class FormEventHandlerScaffoldRequest
     public string EventName { get; set; } = "";
 
     /// <summary>
-    /// Attribute the handler reacts to; used by onchange events only.
+    /// Required for onchange (field logical name) and onclick (button control id); ignored otherwise.
     /// </summary>
     public string? AttributeName { get; set; }
 

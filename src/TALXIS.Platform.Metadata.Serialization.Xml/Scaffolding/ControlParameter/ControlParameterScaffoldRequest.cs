@@ -32,6 +32,11 @@ public sealed class ControlParameterScaffoldRequest
     public FormPlacement Placement { get; set; } = new();
 
     /// <summary>
+    /// Id of the control in the row to configure; null targets the row's last placed control.
+    /// </summary>
+    public string? ControlId { get; set; }
+
+    /// <summary>
     /// Rendered parameters fragment file; unused placeholder nodes are stripped.
     /// </summary>
     public string ParametersFilePath { get; set; } = "";

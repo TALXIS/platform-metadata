@@ -101,16 +101,87 @@ public class FormEventHandlerScaffoldTests : IDisposable
     }
 
     [Fact]
-    public void Apply_DialogForm_SkipsLibraryButAddsHandler()
+    public void Apply_OnChangeOnSecondField_DoesNotJoinFirstFieldEvent()
     {
-        var request = Request();
-        request.FormType = "Dialog";
-        request.FormId = DialogFormId;
-        FormEventHandlerScaffold.Apply(request);
+        var first = Request("onchange");
+        first.AttributeName = "udpp_name";
+        FormEventHandlerScaffold.Apply(first);
+        var second = Request("onchange");
+        second.AttributeName = "udpp_sku";
+        second.FunctionName = "onSkuChange";
+        FormEventHandlerScaffold.Apply(second);
+
+        var nameEvent = XDocument.Load(_formFilePath).Descendants("event").Single(e => e.Attribute("attribute")?.Value == "udpp_name");
+        Assert.Equal("onLoadHandler", nameEvent.Descendants("Handler").Single().Attribute("functionName")?.Value);
+    }
+
+    [Fact]
+    public void Apply_OnClick_BindsEachButtonToItsOwnEvent()
+    {
+        foreach (var button in new[] { "okbutton", "cancelbutton" })
+        {
+            var request = Request("onclick");
+            request.FormType = "Dialog";
+            request.FormId = DialogFormId;
+            request.AttributeName = button;
+            FormEventHandlerScaffold.Apply(request);
+        }
+
+        var events = XDocument.Load(_dialogFilePath).Descendants("event").ToList();
+        Assert.Equal(new[] { "okbutton", "cancelbutton" }, events.Select(e => e.Attribute("attribute")?.Value));
+        Assert.All(events, e => Assert.Single(e.Descendants("Handler")));
+    }
+
+    [Fact]
+    public void Apply_QuotesInIds_DoNotBreakLookupsOrDuplicate()
+    {
+        foreach (var function in new[] { "first", "second" })
+        {
+            var request = Request("onclick");
+            request.LibraryName = "udpp_owner's.js";
+            request.AttributeName = "owner's_button";
+            request.FunctionName = function;
+            FormEventHandlerScaffold.Apply(request);
+        }
+
+        var doc = XDocument.Load(_formFilePath);
+        Assert.Single(doc.Descendants("Library"));
+        Assert.Equal("owner's_button", doc.Descendants("event").Single().Attribute("attribute")?.Value);
+        Assert.Equal(2, doc.Descendants("Handler").Count());
+    }
+
+    [Theory]
+    [InlineData("onclick", null)]
+    [InlineData("onchange", null)]
+    [InlineData("onclick", "   ")]
+    [InlineData("onchange", "   ")]
+    public void Apply_AttributeKeyedEventWithoutAttribute_ThrowsBeforeWriting(string eventName, string? attributeName)
+    {
+        var before = File.ReadAllText(_formFilePath);
+        var request = Request(eventName);
+        request.AttributeName = attributeName;
+
+        var ex = Assert.Throws<ArgumentException>(() => FormEventHandlerScaffold.Apply(request));
+
+        Assert.Contains("AttributeName", ex.Message);
+        Assert.Equal(before, File.ReadAllText(_formFilePath));
+    }
+
+    [Fact]
+    public void Apply_DialogForm_RegistersLibraryOnceAndAddsHandlers()
+    {
+        foreach (var function in new[] { "onLoadHandler", "secondHandler" })
+        {
+            var request = Request();
+            request.FormType = "Dialog";
+            request.FormId = DialogFormId;
+            request.FunctionName = function;
+            FormEventHandlerScaffold.Apply(request);
+        }
 
         var doc = XDocument.Load(_dialogFilePath);
-        Assert.Empty(doc.Descendants("formLibraries"));
-        Assert.Single(doc.Descendants("Handler"));
+        Assert.Equal("udpp_forms.js", doc.Descendants("formLibraries").Single().Elements("Library").Single().Attribute("name")?.Value);
+        Assert.Equal(2, doc.Descendants("Handler").Count());
     }
 
     [Fact]
