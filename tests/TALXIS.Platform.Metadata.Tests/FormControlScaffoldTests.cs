@@ -33,6 +33,11 @@ public class FormControlScaffoldTests : IDisposable
                               <cell id="{00000000-0000-0000-0000-000000000011}" />
                               <cell id="{00000000-0000-0000-0000-000000000012}" />
                             </row>
+                            <row name="layered">
+                              <cell id="{00000000-0000-0000-0000-000000000014}" solutionaction="Removed" />
+                              <cell id="{00000000-0000-0000-0000-000000000015}" />
+                              <cell id="{00000000-0000-0000-0000-000000000016}" />
+                            </row>
                             <row>
                               <cell id="{00000000-0000-0000-0000-000000000013}" />
                             </row>
@@ -99,6 +104,18 @@ public class FormControlScaffoldTests : IDisposable
 
         var row = XDocument.Load(_formFilePath).Descendants("row").Single(r => r.Attribute("name")?.Value == "crowded");
         Assert.All(row.Elements("cell"), c => Assert.Single(c.Elements("control")));
+    }
+
+    [Fact]
+    public void Apply_RowWithRemovedCell_SkipsIt()
+    {
+        var request = Request();
+        request.Placement.RowIndex = "3";
+        FormControlScaffold.Apply(request);
+
+        var row = XDocument.Load(_formFilePath).Descendants("row").Single(r => r.Attribute("name")?.Value == "layered");
+        var filled = row.Elements("cell").Where(c => c.Element("control") != null).Select(c => c.Attribute("id")?.Value);
+        Assert.Equal(new[] { "{00000000-0000-0000-0000-000000000015}" }, filled);
     }
 
     [Fact]
