@@ -3,7 +3,7 @@ using System.Xml;
 namespace TALXIS.Platform.Metadata.Serialization.Xml.Scaffolding;
 
 /// <summary>
-/// Registers the JavaScript library on the form, except for dialogs, and attaches
+/// Registers the JavaScript library on the form (dialogs included) and attaches
 /// a handler to the requested event. Creates the event element when missing.
 /// </summary>
 public static class FormEventHandlerScaffold
@@ -28,9 +28,6 @@ public static class FormEventHandlerScaffold
 
     private static void AddLibrary(FormEventHandlerScaffoldRequest request, string formFilePath)
     {
-        // Skips library registration for dialog forms, which have no formLibraries.
-        if (new FileInfo(formFilePath).Directory?.Name == "Dialogs") return;
-
         var formDoc = ScaffoldXmlFile.Load(formFilePath);
         var librariesNode = formDoc.SelectSingleNode("//formLibraries");
         if (librariesNode == null)

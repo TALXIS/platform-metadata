@@ -146,16 +146,20 @@ public class FormEventHandlerScaffoldTests : IDisposable
     }
 
     [Fact]
-    public void Apply_DialogForm_SkipsLibraryButAddsHandler()
+    public void Apply_DialogForm_RegistersLibraryOnceAndAddsHandlers()
     {
-        var request = Request();
-        request.FormType = "Dialog";
-        request.FormId = DialogFormId;
-        FormEventHandlerScaffold.Apply(request);
+        foreach (var function in new[] { "onLoadHandler", "secondHandler" })
+        {
+            var request = Request();
+            request.FormType = "Dialog";
+            request.FormId = DialogFormId;
+            request.FunctionName = function;
+            FormEventHandlerScaffold.Apply(request);
+        }
 
         var doc = XDocument.Load(_dialogFilePath);
-        Assert.Empty(doc.Descendants("formLibraries"));
-        Assert.Single(doc.Descendants("Handler"));
+        Assert.Equal("udpp_forms.js", doc.Descendants("formLibraries").Single().Elements("Library").Single().Attribute("name")?.Value);
+        Assert.Equal(2, doc.Descendants("Handler").Count());
     }
 
     [Fact]
