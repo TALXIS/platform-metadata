@@ -108,6 +108,52 @@ public class ControlParameterScaffoldTests : IDisposable
     }
 
     [Fact]
+    public void Apply_ExplicitControlId_TargetsThatControl()
+    {
+        var request = Request();
+        request.Placement.RowIndex = "3";
+        request.ControlId = "okbutton";
+        ControlParameterScaffold.Apply(request);
+
+        var withParameters = XDocument.Load(_formFilePath).Descendants("control").Where(c => c.Element("parameters") != null);
+        Assert.Equal("okbutton", withParameters.Single().Attribute("id")?.Value);
+    }
+
+    [Fact]
+    public void Apply_UnknownControlId_ThrowsListingControls()
+    {
+        var request = Request();
+        request.Placement.RowIndex = "3";
+        request.ControlId = "removedbutton";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ControlParameterScaffold.Apply(request));
+
+        Assert.Contains("okbutton, cancelbutton", ex.Message);
+    }
+
+    [Fact]
+    public void Apply_ViaComponentScaffold_PassesControlId()
+    {
+        ComponentScaffold.Apply(new ComponentScaffoldRequest
+        {
+            ComponentType = "ControlParameter",
+            SolutionRootPath = _root,
+            Files = new Dictionary<string, string> { ["parameters"] = _parametersFilePath },
+            Parameters = new Dictionary<string, string>
+            {
+                ["entity"] = EntityName,
+                ["form-type"] = "main",
+                ["form-id"] = FormId,
+                ["row-index"] = "3",
+                ["control-id"] = "okbutton",
+            },
+        });
+
+        var withParameters = XDocument.Load(_formFilePath).Descendants("control").Where(c => c.Element("parameters") != null);
+        Assert.Equal("okbutton", withParameters.Single().Attribute("id")?.Value);
+    }
+
+    [Fact]
     public void Apply_RowWithCellWithoutControl_Throws()
     {
         var request = Request();

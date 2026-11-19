@@ -28,9 +28,7 @@ public static class ControlParameterScaffold
         {
             throw new InvalidOperationException("No existing cell found in the target row.");
         }
-        // Targets the control pp-form-control placed last: the row's last cell holding one.
-        var control = row.SelectSingleNode("(./cell[not(@solutionaction='Removed')]/control)[last()]")
-            ?? throw new InvalidOperationException("Control node not found in existing cell or parameter path is empty.");
+        var control = FindControl(row, request.ControlId);
 
         var parametersNode = formDoc.CreateElement("parameters");
         foreach (XmlNode parameter in fragmentDoc.DocumentElement!.ChildNodes)
@@ -41,6 +39,21 @@ public static class ControlParameterScaffold
 
         ScaffoldXmlFile.Save(formDoc, formFilePath);
         return new ScaffoldResult();
+    }
+
+    // An explicit id picks that control; without one the row's last placed control is the target.
+    private static XmlNode FindControl(XmlNode row, string? controlId)
+    {
+        var controls = row.SelectNodes("./cell[not(@solutionaction='Removed')]/control")!.Cast<XmlElement>().ToList();
+        if (controlId == null)
+        {
+            return controls.LastOrDefault()
+                ?? throw new InvalidOperationException("Control node not found in existing cell or parameter path is empty.");
+        }
+
+        return controls.FirstOrDefault(c => c.GetAttribute("id") == controlId)
+            ?? throw new InvalidOperationException(
+                $"Control '{controlId}' not found in the target row. Controls in the row: {string.Join(", ", controls.Select(c => c.GetAttribute("id")))}.");
     }
 
     private static void RemoveUnusedNodes(XmlDocument fragmentDoc)

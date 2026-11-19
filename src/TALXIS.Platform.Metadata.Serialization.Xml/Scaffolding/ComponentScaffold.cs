@@ -226,7 +226,7 @@ public static class ComponentScaffold
             PassExecutionContext = Optional(request.Parameters, "pass-execution-context") ?? "true",
         });
 
-    // Files: parameters (required). Parameters: entity, form-type, form-id and the placement set, all optional.
+    // Files: parameters (required). Parameters: entity, form-type, form-id, control-id and the placement set, all optional.
     private static ScaffoldResult ApplyControlParameter(ComponentScaffoldRequest request) =>
         ControlParameterScaffold.Apply(new ControlParameterScaffoldRequest
         {
@@ -235,6 +235,7 @@ public static class ComponentScaffold
             FormType = OptionalKnown(request.Parameters, "form-type"),
             FormId = OptionalId(request.Parameters, "form-id"),
             Placement = PlacementFrom(request),
+            ControlId = OptionalKnown(request.Parameters, "control-id"),
             ParametersFilePath = RequiredFile(request, "parameters"),
         });
 
