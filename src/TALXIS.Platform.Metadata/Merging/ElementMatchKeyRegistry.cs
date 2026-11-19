@@ -32,6 +32,14 @@ public static class ElementMatchKeyRegistry
             ["LocLabel"] = KeySetsFor(K("Id"))
         };
 
+    // Attributes that split same-named elements into distinct identities: a node never matches a
+    // candidate whose value differs, not even in the fallbacks (onclick on okbutton vs cancelbutton).
+    private static readonly Dictionary<string, IReadOnlyList<string>> Discriminators =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["event"] = ["attribute"]
+        };
+
     private static readonly IReadOnlyList<IReadOnlyList<string>> DefaultKeySets =
         KeySetsFor(K("id"), K("Id"), K("name"), K("Name"), K("ordinalvalue"));
 
@@ -42,6 +50,19 @@ public static class ElementMatchKeyRegistry
             return KeySets.TryGetValue(elementName, out var keySets)
                 ? keySets
                 : DefaultKeySets;
+        }
+    }
+
+    /// <summary>
+    /// Attributes that must be equal (or absent on both) for two same-named elements to match.
+    /// </summary>
+    public static IReadOnlyList<string> GetDiscriminators(string elementName)
+    {
+        lock (SyncRoot)
+        {
+            return Discriminators.TryGetValue(elementName, out var discriminators)
+                ? discriminators
+                : [];
         }
     }
 

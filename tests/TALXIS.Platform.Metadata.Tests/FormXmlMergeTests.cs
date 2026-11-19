@@ -291,4 +291,131 @@ public class FormXmlMergeTests
         var tabs = result.Descendants("tab").ToList();
         Assert.Equal(2, tabs.Count);
     }
+
+    private const string EventsFormXml = @"
+<forms>
+  <systemform>
+    <form>
+      <events>
+        <event name=""onload"" application=""false"" active=""true"">
+          <Handlers><Handler libraryName=""main.js"" functionName=""onLoad"" /></Handlers>
+        </event>
+        <event name=""onclick"" application=""false"" active=""true"" attribute=""okbutton"">
+          <Handlers><Handler libraryName=""main.js"" functionName=""onOk"" /></Handlers>
+        </event>
+        <event name=""onclick"" application=""false"" active=""true"" attribute=""cancelbutton"">
+          <Handlers><Handler libraryName=""main.js"" functionName=""onCancel"" /></Handlers>
+        </event>
+      </events>
+    </form>
+  </systemform>
+</forms>";
+
+    private static string[] OnClickTargets(XDocument form) =>
+        form.Descendants("event")
+            .Where(e => e.Attribute("name")?.Value == "onclick")
+            .Select(e => e.Attribute("attribute")!.Value)
+            .ToArray();
+
+    [Fact]
+    public void Merge_RemovedEvent_MatchesByAttribute()
+    {
+        var layer = XDocument.Parse(@"
+<forms>
+  <systemform>
+    <form>
+      <events>
+        <event name=""onclick"" application=""false"" attribute=""cancelbutton"" solutionaction=""Removed"" />
+      </events>
+    </form>
+  </systemform>
+</forms>");
+
+        var result = FormXmlMerge.Merge(XDocument.Parse(EventsFormXml), layer);
+
+        Assert.Equal(new[] { "okbutton" }, OnClickTargets(result));
+    }
+
+    [Fact]
+    public void Merge_RemovedEventMissingFromBase_LeavesOtherButtonAlone()
+    {
+        var baseForm = XDocument.Parse(EventsFormXml);
+        baseForm.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "cancelbutton").Remove();
+        var layer = XDocument.Parse(@"
+<forms>
+  <systemform>
+    <form>
+      <events>
+        <event name=""onclick"" application=""false"" attribute=""cancelbutton"" solutionaction=""Removed"" />
+      </events>
+    </form>
+  </systemform>
+</forms>");
+
+        var result = FormXmlMerge.Merge(baseForm, layer);
+
+        Assert.Equal(new[] { "okbutton" }, OnClickTargets(result));
+    }
+
+    [Fact]
+    public void Merge_HandlerAddedToEvent_LandsOnEventWithSameAttribute()
+    {
+        var layer = XDocument.Parse(@"
+<forms>
+  <systemform>
+    <form>
+      <events>
+        <event name=""onclick"" application=""false"" attribute=""cancelbutton"">
+          <Handlers>
+            <Handler libraryName=""main.js"" functionName=""logCancel"" solutionaction=""Added"" />
+          </Handlers>
+        </event>
+      </events>
+    </form>
+  </systemform>
+</forms>");
+
+        var result = FormXmlMerge.Merge(XDocument.Parse(EventsFormXml), layer);
+
+        var cancel = result.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "cancelbutton");
+        Assert.Equal(new[] { "onCancel", "logCancel" }, cancel.Descendants("Handler").Select(h => h.Attribute("functionName")!.Value));
+        var ok = result.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "okbutton");
+        Assert.Single(ok.Descendants("Handler"));
+    }
+
+    [Fact]
+    public void Merge_ModifiedEventWithoutAttribute_StillMatchesByName()
+    {
+        var layer = XDocument.Parse(@"
+<forms>
+  <systemform>
+    <form>
+      <events>
+        <event name=""onload"" application=""false"" active=""false"" solutionaction=""Modified"">
+          <Handlers><Handler libraryName=""main.js"" functionName=""onLoad"" /></Handlers>
+        </event>
+      </events>
+    </form>
+  </systemform>
+</forms>");
+
+        var result = FormXmlMerge.Merge(XDocument.Parse(EventsFormXml), layer);
+
+        var onload = result.Descendants("event").Single(e => e.Attribute("name")?.Value == "onload");
+        Assert.Equal("false", onload.Attribute("active")?.Value);
+        Assert.Equal(new[] { "okbutton", "cancelbutton" }, OnClickTargets(result));
+    }
+
+    [Fact]
+    public void Merge_Roundtrip_RemovingOneButtonEventKeepsTheOther()
+    {
+        var baseForm = XDocument.Parse(EventsFormXml);
+        var modified = XDocument.Parse(EventsFormXml);
+        modified.Descendants("event").Single(e => e.Attribute("attribute")?.Value == "okbutton").Remove();
+
+        var diff = FormXmlMerge.ComputeDiff(baseForm, modified);
+        var result = FormXmlMerge.Merge(baseForm, diff);
+
+        Assert.Equal(new[] { "cancelbutton" }, OnClickTargets(result));
+    }
 }

@@ -115,7 +115,7 @@ public static class TreeMergeEngine
         var candidates = new List<MergeableNode>();
         foreach (var child in parent.Children)
         {
-            if (child.Name == name)
+            if (IsSameKind(child, target))
                 candidates.Add(child);
         }
 
@@ -144,7 +144,7 @@ public static class TreeMergeEngine
             for (int j = 0; j < targetSiblings.Count; j++)
             {
                 if (targetSiblings[j] == target) break;
-                if (targetSiblings[j].Name == name) targetIndex++;
+                if (IsSameKind(targetSiblings[j], target)) targetIndex++;
             }
             return targetIndex < candidates.Count ? candidates[targetIndex] : null;
         }
@@ -264,7 +264,7 @@ public static class TreeMergeEngine
             for (int i = 0; i < candidates.Count; i++)
             {
                 if (excluded.Contains(i)) continue;
-                if (candidates[i].Name != name) continue;
+                if (!IsSameKind(candidates[i], target)) continue;
                 if (HasMatchingKeys(candidates[i], target, keySet))
                     return i;
             }
@@ -275,7 +275,7 @@ public static class TreeMergeEngine
         for (int i = 0; i < candidates.Count; i++)
         {
             if (excluded.Contains(i)) continue;
-            if (candidates[i].Name == name)
+            if (IsSameKind(candidates[i], target))
                 sameNameIndices.Add(i);
         }
 
@@ -288,7 +288,7 @@ public static class TreeMergeEngine
                 for (int j = 0; j < targetParentChildren.Count; j++)
                 {
                     if (targetParentChildren[j] == target) break;
-                    if (targetParentChildren[j].Name == target.Name) targetIndex++;
+                    if (IsSameKind(targetParentChildren[j], target)) targetIndex++;
                 }
             }
             return targetIndex < sameNameIndices.Count ? sameNameIndices[targetIndex] : -1;
@@ -309,6 +309,17 @@ public static class TreeMergeEngine
         }
 
         return false;
+    }
+
+    // Same element name and equal discriminator attributes (absent on both counts as equal).
+    private static bool IsSameKind(MergeableNode candidate, MergeableNode target)
+    {
+        if (candidate.Name != target.Name) return false;
+        foreach (var key in ElementMatchKeyRegistry.GetDiscriminators(target.Name))
+        {
+            if (candidate.GetAttribute(key) != target.GetAttribute(key)) return false;
+        }
+        return true;
     }
 
     private static bool HasAllKeys(MergeableNode node, IReadOnlyList<string> keys)
