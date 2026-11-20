@@ -36,7 +36,7 @@ public static class MergeableNodeXmlConverter
             }
             else
             {
-                node.SetAttribute(attr.Name.LocalName, attr.Value);
+                node.SetAttribute(ToAttributeKey(attr), attr.Value);
             }
         }
 
@@ -63,7 +63,7 @@ public static class MergeableNodeXmlConverter
 
         foreach (var kvp in node.Attributes)
         {
-            element.SetAttributeValue(kvp.Key, kvp.Value);
+            element.SetAttributeValue(ToAttributeName(kvp.Key), kvp.Value);
         }
 
         if (node.Action != null)
@@ -94,5 +94,25 @@ public static class MergeableNodeXmlConverter
         }
 
         return element;
+    }
+
+    // Plain attributes keep their bare name; namespace declarations become "xmlns:prefix" and
+    // namespaced attributes "{namespace}local", so both survive the roundtrip.
+    private static string ToAttributeKey(XAttribute attribute)
+    {
+        if (attribute.IsNamespaceDeclaration)
+            return attribute.Name.Namespace == XNamespace.None ? "xmlns" : $"xmlns:{attribute.Name.LocalName}";
+
+        return attribute.Name.Namespace == XNamespace.None
+            ? attribute.Name.LocalName
+            : attribute.Name.ToString();
+    }
+
+    private static XName ToAttributeName(string key)
+    {
+        if (key.StartsWith("xmlns:", StringComparison.Ordinal))
+            return XNamespace.Xmlns + key.Substring("xmlns:".Length);
+
+        return XName.Get(key);
     }
 }

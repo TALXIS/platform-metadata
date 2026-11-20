@@ -343,9 +343,6 @@ public sealed class XmlWorkspaceWriter
             var localizedAttr = nameEl.Attribute("LocalizedName");
             if (localizedAttr != null && entity.DisplayName.Default != null)
                 localizedAttr.Value = entity.DisplayName.Default;
-            var origAttr = nameEl.Attribute("OriginalName");
-            if (origAttr != null && entity.DisplayName.Default != null)
-                origAttr.Value = entity.DisplayName.Default;
         }
 
         var entityInfo = root.Element("EntityInfo")?.Element("entity");
@@ -1080,10 +1077,8 @@ public sealed class XmlWorkspaceWriter
         {
             var existingBody = systemForm.Element("form");
             var replacementBody = MergeableNodeXmlConverter.ToXElement(form.Body);
-            if (existingBody != null)
-                existingBody.ReplaceWith(replacementBody);
-            else
-                systemForm.Add(replacementBody);
+            if (existingBody == null) systemForm.Add(replacementBody);
+            else ReplaceIfChanged(existingBody, replacementBody);
         }
     }
 
@@ -1638,10 +1633,8 @@ public sealed class XmlWorkspaceWriter
         if (appModule.Body != null)
         {
             var replacementRoot = MergeableNodeXmlConverter.ToXElement(appModule.Body);
-            if (doc.Root != null)
-                doc.Root.ReplaceWith(replacementRoot);
-            else
-                doc.Add(replacementRoot);
+            if (doc.Root == null) doc.Add(replacementRoot);
+            else ReplaceIfChanged(doc.Root, replacementRoot);
         }
 
         var root = doc.Root;
@@ -1714,10 +1707,8 @@ public sealed class XmlWorkspaceWriter
         if (siteMap.Body != null)
         {
             var replacementRoot = MergeableNodeXmlConverter.ToXElement(siteMap.Body);
-            if (doc.Root != null)
-                doc.Root.ReplaceWith(replacementRoot);
-            else
-                doc.Add(replacementRoot);
+            if (doc.Root == null) doc.Add(replacementRoot);
+            else ReplaceIfChanged(doc.Root, replacementRoot);
         }
 
         var root = doc.Root;
@@ -1763,10 +1754,8 @@ public sealed class XmlWorkspaceWriter
         if (ribbon.Body == null) return;
 
         var replacementRoot = MergeableNodeXmlConverter.ToXElement(ribbon.Body);
-        if (doc.Root != null)
-            doc.Root.ReplaceWith(replacementRoot);
-        else
-            doc.Add(replacementRoot);
+        if (doc.Root == null) doc.Add(replacementRoot);
+        else ReplaceIfChanged(doc.Root, replacementRoot);
     }
 
     private static XDocument BuildRibbonFromScratch(RibbonMetadata ribbon)
@@ -1966,12 +1955,38 @@ public sealed class XmlWorkspaceWriter
         return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Rebuilding an unchanged body would drop the file's own formatting, so it is only swapped when its content differs.
+    private static void ReplaceIfChanged(XElement existing, XElement replacement)
+    {
+        if (!HasSameContent(existing, replacement))
+            existing.ReplaceWith(replacement);
+    }
+
+    // Same rules as MergeableNodeXmlConverter: name, ordered attributes, child elements, and text only on leaves.
+    private static bool HasSameContent(XElement left, XElement right)
+    {
+        if (left.Name != right.Name) return false;
+
+        var leftAttributes = left.Attributes().Select(a => (a.Name, a.Value));
+        var rightAttributes = right.Attributes().Select(a => (a.Name, a.Value));
+        if (!leftAttributes.SequenceEqual(rightAttributes)) return false;
+
+        var leftChildren = left.Elements().ToList();
+        var rightChildren = right.Elements().ToList();
+        if (leftChildren.Count == 0 && rightChildren.Count == 0) return left.Value == right.Value;
+
+        return leftChildren.Count == rightChildren.Count
+            && leftChildren.Zip(rightChildren, HasSameContent).All(same => same);
+    }
+
     private static void SaveDocument(XDocument doc, string filePath)
     {
+        var encoding = new System.Text.UTF8Encoding(StartsWithUtf8Bom(filePath));
+
         if (HasPreservedWhitespace(doc))
         {
             using var stream = File.Create(filePath);
-            using var textWriter = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
+            using var textWriter = new StreamWriter(stream, encoding);
             doc.Save(textWriter, SaveOptions.DisableFormatting);
             return;
         }
@@ -1980,12 +1995,21 @@ public sealed class XmlWorkspaceWriter
         {
             Indent = true,
             IndentChars = "  ",
-            Encoding = new System.Text.UTF8Encoding(false),
+            Encoding = encoding,
             OmitXmlDeclaration = false
         };
 
         using var writer = XmlWriter.Create(filePath, settings);
         doc.Save(writer);
+    }
+
+    private static bool StartsWithUtf8Bom(string filePath)
+    {
+        if (!File.Exists(filePath)) return false;
+
+        using var stream = File.OpenRead(filePath);
+        var prefix = new byte[3];
+        return stream.Read(prefix, 0, 3) == 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
     }
 
     private static bool HasPreservedWhitespace(XDocument doc)

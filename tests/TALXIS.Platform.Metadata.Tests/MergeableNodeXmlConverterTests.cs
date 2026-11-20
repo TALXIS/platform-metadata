@@ -7,6 +7,24 @@ namespace TALXIS.Platform.Metadata.Tests;
 public class MergeableNodeXmlConverterTests
 {
     [Fact]
+    public void Roundtrip_KeepsNamespaceDeclarationsAndPrefixedAttributes()
+    {
+        var xml = XElement.Parse("""
+            <RibbonDiffXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <CustomActions xsi:nil="true" />
+            </RibbonDiffXml>
+            """);
+
+        var result = MergeableNodeXmlConverter.ToXElement(MergeableNodeXmlConverter.FromXElement(xml));
+
+        XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
+        Assert.Equal(xsi.NamespaceName, result.Attribute(XNamespace.Xmlns + "xsi")?.Value);
+        Assert.Null(result.Attribute("xsi"));
+        Assert.Equal("true", result.Element("CustomActions")?.Attribute(xsi + "nil")?.Value);
+        Assert.Contains("xsi:nil=\"true\"", result.ToString());
+    }
+
+    [Fact]
     public void Roundtrip_XElement_To_MergeableNode_And_Back()
     {
         var xml = XElement.Parse(@"

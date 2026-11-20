@@ -193,6 +193,24 @@ public class SchemaValidatorTests
     }
 
     [Fact]
+    public void SolutionXml_MissingDependencyWithAlternateKeyAttributes_ProducesNoErrorsOrWarnings()
+    {
+        var xml = ValidSolutionXml.Replace("<MissingDependencies />", """
+            <MissingDependencies>
+                  <MissingDependency>
+                    <Required type="SettingDefinition" displayName="AppChannel" solution="msdyn_AppFrameworkInfraExtensions (1.0.0.27)" id.uniquename="AppChannel" />
+                    <Dependent type="AppSetting" displayName="AppChannel" id.parentappmoduleid.uniquename="test_app" id.settingdefinitionid.uniquename="AppChannel" />
+                  </MissingDependency>
+                </MissingDependencies>
+            """);
+
+        var doc = XDocument.Parse(xml);
+        var results = _validator.ValidateXml(doc, "Solution.xml");
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void CustomizationsXml_WithConnectionReferences_ProducesNoErrorsOrWarnings()
     {
         var xml = """
