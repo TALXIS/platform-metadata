@@ -954,6 +954,147 @@ public class XmlWorkspaceWriterTests
     }
 
     [Fact]
+    public void Roundtrip_InPlace_KeepsUnchangedFormAndRibbonFilesByteForByte()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"roundtrip-inplace-{Guid.NewGuid():N}");
+        var withBom = new System.Text.UTF8Encoding(true);
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(path, "Other"));
+            Directory.CreateDirectory(Path.Combine(path, "Entities", "account", "FormXml", "main"));
+            File.WriteAllText(Path.Combine(path, "Other", "Solution.xml"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <ImportExportXml>
+                  <SolutionManifest>
+                    <UniqueName>TestSolution</UniqueName>
+                    <Version>1.0.0.0</Version>
+                    <Managed>0</Managed>
+                    <Publisher>
+                      <UniqueName>test</UniqueName>
+                      <CustomizationPrefix>test</CustomizationPrefix>
+                    </Publisher>
+                  </SolutionManifest>
+                </ImportExportXml>
+                """);
+            var formPath = Path.Combine(path, "Entities", "account", "FormXml", "main", "{11111111-1111-1111-1111-111111111111}.xml");
+            File.WriteAllText(formPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <forms xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <systemform>
+                    <formid>{11111111-1111-1111-1111-111111111111}</formid>
+                    <form>
+                      <tabs>
+                        <tab id="base-tab">
+                          <labels>
+                            <label description="General" languagecode="1033" />
+                          </labels>
+                        </tab>
+                      </tabs>
+                    </form>
+                  </systemform>
+                </forms>
+                """, withBom);
+            var ribbonPath = Path.Combine(path, "Entities", "account", "RibbonDiff.xml");
+            File.WriteAllText(ribbonPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <RibbonDiffXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <CustomActions />
+                  <Templates>
+                    <RibbonTemplates Id="Mscrm.Templates"></RibbonTemplates>
+                  </Templates>
+                </RibbonDiffXml>
+                """, withBom);
+            var originalForm = File.ReadAllBytes(formPath);
+            var originalRibbon = File.ReadAllBytes(ribbonPath);
+
+            var workspace = new XmlWorkspaceReader().Load(path);
+            new XmlWorkspaceWriter().Write(workspace, path);
+
+            Assert.Equal(originalForm, File.ReadAllBytes(formPath));
+            Assert.Equal(originalRibbon, File.ReadAllBytes(ribbonPath));
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
+    [Fact]
+    public void Roundtrip_SystemEntity_KeepsEmptyOriginalName()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"roundtrip-original-name-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(path, "Entities", "Account"));
+            var entityPath = Path.Combine(path, "Entities", "Account", "Entity.xml");
+            File.WriteAllText(entityPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <Name LocalizedName="Account" OriginalName="">Account</Name>
+                  <EntityInfo>
+                    <entity Name="Account">
+                      <LocalizedNames>
+                        <LocalizedName description="Account" languagecode="1033" />
+                      </LocalizedNames>
+                      <attributes />
+                    </entity>
+                  </EntityInfo>
+                </Entity>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(path);
+            new XmlWorkspaceWriter().Write(workspace, path);
+
+            var name = XDocument.Load(entityPath).Root!.Element("Name")!;
+            Assert.Equal("", name.Attribute("OriginalName")?.Value);
+            Assert.Equal("Account", name.Attribute("LocalizedName")?.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
+    [Fact]
+    public void Write_ChangedRibbon_KeepsNamespaceDeclaration()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"write-ribbon-ns-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(path, "Entities", "account"));
+            var ribbonPath = Path.Combine(path, "Entities", "account", "RibbonDiff.xml");
+            File.WriteAllText(ribbonPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <RibbonDiffXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <CustomActions />
+                </RibbonDiffXml>
+                """);
+
+            var workspace = new XmlWorkspaceReader().Load(path);
+            var ribbon = Assert.Single(workspace.Ribbons);
+            ribbon.Body!.AddChild(new MergeableNode { Name = "Templates" });
+            new XmlWorkspaceWriter().Write(workspace, path);
+
+            var root = XDocument.Load(ribbonPath).Root!;
+            Assert.Equal("http://www.w3.org/2001/XMLSchema-instance", root.Attribute(XNamespace.Xmlns + "xsi")?.Value);
+            Assert.Null(root.Attribute("xsi"));
+            Assert.NotNull(root.Element("Templates"));
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
+    [Fact]
     public void Roundtrip_ManagedFilesWriteBackToManagedPaths()
     {
         var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-managed-choice-in-{Guid.NewGuid():N}");
