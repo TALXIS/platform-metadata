@@ -144,6 +144,7 @@ TALXIS.Platform.Metadata.Serialization
 TALXIS.Platform.Metadata.Validation
 ├── SchemaValidator         - XSD-based
 ├── StructuralValidator     - cross-file consistency
+├── ComponentReferenceValidator - forms/views/site maps/apps → entities, columns, relationships, views
 └── Schemas/                - embedded XSD resources (23 schemas)
 
 TALXIS.Platform.Metadata.Workspace

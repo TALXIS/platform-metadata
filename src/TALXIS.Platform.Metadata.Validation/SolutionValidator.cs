@@ -6,8 +6,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// <summary>
 /// Validates a single solution root with every rule that needs no cross-solution knowledge:
 /// XSD and JSON schema checks, duplicate GUID detection, model load, flow and solution manifest
-/// rules. Relationship rules are workspace-scoped (a relationship and the entity it references
-/// may ship in different solutions), so they live in <see cref="WorkspaceValidator"/>.
+/// rules. Relationship and component reference rules are workspace-scoped (a relationship, form or
+/// view and the entity it references may ship in different solutions), so they live in <see cref="WorkspaceValidator"/>.
 /// <see cref="WorkspaceValidator"/> composes this validator over each solution it discovers;
 /// build pipelines call it directly on one solution source folder.
 /// </summary>

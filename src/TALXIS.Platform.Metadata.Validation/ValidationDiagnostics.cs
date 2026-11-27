@@ -89,4 +89,43 @@ public static class ValidationDiagnostics
     /// flags an order that disagrees with the lookups, usually on purpose.
     /// </summary>
     public const string CmtImportOrderChildBeforeParent = "TXM026";
+
+    /// <summary>A form control's datafieldname is not a column of the form's entity.</summary>
+    public const string FormControlColumnUnknown = "TXM027";
+
+    /// <summary>
+    /// A column is placed more than once in a form's body (header and footer excluded). Dataverse allows this, so it is a warning
+    /// that the extra placement is probably an accidental copy.
+    /// </summary>
+    public const string FormColumnRepeated = "TXM028";
+
+    /// <summary>Two controls in one form share the same id.</summary>
+    public const string FormControlIdDuplicate = "TXM029";
+
+    /// <summary>A subgrid's TargetEntityType names an entity that does not exist; reported only when it misspells a workspace entity.</summary>
+    public const string SubgridTargetEntityUnknown = "TXM030";
+
+    /// <summary>
+    /// A subgrid's RelationshipName is not a one-to-many from the form's entity to the subgrid's target (or a many-to-many between
+    /// them), or is missing from a workspace that fully defines both entities.
+    /// </summary>
+    public const string SubgridRelationshipInvalid = "TXM031";
+
+    /// <summary>A subgrid's ViewId is a saved query of another entity, or is missing although the workspace fully defines the target entity.</summary>
+    public const string SubgridViewInvalid = "TXM032";
+
+    /// <summary>A view's fetchxml &lt;attribute&gt;, &lt;order&gt; or &lt;condition&gt; names a column its entity does not have.</summary>
+    public const string ViewFetchColumnUnknown = "TXM033";
+
+    /// <summary>A view's layoutxml &lt;cell&gt; names a column of the view's entity, or of a link-entity alias, that does not exist.</summary>
+    public const string ViewLayoutColumnUnknown = "TXM034";
+
+    /// <summary>A site map SubArea's Entity or Url etn= names an entity that does not exist; reported only when it misspells a workspace entity.</summary>
+    public const string SiteMapEntityUnknown = "TXM035";
+
+    /// <summary>A site map SubArea's Url viewid= is not a saved query of the etn= entity.</summary>
+    public const string SiteMapViewInvalid = "TXM036";
+
+    /// <summary>An app module component (entity, form, view or site map) is not in the workspace.</summary>
+    public const string AppModuleComponentMissing = "TXM037";
 }

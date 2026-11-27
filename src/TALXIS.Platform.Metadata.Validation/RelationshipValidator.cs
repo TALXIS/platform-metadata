@@ -37,7 +37,8 @@ public sealed class RelationshipValidator
         return results;
     }
 
-    private static HashSet<string> BuildShellEntitySet(Workspace workspace)
+    /// <summary>Entities this solution declares only as shells (root-component behavior 1 or 2, never 0).</summary>
+    internal static HashSet<string> BuildShellEntitySet(Workspace workspace)
     {
         var full = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var shell = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

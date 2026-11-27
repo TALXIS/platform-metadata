@@ -6,8 +6,8 @@ namespace TALXIS.Platform.Metadata.Validation;
 /// <summary>
 /// Unified validation entry point for a whole workspace. Discovers every solution root,
 /// runs <see cref="SolutionValidator"/> on each, then adds the checks that only make sense
-/// across solutions: cross-solution duplicate GUIDs, files outside any solution root, and
-/// the combined workspace model.
+/// across solutions: cross-solution duplicate GUIDs, files outside any solution root, relationship
+/// and component reference checks against every solution, and the combined workspace model.
 /// </summary>
 public sealed class WorkspaceValidator
 {
@@ -74,6 +74,7 @@ public sealed class WorkspaceValidator
         }
 
         CollectRelationshipFindings(loaded, results);
+        CollectComponentReferenceFindings(workspacePath, loaded, results);
 
         var workspace = BuildCombinedWorkspace(workspacePath, solutionRoots, loaded, results);
         return BuildReport(results, workspace);
@@ -200,6 +201,25 @@ public sealed class WorkspaceValidator
                     $"Failed to load workspace into model: {ex.Message}",
                     root, null, null) { Stage = ValidationStage.ModelLoad });
             }
+        }
+    }
+
+    // Forms, views, site maps and app modules are checked against every loaded solution at once, since what they reference
+    // may ship in a sibling solution.
+    private static void CollectComponentReferenceFindings(string workspacePath, List<(string Root, Workspace? Workspace)> loaded, List<ValidationResult> results)
+    {
+        try
+        {
+            results.AddRange(SolutionValidator.WithStage(
+                new ComponentReferenceValidator().Validate(loaded.Select(l => l.Workspace).OfType<Workspace>().ToList()),
+                ValidationStage.ComponentReference));
+        }
+        catch (Exception ex)
+        {
+            results.Add(new ValidationResult(
+                ValidationSeverity.Error,
+                $"Failed to validate component references: {ex.Message}",
+                workspacePath, null, null) { Stage = ValidationStage.ComponentReference });
         }
     }
 

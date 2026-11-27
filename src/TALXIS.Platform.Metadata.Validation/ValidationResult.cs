@@ -51,7 +51,8 @@ public enum ValidationStage
     Flow,
     Relationship,
     SolutionManifest,
-    CmtData
+    CmtData,
+    ComponentReference
 }
 
 public static class ValidationStageExtensions
@@ -66,6 +67,7 @@ public static class ValidationStageExtensions
         ValidationStage.Relationship => "Relationship",
         ValidationStage.SolutionManifest => "Solution",
         ValidationStage.CmtData => "CMT",
+        ValidationStage.ComponentReference => "Reference",
         _ => "Workspace"
     };
 }

@@ -109,6 +109,7 @@ The model separates concepts that Dataverse treats differently:
 - Duplicate GUID detection.
 - Reader/load diagnostics for malformed component files.
 - Structural rules for Configuration Migration Tool packages ([docs](docs/data-migration.md)).
+- Component references across all solutions of a workspace (`ComponentReferenceValidator`, codes TXM027-TXM037): form controls bound to missing columns, duplicate control ids, subgrid target entities, relationships and views, view FetchXML and layout columns, site map entities and view URLs, and app module components. Columns are checked only on custom entities a workspace solution fully includes, after allowing the columns Dataverse adds to every table; references to system tables or entities outside the workspace are skipped unless they misspell a workspace entity. Findings suggest the nearest existing name.
 - File, line, and column information where available.
 
 ## Core concepts
