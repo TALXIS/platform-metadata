@@ -365,12 +365,13 @@ public sealed class XmlWorkspaceReader
                     "date" or "dateonly" => DateTimeFormat.DateOnly,
                     _ => DateTimeFormat.DateAndTime
                 };
-                var behavior = attrEl.Element("Behavior")?.Value;
+                // <Behavior> holds the DateTimeBehavior value: 1 user local, 2 date only, 3 time-zone independent. Exports write
+                // 1 for createdon and modifiedon; an older file without the element, or with 0, is user local as well.
+                var behavior = attrEl.Element("Behavior")?.Value?.Trim();
                 da.DateTimeBehavior = behavior switch
                 {
-                    "0" or "3" => DateTimeBehavior.UserLocal,
-                    "1" => DateTimeBehavior.DateOnly,
-                    "2" => DateTimeBehavior.TimeZoneIndependent,
+                    "2" => DateTimeBehavior.DateOnly,
+                    "3" => DateTimeBehavior.TimeZoneIndependent,
                     _ => DateTimeBehavior.UserLocal
                 };
                 return da;

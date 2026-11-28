@@ -679,6 +679,65 @@ public class XmlWorkspaceWriterTests
         }
     }
 
+    // Dataverse exports <Behavior> as the DateTimeBehavior value: 1 user local (createdon), 2 date only, 3 time-zone independent.
+    [Fact]
+    public void Roundtrip_DateTimeBehaviorMatchesDataverseExport()
+    {
+        var inMemoryPath = Path.Combine(Path.GetTempPath(), $"roundtrip-datetime-new-{Guid.NewGuid():N}");
+        var inputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-datetime-in-{Guid.NewGuid():N}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"roundtrip-datetime-out-{Guid.NewGuid():N}");
+
+        try
+        {
+            CopyDirectory(SamplePath, inputPath);
+            var entityFile = Path.Combine(inputPath, "Entities", "test_entity", "Entity.xml");
+            string Column(string name, string format, string behavior) => $"""
+                <attribute PhysicalName="{name}">
+                  <Type>datetime</Type>
+                  <LogicalName>{name}</LogicalName>
+                  <Format>{format}</Format>
+                  <CanChangeDateTimeBehavior>1</CanChangeDateTimeBehavior>
+                  <Behavior>{behavior}</Behavior>
+                </attribute>
+                """;
+            File.WriteAllText(entityFile, File.ReadAllText(entityFile).Replace("</attributes>",
+                Column("createdon", "datetime", "1") + Column("tp_signedon", "date", "2") + Column("tp_departureat", "datetime", "3") + "</attributes>"));
+
+            var loaded = new XmlWorkspaceReader().Load(inputPath).FindEntity("test_entity")!;
+            DateTimeAttributeMetadata DateTime(EntityMetadata entity, string name) => Assert.IsType<DateTimeAttributeMetadata>(entity.FindAttribute(name));
+            Assert.Equal((DateTimeFormat.DateAndTime, DateTimeBehavior.UserLocal), (DateTime(loaded, "createdon").Format, DateTime(loaded, "createdon").DateTimeBehavior));
+            Assert.Equal((DateTimeFormat.DateOnly, DateTimeBehavior.DateOnly), (DateTime(loaded, "tp_signedon").Format, DateTime(loaded, "tp_signedon").DateTimeBehavior));
+            Assert.Equal(DateTimeBehavior.TimeZoneIndependent, DateTime(loaded, "tp_departureat").DateTimeBehavior);
+
+            new XmlWorkspaceWriter().Write(new XmlWorkspaceReader().Load(inputPath), outputPath);
+            Assert.Equal(File.ReadAllText(entityFile), File.ReadAllText(Path.Combine(outputPath, "Entities", "test_entity", "Entity.xml")));
+
+            var inMemory = new Workspace("in-memory");
+            inMemory.AddSolution(new Solution { UniqueName = "InMemorySolution", Version = "1.0", Publisher = new Publisher { UniqueName = "test", Prefix = "test" } });
+            var table = new EntityMetadata { LogicalName = "test_trip", SchemaName = "test_trip", DisplayName = new Label("Trip"), IsCustomEntity = true };
+            table.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "test_bookedon", IsCustomAttribute = true });
+            table.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "test_signedon", IsCustomAttribute = true, Format = DateTimeFormat.DateOnly, DateTimeBehavior = DateTimeBehavior.DateOnly });
+            table.AddAttribute(new DateTimeAttributeMetadata { LogicalName = "test_departureat", IsCustomAttribute = true, DateTimeBehavior = DateTimeBehavior.TimeZoneIndependent });
+            inMemory.AddEntity(table);
+            new XmlWorkspaceWriter().Write(inMemory, inMemoryPath);
+
+            var written = XDocument.Load(Path.Combine(inMemoryPath, "Entities", "test_trip", "Entity.xml")).Descendants("attribute")
+                .ToDictionary(a => a.Element("LogicalName")!.Value, a => (a.Element("Format")!.Value, a.Element("Behavior")!.Value));
+            Assert.Equal(("datetime", "1"), written["test_bookedon"]);
+            Assert.Equal(("date", "2"), written["test_signedon"]);
+            Assert.Equal(("datetime", "3"), written["test_departureat"]);
+            var reloaded = new XmlWorkspaceReader().Load(inMemoryPath).FindEntity("test_trip")!;
+            Assert.Equal(DateTimeBehavior.UserLocal, DateTime(reloaded, "test_bookedon").DateTimeBehavior);
+            Assert.Equal((DateTimeFormat.DateOnly, DateTimeBehavior.DateOnly), (DateTime(reloaded, "test_signedon").Format, DateTime(reloaded, "test_signedon").DateTimeBehavior));
+            Assert.Equal(DateTimeBehavior.TimeZoneIndependent, DateTime(reloaded, "test_departureat").DateTimeBehavior);
+        }
+        finally
+        {
+            foreach (var path in new[] { inMemoryPath, inputPath, outputPath })
+                if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
     [Fact]
     public void Roundtrip_PreservesPassthroughWorkspaceFiles()
     {

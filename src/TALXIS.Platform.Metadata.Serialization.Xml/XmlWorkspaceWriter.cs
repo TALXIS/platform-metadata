@@ -543,13 +543,14 @@ public sealed class XmlWorkspaceWriter
                 attrEl.Add(new XElement("Precision", mo.Precision));
                 break;
             case DateTimeAttributeMetadata dt:
-                var fmt = dt.Format == DateTimeFormat.DateOnly ? "dateonly" : "datetime";
+                // As Dataverse exports them: Format date or datetime, Behavior 1 user local, 2 date only, 3 time-zone independent.
+                var fmt = dt.Format == DateTimeFormat.DateOnly ? "date" : "datetime";
                 attrEl.Add(new XElement("Format", fmt));
                 var behavior = dt.DateTimeBehavior switch
                 {
-                    DateTimeBehavior.DateOnly => "1",
-                    DateTimeBehavior.TimeZoneIndependent => "2",
-                    _ => "0"
+                    DateTimeBehavior.DateOnly => "2",
+                    DateTimeBehavior.TimeZoneIndependent => "3",
+                    _ => "1"
                 };
                 attrEl.Add(new XElement("Behavior", behavior));
                 break;
