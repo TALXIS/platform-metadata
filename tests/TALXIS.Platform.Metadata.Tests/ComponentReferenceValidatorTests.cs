@@ -309,6 +309,27 @@ public class ComponentReferenceValidatorTests : IDisposable
     }
 
     [Fact]
+    public void PackageTableNearAPackageTableInWorkspace_NotReportedAsMisspelling()
+    {
+        // The workspace extends package table ext_project; the app, site map and a subgrid also use package table ext_product,
+        // which is two edits from ext_project but carries the package's prefix, not the workspace publisher's.
+        Fixture.Write(_workspace);
+        Replace(Path.Combine(_workspace, "Other", "Solution.xml"), "</RootComponents>",
+            "<RootComponent type=\"1\" schemaName=\"ext_project\" behavior=\"2\" /></RootComponents>");
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(_workspace, "Entities", "ext_project")).FullName, "Entity.xml"),
+            Fixture.Entity("ext_project", ("pba_budget", "money")));
+        Replace(AppModule, "</AppModuleComponents>", "<AppModuleComponent type=\"1\" schemaName=\"ext_product\" /></AppModuleComponents>");
+        Replace(SiteMap, "</Group>", "<SubArea Id=\"products\" Entity=\"ext_product\" /></Group>");
+        Replace(CustomerForm, "</rows>", Fixture.Subgrid("Products", "ext_product", "pba_customer_ext_product", "{66666666-6666-6666-6666-666666666666}") + "</rows>");
+
+        Assert.Empty(Findings());
+
+        Replace(AppModule, "schemaName=\"pba_ticket\"", "schemaName=\"pba_tickt\"");
+        var finding = Single(Findings(), ValidationDiagnostics.AppModuleComponentMissing);
+        Assert.Contains("Did you mean 'pba_ticket'?", finding.Message);
+    }
+
+    [Fact]
     public void ShellEntity_ColumnsNotChecked()
     {
         Fixture.Write(_workspace);

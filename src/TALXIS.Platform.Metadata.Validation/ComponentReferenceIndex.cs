@@ -36,7 +36,7 @@ internal sealed class ComponentReferenceIndex
 
     private readonly Dictionary<string, EntityEntry> _entities = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _knownEntityNames = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _prefixes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _publisherPrefixes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<RelationshipMetadata>> _relationships = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SavedQueryMetadata> _views = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _forms = new(StringComparer.OrdinalIgnoreCase);
@@ -68,15 +68,14 @@ internal sealed class ComponentReferenceIndex
             entry.IsComplete |= IsFullDefinition(entity, shells, ownPrefixes);
 
             _knownEntityNames.Add(entity.LogicalName);
-            var separator = entity.LogicalName.IndexOf('_');
-            if (entity.IsCustomEntity && separator > 0)
-                _prefixes.Add(entity.LogicalName.Substring(0, separator));
         }
 
         foreach (var manifest in solution.Solutions)
         {
+            // Only the workspace's own publishers: a solution also carries tables of package publishers, and a name with such a
+            // prefix that the workspace does not define is most likely another table of that package, not a misspelling.
             if (!string.IsNullOrWhiteSpace(manifest.Publisher?.Prefix))
-                _prefixes.Add(manifest.Publisher!.Prefix);
+                _publisherPrefixes.Add(manifest.Publisher!.Prefix);
 
             foreach (var component in manifest.RootComponents)
             {
@@ -145,8 +144,8 @@ internal sealed class ComponentReferenceIndex
         !string.IsNullOrWhiteSpace(entityName) && _entities.TryGetValue(entityName!, out var entry) && entry.IsComplete;
 
     /// <summary>
-    /// For a name the workspace does not know, the workspace entity it most likely misspells: same publisher prefix and at
-    /// most two edits away. A name that matches nothing is left alone, since it may be a system table or come from a package
+    /// For a name the workspace does not know, the workspace entity it most likely misspells: the prefix of a workspace
+    /// solution's publisher and at most two edits away. A name that matches nothing is left alone, since it may be a system table or come from a package
     /// outside the workspace.
     /// </summary>
     public string? MisspelledEntity(string name)
@@ -154,7 +153,7 @@ internal sealed class ComponentReferenceIndex
         if (string.IsNullOrWhiteSpace(name) || IsKnownEntity(name)) return null;
 
         var separator = name.IndexOf('_');
-        if (separator <= 0 || !_prefixes.Contains(name.Substring(0, separator))) return null;
+        if (separator <= 0 || !_publisherPrefixes.Contains(name.Substring(0, separator))) return null;
 
         return NameSuggestion.Nearest(name, _entities.Keys, maxDistance: 2);
     }
