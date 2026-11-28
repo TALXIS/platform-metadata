@@ -2,6 +2,7 @@ using System.Xml.Linq;
 using TALXIS.Platform.Metadata.Components;
 using TALXIS.Platform.Metadata.Components.Attributes;
 using TALXIS.Platform.Metadata.Serialization.Xml;
+using TALXIS.Platform.Metadata.Solutions;
 using TALXIS.Platform.Metadata.Validation;
 
 namespace TALXIS.Platform.Metadata.Tests;
@@ -292,6 +293,45 @@ public class ComponentReferenceValidatorTests : IDisposable
     }
 
     [Fact]
+    public void PackageTableIncludedWithoutBehavior_ColumnsNotChecked()
+    {
+        // A table from another publisher's package, listed with no behavior attribute (include everything), whose Entity.xml
+        // holds only the columns this solution adds, plus the package's primary name column, whose label it customized.
+        Fixture.Write(_workspace);
+        Replace(Path.Combine(_workspace, "Other", "Solution.xml"), "</RootComponents>",
+            "<RootComponent type=\"1\" schemaName=\"ext_order\" /></RootComponents>");
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(_workspace, "Entities", "ext_order")).FullName, "Entity.xml"),
+            Fixture.Entity("ext_order", ("pba_rating", "int"), ("ext_name", "nvarchar")).Replace(
+                "<LogicalName>ext_name</LogicalName>", "<LogicalName>ext_name</LogicalName>\n          <DisplayMask>PrimaryName</DisplayMask>"));
+        var orderForm = Path.Combine(_workspace, "Entities", "ext_order", "FormXml", "main", "{55555555-5555-5555-5555-555555555555}.xml");
+        Directory.CreateDirectory(Path.GetDirectoryName(orderForm)!);
+        File.WriteAllText(orderForm, Fixture.Form("{55555555-5555-5555-5555-555555555555}",
+            Fixture.Row("ext_ordernumber", "{4273EDBD-AC1D-40D3-9FB2-095C621B552D}") +
+            Fixture.Row("pba_rating", "{C3EFE0C3-0EC6-42BE-8349-CBD9079DFD8E}")));
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(_workspace, "Entities", "ext_order", "SavedQueries")).FullName,
+                "{66666666-6666-6666-6666-666666666666}.xml"),
+            Fixture.View("{66666666-6666-6666-6666-666666666666}", "ext_order",
+                "<attribute name=\"ext_ordernumber\" /><attribute name=\"pba_rating\" />", "<cell name=\"ext_ordernumber\" />"));
+
+        Assert.Empty(Findings());
+    }
+
+    [Fact]
+    public void SamePublisherTableIncludedTrimmed_ColumnsNotCheckedInThatSolution()
+    {
+        // A solution of the owning publisher includes a table that a sibling solution defines, without a shell behavior and
+        // with a trimmed Entity.xml (no primary key column). Validated on its own, it cannot tell which columns exist.
+        Fixture.WriteManifest(_workspace, "pba_ui", "<RootComponent type=\"1\" schemaName=\"pba_ticket\" behavior=\"0\" />");
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(_workspace, "Entities", "pba_ticket")).FullName, "Entity.xml"),
+            Fixture.Entity("pba_ticket", ("pba_uionly", "nvarchar")));
+        Directory.CreateDirectory(Path.GetDirectoryName(TicketForm)!);
+        File.WriteAllText(TicketForm, Fixture.Form(TicketFormId,
+            Fixture.Row("pba_priority", "{3EF39988-22BB-4F0B-BBBE-64B5A3748AEE}") + Fixture.Row("pba_uionly", "{4273EDBD-AC1D-40D3-9FB2-095C621B552D}")));
+
+        Assert.Empty(Findings());
+    }
+
+    [Fact]
     public void SystemColumnsAbsentFromTrimmedEntity_NotReported()
     {
         // The fixture's Entity.xml lists no statecode, ownerid or createdon; the form, view and layout use them.
@@ -327,7 +367,9 @@ public class ComponentReferenceValidatorTests : IDisposable
     public void InMemoryWorkspace_UsesModelWithoutLineInformation()
     {
         var ws = new Workspace("memory");
-        var entity = new EntityMetadata { LogicalName = "pba_ticket", IsCustomEntity = true };
+        ws.AddSolution(new Solution { UniqueName = "pba_core", Publisher = new Publisher { UniqueName = "pba", Prefix = "pba" } });
+        var entity = new EntityMetadata { LogicalName = "pba_ticket", IsCustomEntity = true, PrimaryIdAttribute = "pba_ticketid" };
+        entity.AddAttribute(new UniqueIdentifierAttributeMetadata { LogicalName = "pba_ticketid" });
         entity.AddAttribute(new StringAttributeMetadata { LogicalName = "pba_name" });
         ws.AddEntity(entity);
         ws.AddForm(new FormMetadata

@@ -53,6 +53,9 @@ internal sealed class ComponentReferenceIndex
     private void Add(Workspace solution)
     {
         var shells = RelationshipValidator.BuildShellEntitySet(solution);
+        var ownPrefixes = new HashSet<string>(
+            solution.Solutions.Select(s => s.Publisher?.Prefix).Where(p => !string.IsNullOrWhiteSpace(p))!,
+            StringComparer.OrdinalIgnoreCase);
 
         foreach (var entity in solution.Entities)
         {
@@ -62,9 +65,7 @@ internal sealed class ComponentReferenceIndex
             foreach (var attribute in entity.Attributes)
                 entry.Columns.Add(attribute.LogicalName);
             entry.IsActivity |= entity.IsActivity;
-            // A system table's Entity.xml may be trimmed to the columns a solution touches, and a shell carries only some
-            // columns, so only a custom entity this solution fully includes has a column list complete enough to check against.
-            entry.IsComplete |= entity.IsCustomEntity && !shells.Contains(entity.LogicalName);
+            entry.IsComplete |= IsFullDefinition(entity, shells, ownPrefixes);
 
             _knownEntityNames.Add(entity.LogicalName);
             var separator = entity.LogicalName.IndexOf('_');
@@ -113,6 +114,27 @@ internal sealed class ComponentReferenceIndex
 
         foreach (var siteMap in solution.SiteMaps)
             _siteMaps.Add(siteMap.UniqueName);
+    }
+
+    /// <summary>
+    /// Whether this solution's Entity.xml holds the entity's full column list, so a column missing from it is a real defect.
+    /// <para>
+    /// A root component without a shell behavior is not enough: a table from another publisher (a package, a sibling
+    /// solution) can be listed with behavior 0 while its Entity.xml carries only the columns this solution adds. Two
+    /// conditions must both hold. The publisher of this solution owns the table (its prefix is the table's schema prefix),
+    /// since only the owner's export defines every column. And the file defines the table's primary key column, which every
+    /// full table definition has and a trimmed one leaves out: a solution that includes a same-publisher table owned by a
+    /// sibling solution exports it trimmed too. The primary name column is no signal, because customizing its label or
+    /// length puts it into a trimmed file.
+    /// </para>
+    /// </summary>
+    private static bool IsFullDefinition(EntityMetadata entity, HashSet<string> shells, HashSet<string> ownPrefixes)
+    {
+        if (!entity.IsCustomEntity || shells.Contains(entity.LogicalName) || string.IsNullOrWhiteSpace(entity.PrimaryIdAttribute))
+            return false;
+
+        var separator = entity.LogicalName.IndexOf('_');
+        return separator > 0 && ownPrefixes.Contains(entity.LogicalName.Substring(0, separator));
     }
 
     /// <summary>Whether the workspace defines, declares or relates to an entity of this name.</summary>
