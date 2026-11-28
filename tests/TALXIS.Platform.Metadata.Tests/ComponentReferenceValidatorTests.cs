@@ -116,6 +116,33 @@ public class ComponentReferenceValidatorTests : IDisposable
         Assert.DoesNotContain(Findings(), f => f.Code == ValidationDiagnostics.FormColumnRepeated);
     }
 
+    [Fact]
+    public void BusinessProcessFlowStageControls_RepeatedAcrossTabs_NotReported()
+    {
+        // An exported business process flow form repeats each stage control, with its id, in every tab showing the stage.
+        // The controls bind columns of the parent table through the relationship attribute, not of the form's table.
+        Fixture.Write(_workspace);
+        string StageRow(string column, string classId) =>
+            $"<row>\n<cell id=\"{{{Guid.NewGuid()}}}\">\n<control id=\"bpf_pba_customer_pba_ticket:{column}\" classid=\"{classId}\" " +
+            $"datafieldname=\"{column}\" disabled=\"false\" relationship=\"bpf_pba_customer_pba_ticket\" isrequired=\"false\" />\n</cell>\n</row>\n";
+        var stage = StageRow("pba_segmentcode", "{3EF39988-22BB-4F0B-BBBE-64B5A3748AEE}") + StageRow("statuscode", "{5D68B988-0661-4DB2-BC3E-17598AD3BE6C}");
+        Replace(TicketForm, "</rows>\n</section>", stage + stage + stage + "</rows>\n</section>");
+
+        Assert.Empty(Findings());
+    }
+
+    [Fact]
+    public void FormComponentControl_SharingLookupControlId_NotReported()
+    {
+        // The form designer exports a form component control with the id of the lookup control that selects its record.
+        Fixture.Write(_workspace);
+        Replace(TicketForm, "</rows>\n</section>",
+            "<row>\n<cell id=\"cell_customer_form\">\n<control id=\"pba_customerid\" classid=\"{F9A8A302-114E-466A-B582-6771B2AE0D92}\" " +
+            "datafieldname=\"pba_customerid\" uniqueid=\"{0b0b0b0b-0000-0000-0000-000000000001}\" />\n</cell>\n</row>\n</rows>\n</section>");
+
+        Assert.Empty(Findings());
+    }
+
     // ---- Subgrids ----
 
     [Fact]

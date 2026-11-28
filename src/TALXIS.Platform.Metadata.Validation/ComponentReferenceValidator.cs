@@ -26,6 +26,10 @@ public sealed class ComponentReferenceValidator
     private const string SubgridClassId = "E7A81278-8635-4D9E-8D4D-59480B391C5B";
     private const string QuickViewClassId = "5C5600E0-1D6E-4205-A272-BE80DA87FD42";
 
+    // The host of a custom control (a code component, the form component control): the control is bound through its
+    // uniqueid by a controlDescription, and the form designer gives it the id of the column it renders.
+    private const string CustomControlHostClassId = "F9A8A302-114E-466A-B582-6771B2AE0D92";
+
     // A view URL with viewtype=4230 points at a personal view (userquery), which never ships in a solution.
     private const string UserQueryViewType = "4230";
 
@@ -85,7 +89,7 @@ public sealed class ComponentReferenceValidator
     {
         if (!context.Index.IsComplete(entityName)) return;
 
-        foreach (var control in controls)
+        foreach (var control in controls.Where(c => !BindsRelatedTable(c)))
         {
             var field = control.Attribute("datafieldname");
             var column = field?.Value.Trim();
@@ -98,9 +102,13 @@ public sealed class ComponentReferenceValidator
         }
     }
 
+    // A business process flow form repeats a stage's control, under the same id, in every tab that shows the stage, and a
+    // form component control takes the id of the lookup control that selects its record, as the form designer exports them.
+    // Neither is reachable by that id alone, so only the other controls must have unique ids.
     private static void ValidateDuplicateControlIds(FormMetadata form, string label, List<XElement> controls, Context context)
     {
         foreach (var group in controls
+                     .Where(c => !BindsRelatedTable(c) && !IsClass(c, CustomControlHostClassId))
                      .Select(c => c.Attribute("id"))
                      .Where(id => !string.IsNullOrWhiteSpace(id?.Value))
                      .GroupBy(id => id!.Value, StringComparer.Ordinal)
@@ -118,14 +126,15 @@ public sealed class ComponentReferenceValidator
 
     // Dataverse lets a column appear more than once on a form (the instances get ids 'name', 'name1', ...), and the header or
     // footer repeating a body column is the common case, so only repeats within the body are flagged, and only as a warning.
-    // A quick view control carries the datafieldname of the lookup it follows, so it never counts as a repeat of that lookup.
+    // A quick view or form component control carries the datafieldname of the lookup it follows, and a business process
+    // flow stage repeats its parent table's columns in every tab showing the stage, so none of them count as a repeat.
     private static void ValidateDuplicateBodyColumns(FormMetadata form, string label, XElement formElement, Context context)
     {
         var tabs = formElement.Element("tabs");
         if (tabs == null) return;
 
         foreach (var group in tabs.Descendants("control")
-                     .Where(c => !IsClass(c, QuickViewClassId))
+                     .Where(c => !IsClass(c, QuickViewClassId) && !IsClass(c, CustomControlHostClassId) && !BindsRelatedTable(c))
                      .Select(c => c.Attribute("datafieldname"))
                      .Where(f => !string.IsNullOrWhiteSpace(f?.Value))
                      .GroupBy(f => f!.Value.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -488,6 +497,10 @@ public sealed class ComponentReferenceValidator
         ManyToManyRelationshipMetadata m => $"a many-to-many between '{m.Entity1LogicalName}' and '{m.Entity2LogicalName}'",
         _ => "not a relationship a subgrid can use"
     };
+
+    // A control with a relationship attribute (a business process flow stage control, id "bpf_<relationship>:<column>")
+    // binds a column of the table at the other end of that relationship, not of the form's table.
+    private static bool BindsRelatedTable(XElement control) => !string.IsNullOrWhiteSpace(control.Attribute("relationship")?.Value);
 
     private static bool IsClass(XElement control, string classId) =>
         string.Equals(control.Attribute("classid")?.Value.Trim().Trim('{', '}'), classId, StringComparison.OrdinalIgnoreCase);
